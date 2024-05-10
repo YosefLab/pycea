@@ -120,6 +120,8 @@ html_theme_options = {
     "navigation_with_keys": False,
 }
 
+html_logo = "_static/img/pycea_logo.svg"
+
 pygments_style = "default"
 
 nitpick_ignore = [
