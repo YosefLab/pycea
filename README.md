@@ -51,7 +51,7 @@ For questions and bug reports please use the [issue tracker][issue-tracker].
 
 [treedata]: https://treedata.readthedocs.io/
 [scverse-discourse]: https://discourse.scverse.org/
-[issue-tracker]: https://github.com/colganwi/pycea/issues
+[issue-tracker]: https://github.com/YosefLab/pycea/issues
 [changelog]: https://pycea.readthedocs.io/latest/changelog.html
 [link-docs]: https://pycea.readthedocs.io
 [link-api]: https://pycea.readthedocs.io/latest/api.html
