@@ -19,8 +19,13 @@ urls.Documentation = "https://pycea.readthedocs.io/"
 urls.Source = "https://github.com/YosefLab/pycea"
 urls.Home-page = "https://github.com/YosefLab/pycea"
 dependencies = [
-    "anndata",
-    # for debug logging (referenced from the issue template)
+    "cycler",
+    "networkx",
+    "scapy",
+    "treedata",
+    "matplotlib",
+    "numpy",
+    "pandas",
     "session-info",
 ]
 
