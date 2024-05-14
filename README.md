@@ -1,7 +1,7 @@
 [![Tests][badge-tests]][link-tests]
 [![Documentation][badge-docs]][link-docs]
 
-[badge-tests]: https://img.shields.io/github/actions/workflow/status/colganwi/pycea/test.yaml?branch=main
+[badge-tests]: https://img.shields.io/github/actions/workflow/status/YosefLab/pycea/test.yaml?branch=main
 [link-tests]: https://github.com/YosefLab/pycea/actions/workflows/test.yml
 [badge-docs]: https://img.shields.io/readthedocs/pycea
 
