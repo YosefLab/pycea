@@ -28,4 +28,4 @@ __pycache__/
 /.vscode/
 
 # Plots
-/tests/plots/
+/tests/plots/*.png
