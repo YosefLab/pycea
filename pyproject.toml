@@ -21,7 +21,7 @@ urls.Home-page = "https://github.com/YosefLab/pycea"
 dependencies = [
     "cycler",
     "networkx",
-    "scapy",
+    "scanpy",
     "treedata",
     "matplotlib",
     "numpy",
