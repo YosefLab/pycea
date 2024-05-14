@@ -29,3 +29,6 @@ __pycache__/
 
 # Plots
 /tests/plots/*.png
+
+# Node modules
+node_modules/

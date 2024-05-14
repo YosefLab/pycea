@@ -1,5 +1,6 @@
+from __future__ import annotations
+
 from collections.abc import Mapping, Sequence
-from typing import Union
 
 import cycler
 import matplotlib.colors as mcolors
@@ -25,8 +26,8 @@ def branches(
     angled_branches: bool = False,
     color: str = "black",
     color_na: str = "lightgrey",
-    linewidth: Union[int, float, str] = 1,
-    linewidth_na: Union[int, float] = 1,
+    linewidth: int | float | str = 1,
+    linewidth_na: int | float = 1,
     cmap: str | mcolors.Colormap = "viridis",
     palette: cycler.Cycler | mcolors.ListedColormap | Sequence[str] | Mapping[str] | None = None,
     ax: Axes | None = None,
