@@ -133,6 +133,7 @@ def annotation(
     palette: cycler.Cycler | mcolors.ListedColormap | Sequence[str] | Mapping[str] | None = None,
     vmax: int | float | None = None,
     vmin: int | float | None = None,
+    na_color: str = "white",
     ax: Axes | None = None,
     **kwargs,
 ):
@@ -151,6 +152,12 @@ def annotation(
     label
         Annotation labels. If `True`, the keys are used as labels.
         If a string or a sequence of strings, the strings are used as labels.
+    vmax
+        The maximum value for the colormap.
+    vmin
+        The minimum value for the colormap.
+    na_color
+        The color to use for annotations with missing data.
     {doc_common_plot_args}
     kwargs
         Additional keyword arguments passed to `matplotlib.pyplot.pcolormesh`.
@@ -202,14 +209,14 @@ def annotation(
             end_lat = start_lat + attrs["depth"] + 2 * np.pi
             lats = np.linspace(start_lat, end_lat, data.shape[1] + 1)
         for col in data.columns:
-            rgb_array.append(_series_to_rgb_array(data[col], cmap, vmin=vmin, vmax=vmax))
+            rgb_array.append(_series_to_rgb_array(data[col], cmap, vmin=vmin, vmax=vmax, na_color = na_color))
     else:
         for key in keys:
             if data[key].dtype == "category":
                 colors = _get_categorical_colors(tdata, key, data[key], palette)
-                rgb_array.append(_series_to_rgb_array(data[key], colors))
+                rgb_array.append(_series_to_rgb_array(data[key], colors, na_color = na_color))
             else:
-                rgb_array.append(_series_to_rgb_array(data[key], cmap, vmin=vmin, vmax=vmax))
+                rgb_array.append(_series_to_rgb_array(data[key], cmap, vmin=vmin, vmax=vmax, na_color = na_color))
     rgb_array = np.stack(rgb_array, axis=1)
     # Plot
     if attrs["polar"]:
