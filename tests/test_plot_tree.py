@@ -9,30 +9,37 @@ plot_path = Path(__file__).parent / "plots"
 
 
 def test_polar_with_clades(tdata):
-    fig, ax = plt.subplots(dpi=300)
-    pycea.pl.branches(tdata, key="tree", polar=True, color="clade", palette="Set1", na_color="black")
-    pycea.pl.annotation(tdata, keys="clade")
-    plt.savefig(plot_path / "polar_with_clades.png")
+    fig, ax = plt.subplots(dpi=600, subplot_kw={"polar": True})
+    pycea.pl.branches(tdata, key="tree", polar=True, color="clade", palette="Set1", na_color="black", ax=ax)
+    pycea.pl.nodes(tdata, color="clade", palette="Set1", style="clade", ax=ax)
+    pycea.pl.annotation(tdata, keys="clade", ax=ax)
+    plt.savefig(plot_path / "polar_clades.png")
     plt.close()
 
 
 def test_angled_numeric_annotations(tdata):
-    fig, ax = plt.subplots(dpi=300)
+    fig, ax = plt.subplots(dpi=600)
     pycea.pl.branches(
-        tdata, key="tree", polar=False, color="length", cmap="hsv", linewidth="length", angled_branches=True
+        tdata, key="tree", polar=False, color="length", cmap="hsv", linewidth="length", angled_branches=True, ax=ax
     )
-    pycea.pl.annotation(tdata, keys=["x", "y"], cmap="magma", width=0.1, gap=0.05)
-    print(tdata.var_names)
-    pycea.pl.annotation(tdata, keys=["0", "1", "2", "3", "4", "5"], label="genes")
-    plt.savefig(plot_path / "angled_numeric_annotation.png")
+    pycea.pl.nodes(tdata, nodes="all", color="time", style="s", size=20, ax=ax)
+    pycea.pl.annotation(tdata, keys=["x", "y"], cmap="magma", width=0.1, gap=0.05, ax=ax)
+    pycea.pl.annotation(tdata, keys=["0", "1", "2", "3", "4", "5"], label="genes", ax=ax)
+    plt.savefig(plot_path / "angled_numeric.png")
     plt.close()
 
 
 def test_matrix_annotation(tdata):
-    fig, ax = plt.subplots(dpi=300)
-    pycea.pl.branches(tdata, key="tree", polar=False, ax=ax)
-    pycea.pl.annotation(tdata, keys=["clade"], ax=ax)
-    pycea.pl.annotation(tdata, keys=["spatial_distance"], ax=ax)
+    fig, ax = plt.subplots(dpi=600)
+    pycea.pl.tree(
+        tdata,
+        key="tree",
+        nodes="internal",
+        node_color="clade",
+        node_size="time",
+        annotation_keys=["spatial_distance"],
+        ax=ax,
+    )
     plt.savefig(plot_path / "matrix_annotation.png")
     plt.close()
 

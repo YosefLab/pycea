@@ -5,7 +5,13 @@ import pandas as pd
 import pytest
 import treedata as td
 
-from pycea.pl._utils import _get_categorical_colors, _get_default_categorical_colors, _series_to_rgb_array, layout_tree
+from pycea.pl._utils import (
+    _get_categorical_colors,
+    _get_categorical_markers,
+    _get_default_categorical_colors,
+    _series_to_rgb_array,
+    layout_tree,
+)
 
 
 # Test layout_tree
@@ -92,17 +98,11 @@ def test_palette_types(empty_tdata, category_data):
     palette = {"apple": "red", "banana": "yellow", "cherry": "pink"}
     colors = _get_categorical_colors(empty_tdata, "fruit", category_data, palette)
     assert colors["apple"] == "#ff0000ff"
-    # List
-    palette = ["red", "yellow", "pink"]
-    colors = _get_categorical_colors(empty_tdata, "fruit", category_data, palette)
-    assert colors["apple"] == "#ff0000ff"
-
-
-def test_not_enough_colors(empty_tdata, category_data):
+    # List not enough
     palette = ["red", "yellow"]
     with pytest.warns(Warning, match="palette colors is smaller"):
         colors = _get_categorical_colors(empty_tdata, "fruit", category_data, palette)
-    assert colors["apple"] == "#ff0000ff"
+        assert colors["apple"] == "#ff0000ff"
 
 
 def test_invalid_palette(empty_tdata, category_data):
@@ -118,6 +118,31 @@ def test_pallete_in_uns(empty_tdata, category_data):
     assert empty_tdata.uns["fruit_colors"] == list(palette_hex.values())
     colors = _get_categorical_colors(empty_tdata, "fruit", category_data)
     assert colors == palette_hex
+
+
+# Test _get_categorical_markers
+def test_markers_types(empty_tdata, category_data):
+    # None
+    markers = _get_categorical_markers(empty_tdata, "fruit", category_data)
+    assert markers["apple"] == "o"
+    # Dict
+    marker_dict = {"apple": "s", "banana": "o", "cherry": "o"}
+    colors = _get_categorical_markers(empty_tdata, "fruit", category_data, marker_dict)
+    assert colors["apple"] == "s"
+    # List not enough
+    marker_list = ["s", "o"]
+    with pytest.warns(Warning, match="Length of markers"):
+        markers = _get_categorical_markers(empty_tdata, "fruit", category_data, marker_list)
+    assert markers["apple"] == "s"
+
+
+def test_markers_in_uns(empty_tdata, category_data):
+    marker_dict = {"apple": "s", "banana": "o", "cherry": "o"}
+    markers = _get_categorical_markers(empty_tdata, "fruit", category_data, marker_dict)
+    assert "fruit_markers" in empty_tdata.uns
+    assert empty_tdata.uns["fruit_markers"] == list(marker_dict.values())
+    markers = _get_categorical_markers(empty_tdata, "fruit", category_data)
+    assert markers == marker_dict
 
 
 # Test _series_to_rgb_array

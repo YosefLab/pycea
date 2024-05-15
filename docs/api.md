@@ -13,6 +13,8 @@
 .. autosummary::
     :toctree: generated
 
+    pl.tree
     pl.branches
+    pl.nodes
     pl.annotation
 ```

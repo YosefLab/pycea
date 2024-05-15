@@ -26,12 +26,16 @@ def get_keyed_edge_data(tree: nx.DiGraph, key: str) -> pd.Series:
         for parent, child, data in tree.edges(data=True)
         if key in data and data[key] is not None
     }
+    if len(edge_data) == 0:
+        raise ValueError(f"Key {key!r} is not present in any edge.")
     return pd.Series(edge_data, name=key)
 
 
 def get_keyed_node_data(tree: nx.DiGraph, key: str) -> pd.Series:
     """Gets node data for a given key from a tree."""
     node_data = {node: data.get(key) for node, data in tree.nodes(data=True) if key in data and data[key] is not None}
+    if len(node_data) == 0:
+        raise ValueError(f"Key {key!r} is not present in any node.")
     return pd.Series(node_data, name=key)
 
 
@@ -64,6 +68,8 @@ def get_keyed_obs_data(tdata: td.TreeData, keys: Sequence[str], layer: str = Non
         raise ValueError("Cannot mix column and matrix keys.")
     if array_keys and len(keys) > 1:
         raise ValueError("Cannot request multiple matrix keys.")
+    if not column_keys and not array_keys:
+        raise ValueError("No valid keys found.")
     # Convert to DataFrame
     if column_keys:
         data = pd.concat(data, axis=1)
