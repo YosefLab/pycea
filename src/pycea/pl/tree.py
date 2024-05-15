@@ -10,9 +10,11 @@ import numpy as np
 import treedata as td
 from matplotlib.axes import Axes
 from matplotlib.collections import LineCollection
+from scanpy._utils import _doc_params
 
 from pycea.utils import get_keyed_edge_data, get_keyed_obs_data
 
+from ._docs import doc_common_plot_args
 from ._utils import (
     _get_categorical_colors,
     _series_to_rgb_array,
@@ -20,6 +22,9 @@ from ._utils import (
 )
 
 
+@_doc_params(
+    common_plot_args=doc_common_plot_args,
+)
 def branches(
     tdata: td.TreeData,
     key: str = None,
@@ -57,7 +62,7 @@ def branches(
         Either an numeric width, or a key for an attribute of the edges to set the linewidth.
     na_linewidth
         The linewidth to use for edges with missing data.
-    {doc_common_plot_args}
+    {common_plot_args}
     kwargs
         Additional keyword arguments passed to `matplotlib.collections.LineCollection`.
 
@@ -158,7 +163,7 @@ def annotation(
         The minimum value for the colormap.
     na_color
         The color to use for annotations with missing data.
-    {doc_common_plot_args}
+    {common_plot_args}
     kwargs
         Additional keyword arguments passed to `matplotlib.pyplot.pcolormesh`.
 
@@ -209,14 +214,14 @@ def annotation(
             end_lat = start_lat + attrs["depth"] + 2 * np.pi
             lats = np.linspace(start_lat, end_lat, data.shape[1] + 1)
         for col in data.columns:
-            rgb_array.append(_series_to_rgb_array(data[col], cmap, vmin=vmin, vmax=vmax, na_color = na_color))
+            rgb_array.append(_series_to_rgb_array(data[col], cmap, vmin=vmin, vmax=vmax, na_color=na_color))
     else:
         for key in keys:
             if data[key].dtype == "category":
                 colors = _get_categorical_colors(tdata, key, data[key], palette)
-                rgb_array.append(_series_to_rgb_array(data[key], colors, na_color = na_color))
+                rgb_array.append(_series_to_rgb_array(data[key], colors, na_color=na_color))
             else:
-                rgb_array.append(_series_to_rgb_array(data[key], cmap, vmin=vmin, vmax=vmax, na_color = na_color))
+                rgb_array.append(_series_to_rgb_array(data[key], cmap, vmin=vmin, vmax=vmax, na_color=na_color))
     rgb_array = np.stack(rgb_array, axis=1)
     # Plot
     if attrs["polar"]:
