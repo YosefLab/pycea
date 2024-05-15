@@ -11,7 +11,7 @@ import networkx as nx
 import numpy as np
 from scanpy.plotting import palettes
 
-from pycea._utils import get_root
+from pycea.utils import get_root
 
 
 def layout_tree(
@@ -62,7 +62,7 @@ def layout_tree(
     node_coords = {}
     for node in nx.dfs_postorder_nodes(tree, root):
         if tree.out_degree(node) == 0:
-            lon = (i / n_leaves) * 2 * np.pi
+            lon = (i / (n_leaves)) * 2 * np.pi  # + 2 * np.pi / n_leaves
             if extend_branches:
                 node_coords[node] = (max_depth, lon)
             else:
@@ -175,3 +175,59 @@ def _get_categorical_colors(tdata, key, data, palette=None):
     # store colors in tdata
     tdata.uns[key + "_colors"] = colors_list
     return dict(zip(categories, colors_list))
+
+
+def _get_categorical_markers(tdata, key, data, markers=None):
+    """Get categorical markers for plotting."""
+    default_markers = ["o", "s", "D", "^", "v", "<", ">", "p", "P", "*", "h", "H", "X"]
+    # Ensure data is a category
+    if not data.dtype.name == "category":
+        data = data.astype("category")
+    categories = data.cat.categories
+    # Use default markers if no markers are provided
+    if markers is None:
+        markers_list = tdata.uns.get(key + "_markers", None)
+        if markers_list is None or len(markers_list) > len(categories):
+            markers_list = default_markers[: len(categories)]
+    # Use provided markers
+    else:
+        if isinstance(markers, cabc.Mapping):
+            markers_list = [markers[k] for k in categories]
+        else:
+            if not isinstance(markers, cabc.Sequence):
+                raise ValueError("Please check that the value of 'markers' is a valid " "list of marker names.")
+            if len(markers) < len(categories):
+                warnings.warn(
+                    "Length of markers is smaller than the number of "
+                    f"categories (markers length: {len(markers)}, "
+                    f"categories length: {len(categories)}. "
+                    "Some categories will have the same marker.",
+                    stacklevel=2,
+                )
+                markers_list = markers * (len(categories) // len(markers) + 1)
+            else:
+                markers_list = markers[: len(categories)]
+    # store markers in tdata
+    tdata.uns[key + "_markers"] = markers_list
+    return dict(zip(categories, markers_list))
+
+
+def _series_to_rgb_array(series, colors, vmin=None, vmax=None, na_color="#808080"):
+    """Converts a pandas Series to an N x 3 numpy array based using a color map."""
+    if isinstance(colors, dict):
+        # Map using the dictionary
+        color_series = series.map(colors)
+        color_series[series.isna()] = na_color
+        rgb_array = np.array([mcolors.to_rgb(color) for color in color_series])
+    elif isinstance(colors, mcolors.ListedColormap):
+        # Normalize and map values if cmap is a ListedColormap
+        if vmin is not None and vmax is not None:
+            norm = mcolors.Normalize(vmin, vmax)
+            colors.set_bad(na_color)
+            color_series = colors(norm(series))
+            rgb_array = np.vstack(color_series[:, :3])
+        else:
+            raise ValueError("vmin and vmax must be specified when using a ListedColormap.")
+    else:
+        raise ValueError("cmap must be either a dictionary or a ListedColormap.")
+    return rgb_array

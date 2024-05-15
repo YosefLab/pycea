@@ -5,7 +5,13 @@ import pandas as pd
 import pytest
 import treedata as td
 
-from pycea.pl._utils import _get_categorical_colors, _get_default_categorical_colors, layout_tree
+from pycea.pl._utils import (
+    _get_categorical_colors,
+    _get_categorical_markers,
+    _get_default_categorical_colors,
+    _series_to_rgb_array,
+    layout_tree,
+)
 
 
 # Test layout_tree
@@ -92,22 +98,17 @@ def test_palette_types(empty_tdata, category_data):
     palette = {"apple": "red", "banana": "yellow", "cherry": "pink"}
     colors = _get_categorical_colors(empty_tdata, "fruit", category_data, palette)
     assert colors["apple"] == "#ff0000ff"
-    # List
-    palette = ["red", "yellow", "pink"]
-    colors = _get_categorical_colors(empty_tdata, "fruit", category_data, palette)
-    assert colors["apple"] == "#ff0000ff"
-
-
-def test_not_enough_colors(empty_tdata, category_data):
+    # List not enough
     palette = ["red", "yellow"]
     with pytest.warns(Warning, match="palette colors is smaller"):
         colors = _get_categorical_colors(empty_tdata, "fruit", category_data, palette)
-    assert colors["apple"] == "#ff0000ff"
+        assert colors["apple"] == "#ff0000ff"
 
 
 def test_invalid_palette(empty_tdata, category_data):
-    with pytest.raises(ValueError):
-        _get_categorical_colors(empty_tdata, "fruit", category_data, ["bad"])
+    with pytest.warns(Warning, match="palette colors is smaller"):
+        with pytest.raises(ValueError):
+            _get_categorical_colors(empty_tdata, "fruit", category_data, ["bad"])
 
 
 def test_pallete_in_uns(empty_tdata, category_data):
@@ -117,3 +118,54 @@ def test_pallete_in_uns(empty_tdata, category_data):
     assert empty_tdata.uns["fruit_colors"] == list(palette_hex.values())
     colors = _get_categorical_colors(empty_tdata, "fruit", category_data)
     assert colors == palette_hex
+
+
+# Test _get_categorical_markers
+def test_markers_types(empty_tdata, category_data):
+    # None
+    markers = _get_categorical_markers(empty_tdata, "fruit", category_data)
+    assert markers["apple"] == "o"
+    # Dict
+    marker_dict = {"apple": "s", "banana": "o", "cherry": "o"}
+    colors = _get_categorical_markers(empty_tdata, "fruit", category_data, marker_dict)
+    assert colors["apple"] == "s"
+    # List not enough
+    marker_list = ["s", "o"]
+    with pytest.warns(Warning, match="Length of markers"):
+        markers = _get_categorical_markers(empty_tdata, "fruit", category_data, marker_list)
+    assert markers["apple"] == "s"
+
+
+def test_markers_in_uns(empty_tdata, category_data):
+    marker_dict = {"apple": "s", "banana": "o", "cherry": "o"}
+    markers = _get_categorical_markers(empty_tdata, "fruit", category_data, marker_dict)
+    assert "fruit_markers" in empty_tdata.uns
+    assert empty_tdata.uns["fruit_markers"] == list(marker_dict.values())
+    markers = _get_categorical_markers(empty_tdata, "fruit", category_data)
+    assert markers == marker_dict
+
+
+# Test _series_to_rgb_array
+def test_series_to_rgb_discrete(category_data):
+    colors = {"apple": "#ff0000ff", "banana": "#ffff00ff", "cherry": "#ff69b4ff"}
+    rgb_array = _series_to_rgb_array(category_data, colors)
+    expected = np.array([[1, 0, 0], [1, 1, 0], [1, 0.41176471, 0.70588235]])
+    np.testing.assert_almost_equal(rgb_array, expected, decimal=2)
+    # Test with missing data
+    category_data = pd.Series(["apple", pd.NA])
+    rgb_array = _series_to_rgb_array(category_data, colors)
+    expected = np.array([[1, 0, 0], [0.5, 0.5, 0.5]])
+    np.testing.assert_almost_equal(rgb_array, expected, decimal=2)
+
+
+def test_series_to_rgb_numeric():
+    numeric_data = pd.Series([0, 1, 2])
+    colors = mcolors.ListedColormap(["red", "yellow", "blue"])
+    rgb_array = _series_to_rgb_array(numeric_data, colors, vmin=0, vmax=2)
+    expected = np.array([[1, 0, 0], [1, 1, 0], [0, 0, 1]])
+    np.testing.assert_almost_equal(rgb_array, expected, decimal=2)
+    # Test with missing data
+    numeric_data = pd.Series([0, np.nan, 2])
+    rgb_array = _series_to_rgb_array(numeric_data, colors, vmin=0, vmax=2)
+    expected = np.array([[1, 0, 0], [0.5, 0.5, 0.5], [0, 0, 1]])
+    np.testing.assert_almost_equal(rgb_array, expected, decimal=2)

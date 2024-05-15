@@ -2,27 +2,7 @@
 
 ## Preprocessing
 
-```{eval-rst}
-.. module:: pycea.pp
-.. currentmodule:: pycea
-
-.. autosummary::
-    :toctree: generated
-
-    pp.basic_preproc
-```
-
 ## Tools
-
-```{eval-rst}
-.. module:: pycea.tl
-.. currentmodule:: pycea
-
-.. autosummary::
-    :toctree: generated
-
-    tl.basic_tool
-```
 
 ## Plotting
 
@@ -33,5 +13,8 @@
 .. autosummary::
     :toctree: generated
 
+    pl.tree
     pl.branches
+    pl.nodes
+    pl.annotation
 ```
