@@ -408,7 +408,7 @@ def annotation(
         # ax.plot([0, np.pi, np.pi, 0, 0], [start_lat, start_lat, end_lat, end_lat, start_lat], color="black")
     else:
         ax.pcolormesh(lats, lons, rgb_array, zorder=2, **kwargs)
-        ax.set_xlim(-attrs["depth"] * 0.05, end_lat + attrs["depth"] * 0.05)
+        ax.set_xlim(-attrs["depth"] * 0.05, end_lat + attrs["depth"] * width * 0.5)
         # Add border
         ax.plot(
             [lats[0], lats[0], lats[-1], lats[-1], lats[0]],
