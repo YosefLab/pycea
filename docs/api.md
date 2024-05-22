@@ -4,6 +4,16 @@
 
 ## Tools
 
+```{eval-rst}
+.. module:: pycea.tl
+.. currentmodule:: pycea
+
+.. autosummary::
+    :toctree: generated
+
+    tl.clades
+```
+
 ## Plotting
 
 ```{eval-rst}
