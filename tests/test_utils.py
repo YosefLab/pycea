@@ -2,7 +2,7 @@ import networkx as nx
 import pandas as pd
 import pytest
 
-from pycea.utils import get_keyed_edge_data, get_keyed_node_data, get_keyed_obs_data, get_root
+from pycea.utils import get_keyed_edge_data, get_keyed_node_data, get_keyed_obs_data, get_root, get_leaves
 
 
 @pytest.fixture
@@ -23,6 +23,12 @@ def test_get_root(tree):
     single_node_tree = nx.DiGraph()
     single_node_tree.add_node("A")
     assert get_root(single_node_tree) == "A"
+
+
+def test_get_leaves(tree):
+    assert get_leaves(tree) == ["D", "E"]
+    # test with empty graph
+    assert get_leaves(nx.DiGraph()) == []
 
 
 def test_get_keyed_edge_data(tree):
