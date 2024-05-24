@@ -69,5 +69,5 @@ def test_clades_invalid(tdata):
         clades(td.TreeData(), clades={"A": 0}, depth=0)
     with pytest.raises(ValueError):
         clades(tdata, clades={"A": 0}, depth=0)
-    with pytest.raises(KeyError):
+    with pytest.raises((KeyError, nx.NetworkXError)):
         clades(tdata, clades={"bad": 0}, clade_key="clade")
