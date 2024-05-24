@@ -12,6 +12,7 @@
     :toctree: generated
 
     tl.clades
+    tl.sort
 ```
 
 ## Plotting
