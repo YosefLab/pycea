@@ -88,7 +88,7 @@ def branches(
     trees = get_trees(tdata, tree_keys)
     # Get layout
     node_coords, branch_coords, leaves, depth = layout_trees(
-        trees, depth_key= depth_key ,polar=polar, extend_branches=extend_branches, angled_branches=angled_branches
+        trees, depth_key=depth_key, polar=polar, extend_branches=extend_branches, angled_branches=angled_branches
     )
     segments = []
     edges = []
@@ -112,8 +112,10 @@ def branches(
                 if tdata.obs[color].dtype.kind not in ["i", "f"]:
                     tdata.obs[color] = tdata.obs[color].astype("category")
                     if set(color_data.unique()).issubset(tdata.obs[color].cat.categories):
-                        color_data = pd.Series(pd.Categorical(color_data,
-                            categories=tdata.obs[color].cat.categories),index=color_data.index)
+                        color_data = pd.Series(
+                            pd.Categorical(color_data, categories=tdata.obs[color].cat.categories),
+                            index=color_data.index,
+                        )
             cmap = _get_categorical_colors(tdata, color, color_data, palette)
             colors = [cmap[color_data[edge]] if edge in color_data.index else na_color for edge in edges]
             kwargs.update({"color": colors})
@@ -171,7 +173,7 @@ def nodes(
     style: str = "o",
     size: int | float | str = 10,
     cmap: str | mcolors.Colormap = None,
-    tree:str | Sequence[str] | None = None,
+    tree: str | Sequence[str] | None = None,
     palette: cycler.Cycler | mcolors.ListedColormap | Sequence[str] | Mapping[str] | None = None,
     markers: Sequence[str] | Mapping[str] = None,
     vmax: int | float | None = None,
@@ -231,6 +233,10 @@ def nodes(
         tree_keys = attrs["tree_keys"]
     else:
         tree_keys = tree
+    if isinstance(tree_keys, str):
+        tree_keys = [tree_keys]
+    if not set(tree_keys).issubset(attrs["tree_keys"]):
+        raise ValueError("Invalid tree key. Must be one of the keys used to plot the branches.")
     trees = get_trees(tdata, attrs["tree_keys"])
     # Get nodes
     all_nodes = set()
@@ -245,9 +251,9 @@ def nodes(
     elif nodes == "internal":
         nodes = list(all_nodes.difference(leaves))
     elif isinstance(nodes, Sequence):
-        if len(attrs["tree_keys"]) > 1 and isinstance(tree_keys, str):
+        if len(attrs["tree_keys"]) > 1 and len(tree_keys) > 1:
             raise ValueError("Multiple trees are present. To plot a list of nodes, you must specify the tree.")
-        nodes = [f"{tree_key}-{node}" for tree_key in tree_keys for node in nodes]
+        nodes = [f"{tree_keys[0]}-{node}" for node in nodes]
         if set(nodes).issubset(all_nodes):
             nodes = list(nodes)
         else:
@@ -279,8 +285,10 @@ def nodes(
                 if tdata.obs[color].dtype.kind not in ["i", "f"]:
                     tdata.obs[color] = tdata.obs[color].astype("category")
                     if set(color_data.unique()).issubset(tdata.obs[color].cat.categories):
-                        color_data = pd.Series(pd.Categorical(color_data,
-                            categories=tdata.obs[color].cat.categories),index=color_data.index)
+                        color_data = pd.Series(
+                            pd.Categorical(color_data, categories=tdata.obs[color].cat.categories),
+                            index=color_data.index,
+                        )
             cmap = _get_categorical_colors(tdata, color, color_data, palette)
             colors = [cmap[color_data[node]] if node in color_data.index else na_color for node in nodes]
             kwargs.update({"color": colors})
@@ -377,7 +385,7 @@ def annotation(
     ax - The axes that the plot was drawn on.
     """  # noqa: D205
     # Setup
-    if tree: #TODO: Annotate only the leaves for the given tree
+    if tree:  # TODO: Annotate only the leaves for the given tree
         pass
     if not ax:
         ax = plt.gca()
@@ -428,10 +436,12 @@ def annotation(
     else:
         for key in keys:
             if data[key].dtype == "category":
-                colors = _get_categorical_colors(tdata, key, data.loc[leaves,key], palette)
-                rgb_array.append(_series_to_rgb_array(data.loc[leaves,key], colors, na_color=na_color))
+                colors = _get_categorical_colors(tdata, key, data.loc[leaves, key], palette)
+                rgb_array.append(_series_to_rgb_array(data.loc[leaves, key], colors, na_color=na_color))
             else:
-                rgb_array.append(_series_to_rgb_array(data.loc[leaves,key], cmap, vmin=vmin, vmax=vmax, na_color=na_color))
+                rgb_array.append(
+                    _series_to_rgb_array(data.loc[leaves, key], cmap, vmin=vmin, vmax=vmax, na_color=na_color)
+                )
     rgb_array = np.stack(rgb_array, axis=1)
     # Plot
     if attrs["polar"]:
@@ -547,7 +557,15 @@ def tree(
     # Plot nodes
     if nodes:
         ax = _nodes(
-            tdata, nodes=nodes, color=node_color, style=node_style, size=node_size, tree=tree, cmap=cmap, palette=palette, ax=ax
+            tdata,
+            nodes=nodes,
+            color=node_color,
+            style=node_style,
+            size=node_size,
+            tree=tree,
+            cmap=cmap,
+            palette=palette,
+            ax=ax,
         )
     # Plot annotations
     if keys:
