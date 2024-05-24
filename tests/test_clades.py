@@ -40,8 +40,34 @@ def test_clades_given_dict(tdata, tree):
 def test_clades_given_depth(tdata):
     clades(tdata, depth=0)
     assert tdata.obs["clade"].tolist() == ["0", "0", "0"]
-    nodes = clades(tdata, depth=1, copy=True)
+    clade_nodes = clades(tdata, depth=1, copy=True)
+    assert clade_nodes["node"].tolist() == ["B", "C"]
+    assert clade_nodes["clade"].tolist() == ["0", "1"]
     assert tdata.obs["clade"].tolist() == ["0", "1", "1"]
-    assert nodes == {"B": "0", "C": "1"}
     clades(tdata, depth=2)
     assert tdata.obs["clade"].tolist() == ["0", "1", "2"]
+
+
+def test_clades_multiple_trees():
+    tree1 = nx.DiGraph([("root", "A")])
+    nx.set_node_attributes(tree1, {"root": 0, "A": 1}, "depth")
+    tree2 = nx.DiGraph([("root", "B")])
+    nx.set_node_attributes(tree2, {"root": 0, "B": 2}, "depth")
+    tdata = td.TreeData(obs=pd.DataFrame(index=["A", "B"]), obst={"tree1": tree1, "tree2": tree2})
+    clades(tdata, depth=0)
+    assert tdata.obs["clade"].tolist() == ["0", "1"]
+    # need to specify tree with clade input
+    with pytest.raises(ValueError):
+        clades(tdata, clades={"root": 0})
+    clades(tdata, clades={"root": "0"}, tree="tree1", clade_key="test")
+    assert tdata.obs.loc["A", "test"] == "0"
+    assert pd.isna(tdata.obs.loc["B", "test"])
+
+
+def test_clades_invalid(tdata):
+    with pytest.raises(ValueError):
+        clades(td.TreeData(), clades={"A": 0}, depth=0)
+    with pytest.raises(ValueError):
+        clades(tdata, clades={"A": 0}, depth=0)
+    with pytest.raises(KeyError):
+        clades(tdata, clades={"bad": 0}, clade_key="clade")
