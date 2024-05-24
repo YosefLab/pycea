@@ -11,6 +11,7 @@
 .. autosummary::
     :toctree: generated
 
+    tl.ancestral_states
     tl.clades
     tl.sort
 ```

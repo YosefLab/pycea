@@ -21,7 +21,7 @@ def _sort_tree(tree, key, reverse=False):
 
 
 def sort(tdata: td.TreeData, key: str, reverse: bool = False, tree: str | Sequence[str] | None = None) -> None:
-    """Sorts the children of each internal node in a tree based on a given key.
+    """Reorders branches based on a given key.
 
     Parameters
     ----------
