@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Sequence, Mapping
+from collections.abc import Mapping, Sequence
 
 import networkx as nx
 import pandas as pd
@@ -39,7 +39,8 @@ def get_keyed_edge_data(tree: nx.DiGraph | Mapping[str, nx.DiGraph], key: str) -
                 (f"{name}{sep}{parent}", f"{name}{sep}{child}"): data.get(key)
                 for parent, child, data in tree.edges(data=True)
                 if key in data and data[key] is not None
-            })
+            }
+        )
     if len(edge_data) == 0:
         raise ValueError(f"Key {key!r} is not present in any edge.")
     return pd.Series(edge_data, name=key)
@@ -60,7 +61,8 @@ def get_keyed_node_data(tree: nx.DiGraph | Mapping[str, nx.DiGraph], key: str) -
                 f"{name}{sep}{node}": data.get(key)
                 for node, data in tree.nodes(data=True)
                 if key in data and data[key] is not None
-            })
+            }
+        )
     if len(node_data) == 0:
         raise ValueError(f"Key {key!r} is not present in any node.")
     return pd.Series(node_data, name=key)
@@ -103,7 +105,6 @@ def get_keyed_obs_data(tdata: td.TreeData, keys: Sequence[str], layer: str = Non
         data.columns = keys
     elif array_keys:
         data = pd.DataFrame(data[0], index=tdata.obs_names)
-
         if data.shape[0] == data.shape[1]:
             data.columns = tdata.obs_names
     return data, array_keys
