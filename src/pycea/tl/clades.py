@@ -28,7 +28,7 @@ def _clade_name_generator():
 
 
 def _clades(tree, depth, depth_key, clades, clade_key, name_generator):
-    """Identifies clades in a tree."""
+    """Marks clades in a tree."""
     if (depth is not None) and (clades is None):
         nodes = _nodes_at_depth(tree, get_root(tree), [], depth, depth_key)
         clades = dict(zip(nodes, name_generator))
@@ -61,7 +61,7 @@ def clades(
     tree: str | Sequence[str] | None = None,
     copy: bool = False,
 ) -> None | Mapping:
-    """Identifies clades in a tree.
+    """Marks clades in a tree.
 
     Parameters
     ----------

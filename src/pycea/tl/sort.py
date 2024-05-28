@@ -14,14 +14,17 @@ def _sort_tree(tree, key, reverse=False):
             try:
                 sorted_children = sorted(tree.successors(node), key=lambda x: tree.nodes[x][key], reverse=reverse)
             except KeyError as err:
-                raise KeyError(f"Node {next(tree.successors(node))} does not have a {key} attribute.") from err
+                raise KeyError(
+                    f"Node {next(tree.successors(node))} does not have a {key} attribute.",
+                    "You may need to call `ancestral_states` to infer internal node values",
+                ) from err
             tree.remove_edges_from([(node, child) for child in tree.successors(node)])
             tree.add_edges_from([(node, child) for child in sorted_children])
     return tree
 
 
 def sort(tdata: td.TreeData, key: str, reverse: bool = False, tree: str | Sequence[str] | None = None) -> None:
-    """Reorders branches based on a given key.
+    """Reorders branches based on a node attribute.
 
     Parameters
     ----------
