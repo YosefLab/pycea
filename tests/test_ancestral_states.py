@@ -43,7 +43,6 @@ def test_ancestral_states(tdata):
 def test_ancestral_states_array(tdata):
     # Mean
     states = ancestral_states(tdata, "spatial", method="mean", copy=True)
-    print(states)
     assert tdata.obst["tree1"].nodes["root"]["spatial"] == [1.0, 2.0]
     assert tdata.obst["tree1"].nodes["C"]["spatial"] == [1.5, 1.0]
     assert states.loc[("tree1", "root"), "spatial"] == [1.0, 2.0]
@@ -55,7 +54,6 @@ def test_ancestral_states_array(tdata):
 def test_ancestral_states_missing(tdata):
     # Mean
     states = ancestral_states(tdata, "with_missing", method=np.nanmean, copy=True)
-    print(states)
     assert tdata.obst["tree1"].nodes["root"]["with_missing"] == 1.5
     assert tdata.obst["tree1"].nodes["C"]["with_missing"] == 3
     assert states.loc[("tree1", "root"), "with_missing"] == 1.5
@@ -65,7 +63,6 @@ def test_ancestral_state_fitch(tdata):
     states = ancestral_states(tdata, "characters", method="fitch_hartigan", copy=True)
     assert tdata.obst["tree1"].nodes["root"]["characters"] == ["1", "0"]
     assert tdata.obst["tree2"].nodes["F"]["characters"] == ["1", "2"]
-    print(states)
     assert states.loc[("tree1", "root"), "characters"] == ["1", "0"]
 
 
