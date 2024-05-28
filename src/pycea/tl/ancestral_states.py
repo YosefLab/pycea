@@ -257,15 +257,4 @@ def ancestral_states(
                 nx.set_node_attributes(tree, data[key].to_dict(), key)
                 _ancestral_states(tree, key, method, missing_state, default_state)
     if copy:
-        states = []
-        for name, tree in trees.items():
-            tree_states = []
-            for key in keys:
-                data = get_keyed_node_data(tree, key)
-                tree_states.append(data)
-            tree_states = pd.concat(tree_states, axis=1)
-            tree_states["tree"] = name
-            states.append(tree_states)
-        states = pd.concat(states)
-        states["node"] = states.index
-        return states.reset_index(drop=True)
+        return get_keyed_node_data(tdata, keys, tree_keys)

@@ -101,7 +101,11 @@ def branches(
     if mcolors.is_color_like(color):
         kwargs.update({"color": color})
     elif isinstance(color, str):
-        color_data = get_keyed_edge_data(trees, color)
+        color_data = get_keyed_edge_data(tdata, color, tree_keys)[color]
+        print(color_data)
+        if len(color_data) == 0:
+            raise ValueError(f"Key {color!r} is not present in any edge.")
+        color_data.index = color_data.index.map(lambda x: f"{x[0]}-{x[1][0]}-{x[1][1]}")
         if color_data.dtype.kind in ["i", "f"]:
             norm = plt.Normalize(vmin=color_data.min(), vmax=color_data.max())
             cmap = plt.get_cmap(cmap)
@@ -125,7 +129,10 @@ def branches(
     if isinstance(linewidth, (int, float)):
         kwargs.update({"linewidth": linewidth})
     elif isinstance(linewidth, str):
-        linewidth_data = get_keyed_edge_data(trees, linewidth)
+        linewidth_data = get_keyed_edge_data(tdata, linewidth, tree_keys)[linewidth]
+        if len(linewidth_data) == 0:
+            raise ValueError(f"Key {linewidth!r} is not present in any edge.")
+        linewidth_data.index = linewidth_data.index.map(lambda x: f"{x[0]}-{x[1][0]}-{x[1][1]}")
         if linewidth_data.dtype.kind in ["i", "f"]:
             linewidths = [linewidth_data[edge] if edge in linewidth_data.index else na_linewidth for edge in edges]
             kwargs.update({"linewidth": linewidths})
@@ -271,7 +278,10 @@ def nodes(
     if mcolors.is_color_like(color):
         kwargs.update({"color": color})
     elif isinstance(color, str):
-        color_data = get_keyed_node_data(trees, color)
+        color_data = get_keyed_node_data(tdata, color, tree_keys)[color]
+        if len(color_data) == 0:
+            raise ValueError(f"Key {color!r} is not present in any node.")
+        color_data.index = color_data.index.map("-".join)
         if color_data.dtype.kind in ["i", "f"]:
             if not vmin:
                 vmin = color_data.min()
@@ -298,7 +308,10 @@ def nodes(
     if isinstance(size, (int, float)):
         kwargs.update({"s": size})
     elif isinstance(size, str):
-        size_data = get_keyed_node_data(trees, size)
+        size_data = get_keyed_node_data(tdata, size, tree_keys)[size]
+        if len(size_data) == 0:
+            raise ValueError(f"Key {size!r} is not present in any node.")
+        size_data.index = size_data.index.map("-".join)
         sizes = [size_data[node] if node in size_data.index else na_size for node in nodes]
         kwargs.update({"s": sizes})
     else:
@@ -307,7 +320,10 @@ def nodes(
     if style in mmarkers.MarkerStyle.markers:
         kwargs.update({"marker": style})
     elif isinstance(style, str):
-        style_data = get_keyed_node_data(trees, style)
+        style_data = get_keyed_node_data(tdata, style, tree_keys)[style]
+        if len(style_data) == 0:
+            raise ValueError(f"Key {style!r} is not present in any node.")
+        style_data.index = style_data.index.map("-".join)
         mmap = _get_categorical_markers(tdata, style, style_data, markers)
         styles = [mmap[style_data[node]] if node in style_data.index else na_style for node in nodes]
         for style in set(styles):

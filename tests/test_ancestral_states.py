@@ -46,7 +46,7 @@ def test_ancestral_states_array(tdata):
     print(states)
     assert tdata.obst["tree1"].nodes["root"]["spatial"] == [1.0, 2.0]
     assert tdata.obst["tree1"].nodes["C"]["spatial"] == [1.5, 1.0]
-    assert states["spatial"][0] == [1.0, 2.0]
+    assert states.loc[("tree1", "root"), "spatial"] == [1.0, 2.0]
     # Median
     states = ancestral_states(tdata, "spatial", method=np.median, copy=True)
     assert tdata.obst["tree1"].nodes["root"]["spatial"] == [1.0, 1.0]
@@ -58,14 +58,15 @@ def test_ancestral_states_missing(tdata):
     print(states)
     assert tdata.obst["tree1"].nodes["root"]["with_missing"] == 1.5
     assert tdata.obst["tree1"].nodes["C"]["with_missing"] == 3
-    assert states["with_missing"][0] == 1.5
+    assert states.loc[("tree1", "root"), "with_missing"] == 1.5
 
 
 def test_ancestral_state_fitch(tdata):
     states = ancestral_states(tdata, "characters", method="fitch_hartigan", copy=True)
     assert tdata.obst["tree1"].nodes["root"]["characters"] == ["1", "0"]
     assert tdata.obst["tree2"].nodes["F"]["characters"] == ["1", "2"]
-    assert states["characters"][0] == ["1", "0"]
+    print(states)
+    assert states.loc[("tree1", "root"), "characters"] == ["1", "0"]
 
 
 def test_ancestral_states_sankoff(tdata):
@@ -77,7 +78,7 @@ def test_ancestral_states_sankoff(tdata):
     states = ancestral_states(tdata, "characters", method="sankoff", costs=costs, copy=True)
     assert tdata.obst["tree1"].nodes["root"]["characters"] == ["0", "0"]
     assert tdata.obst["tree2"].nodes["F"]["characters"] == ["1", "2"]
-    assert states["characters"][0] == ["0", "0"]
+    assert states.loc[("tree1", "root"), "characters"] == ["0", "0"]
     costs = pd.DataFrame(
         [[0, 10, 10], [1, 0, 2], [2, 1, 0]],
         index=["0", "1", "2"],
