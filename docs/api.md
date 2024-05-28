@@ -2,6 +2,16 @@
 
 ## Preprocessing
 
+```{eval-rst}
+.. module:: pycea.pp
+.. currentmodule:: pycea
+
+.. autosummary::
+    :toctree: generated
+
+    pp.add_depth
+```
+
 ## Tools
 
 ```{eval-rst}

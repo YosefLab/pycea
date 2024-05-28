@@ -371,7 +371,7 @@ def annotation(
     **kwargs,
 ) -> Axes:
     """\
-    Plot leaf annotations.
+    Plot leaf annotations for a tree.
 
     Parameters
     ----------
