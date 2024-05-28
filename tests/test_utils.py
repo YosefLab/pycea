@@ -2,7 +2,7 @@ import networkx as nx
 import pandas as pd
 import pytest
 
-from pycea.utils import get_keyed_edge_data, get_keyed_node_data, get_keyed_obs_data, get_root, get_leaves
+from pycea.utils import get_keyed_edge_data, get_keyed_node_data, get_keyed_obs_data, get_leaves, get_root
 
 
 @pytest.fixture
@@ -31,20 +31,14 @@ def test_get_leaves(tree):
     assert get_leaves(nx.DiGraph()) == []
 
 
-def test_get_keyed_edge_data(tree):
-    result = get_keyed_edge_data(tree, "weight")
-    expected_keys = [("A", "B"), ("B", "D"), ("C", "E")]
-    expected_values = [5, 3, 4]
-    assert all(result[key] == value for key, value in zip(expected_keys, expected_values))
-    assert ("A", "C") not in result
+def test_get_keyed_edge_data(tdata):
+    data = get_keyed_edge_data(tdata, ["length", "clade"])
+    assert data.columns.tolist() == ["length", "clade"]
 
 
-def test_get_keyed_node_data(tree):
-    result = get_keyed_node_data(tree, "value")
-    expected_keys = ["A", "B", "D", "E"]
-    expected_values = [1, 2, 4, 5]
-    assert all(result[key] == value for key, value in zip(expected_keys, expected_values))
-    assert "C" not in result
+def test_get_keyed_node_data(tdata):
+    data = get_keyed_node_data(tdata, ["x", "y", "clade"])
+    assert data.columns.tolist() == ["x", "y", "clade"]
 
 
 def test_get_keyed_obs_data_valid_keys(tdata):
@@ -70,3 +64,7 @@ def test_get_keyed_obs_data_invalid_keys(tdata):
         get_keyed_obs_data(tdata, ["clade", "x", "0", "invalid_key"])
     with pytest.raises(ValueError):
         get_keyed_obs_data(tdata, ["clade", "spatial_distance"])
+
+
+if __name__ == "__main__":
+    pytest.main(["-v", __file__])

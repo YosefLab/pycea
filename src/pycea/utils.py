@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Sequence, Mapping
+from collections.abc import Mapping, Sequence
 
 import networkx as nx
 import pandas as pd
@@ -24,46 +24,46 @@ def get_leaves(tree: nx.DiGraph):
     return [node for node in nx.dfs_postorder_nodes(tree, get_root(tree)) if tree.out_degree(node) == 0]
 
 
-def get_keyed_edge_data(tree: nx.DiGraph | Mapping[str, nx.DiGraph], key: str) -> pd.Series:
+def get_keyed_edge_data(
+    tdata: td.TreeData, keys: str | Sequence[str], tree_keys: str | Sequence[str] = None
+) -> pd.DataFrame:
     """Gets edge data for a given key from a tree or set of trees."""
-    if isinstance(tree, nx.DiGraph):
-        trees = {"": tree}
-        sep = ""
-    else:
-        trees = tree
-        sep = "-"
-    edge_data = {}
+    if isinstance(tree_keys, str):
+        tree_keys = [tree_keys]
+    if isinstance(keys, str):
+        keys = [keys]
+    trees = get_trees(tdata, tree_keys)
+    data = []
     for name, tree in trees.items():
-        edge_data.update(
-            {
-                (f"{name}{sep}{parent}", f"{name}{sep}{child}"): data.get(key)
-                for parent, child, data in tree.edges(data=True)
-                if key in data and data[key] is not None
-            })
-    if len(edge_data) == 0:
-        raise ValueError(f"Key {key!r} is not present in any edge.")
-    return pd.Series(edge_data, name=key)
+        edge_data = {key: nx.get_edge_attributes(tree, key) for key in keys}
+        edge_data = pd.DataFrame(edge_data)
+        edge_data["tree"] = name
+        edge_data["edge"] = edge_data.index
+        data.append(edge_data)
+    data = pd.concat(data)
+    data = data.set_index(["tree", "edge"])
+    return data
 
 
-def get_keyed_node_data(tree: nx.DiGraph | Mapping[str, nx.DiGraph], key: str) -> pd.Series:
+def get_keyed_node_data(
+    tdata: td.TreeData, keys: str | Sequence[str], tree_keys: str | Sequence[str] = None
+) -> pd.DataFrame:
     """Gets node data for a given key a tree or set of trees."""
-    if isinstance(tree, nx.DiGraph):
-        trees = {"": tree}
-        sep = ""
-    else:
-        trees = tree
-        sep = "-"
-    node_data = {}
+    if isinstance(tree_keys, str):
+        tree_keys = [tree_keys]
+    if isinstance(keys, str):
+        keys = [keys]
+    trees = get_trees(tdata, tree_keys)
+    data = []
     for name, tree in trees.items():
-        node_data.update(
-            {
-                f"{name}{sep}{node}": data.get(key)
-                for node, data in tree.nodes(data=True)
-                if key in data and data[key] is not None
-            })
-    if len(node_data) == 0:
-        raise ValueError(f"Key {key!r} is not present in any node.")
-    return pd.Series(node_data, name=key)
+        tree_data = {key: nx.get_node_attributes(tree, key) for key in keys}
+        tree_data = pd.DataFrame(tree_data)
+        tree_data["tree"] = name
+        data.append(tree_data)
+    data = pd.concat(data)
+    data["node"] = data.index
+    data = data.set_index(["tree", "node"])
+    return data
 
 
 def get_keyed_obs_data(tdata: td.TreeData, keys: Sequence[str], layer: str = None) -> pd.DataFrame:
@@ -103,7 +103,6 @@ def get_keyed_obs_data(tdata: td.TreeData, keys: Sequence[str], layer: str = Non
         data.columns = keys
     elif array_keys:
         data = pd.DataFrame(data[0], index=tdata.obs_names)
-
         if data.shape[0] == data.shape[1]:
             data.columns = tdata.obs_names
     return data, array_keys
