@@ -85,3 +85,7 @@ def test_annotation_bad_input(tdata):
     with pytest.raises(ValueError):
         pycea.pl.annotation(tdata, keys="clade", label={}, ax=ax)
     plt.close()
+
+
+if __name__ == "__main__":
+    pytest.main(["-v", __file__])

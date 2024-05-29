@@ -102,10 +102,8 @@ def branches(
         kwargs.update({"color": color})
     elif isinstance(color, str):
         color_data = get_keyed_edge_data(tdata, color, tree_keys)[color]
-        print(color_data)
         if len(color_data) == 0:
             raise ValueError(f"Key {color!r} is not present in any edge.")
-        color_data.index = color_data.index.map(lambda x: f"{x[0]}-{x[1][0]}-{x[1][1]}")
         if color_data.dtype.kind in ["i", "f"]:
             norm = plt.Normalize(vmin=color_data.min(), vmax=color_data.max())
             cmap = plt.get_cmap(cmap)
@@ -132,7 +130,6 @@ def branches(
         linewidth_data = get_keyed_edge_data(tdata, linewidth, tree_keys)[linewidth]
         if len(linewidth_data) == 0:
             raise ValueError(f"Key {linewidth!r} is not present in any edge.")
-        linewidth_data.index = linewidth_data.index.map(lambda x: f"{x[0]}-{x[1][0]}-{x[1][1]}")
         if linewidth_data.dtype.kind in ["i", "f"]:
             linewidths = [linewidth_data[edge] if edge in linewidth_data.index else na_linewidth for edge in edges]
             kwargs.update({"linewidth": linewidths})
@@ -244,23 +241,21 @@ def nodes(
         tree_keys = [tree_keys]
     if not set(tree_keys).issubset(attrs["tree_keys"]):
         raise ValueError("Invalid tree key. Must be one of the keys used to plot the branches.")
-    trees = get_trees(tdata, attrs["tree_keys"])
     # Get nodes
-    all_nodes = set()
+    all_nodes = []
     for node in list(attrs["node_coords"].keys()):
-        if any(node.startswith(key) for key in tree_keys):
-            all_nodes.add(node)
-    leaves = set(attrs["leaves"])
+        if node[0] in tree_keys:
+            all_nodes.append(node)
     if nodes == "all":
-        nodes = list(all_nodes)
+        nodes = all_nodes
     elif nodes == "leaves":
-        nodes = list(all_nodes.intersection(leaves))
+        nodes = [node for node in all_nodes if node[1] in attrs["leaves"]]
     elif nodes == "internal":
-        nodes = list(all_nodes.difference(leaves))
+        nodes = [node for node in all_nodes if node[1] not in attrs["leaves"]]
     elif isinstance(nodes, Sequence):
         if len(attrs["tree_keys"]) > 1 and len(tree_keys) > 1:
             raise ValueError("Multiple trees are present. To plot a list of nodes, you must specify the tree.")
-        nodes = [f"{tree_keys[0]}-{node}" for node in nodes]
+        nodes = [(tree_keys[0], node) for node in nodes]
         if set(nodes).issubset(all_nodes):
             nodes = list(nodes)
         else:
@@ -281,7 +276,6 @@ def nodes(
         color_data = get_keyed_node_data(tdata, color, tree_keys)[color]
         if len(color_data) == 0:
             raise ValueError(f"Key {color!r} is not present in any node.")
-        color_data.index = color_data.index.map("-".join)
         if color_data.dtype.kind in ["i", "f"]:
             if not vmin:
                 vmin = color_data.min()
@@ -311,7 +305,6 @@ def nodes(
         size_data = get_keyed_node_data(tdata, size, tree_keys)[size]
         if len(size_data) == 0:
             raise ValueError(f"Key {size!r} is not present in any node.")
-        size_data.index = size_data.index.map("-".join)
         sizes = [size_data[node] if node in size_data.index else na_size for node in nodes]
         kwargs.update({"s": sizes})
     else:
@@ -323,7 +316,6 @@ def nodes(
         style_data = get_keyed_node_data(tdata, style, tree_keys)[style]
         if len(style_data) == 0:
             raise ValueError(f"Key {style!r} is not present in any node.")
-        style_data.index = style_data.index.map("-".join)
         mmap = _get_categorical_markers(tdata, style, style_data, markers)
         styles = [mmap[style_data[node]] if node in style_data.index else na_style for node in nodes]
         for style in set(styles):
@@ -448,7 +440,7 @@ def annotation(
             end_lat = start_lat + attrs["depth"] + 2 * np.pi
             lats = np.linspace(start_lat, end_lat, data.shape[1] + 1)
         for col in data.columns:
-            rgb_array.append(_series_to_rgb_array(data.loc[leaves,col], cmap, vmin=vmin, vmax=vmax, na_color=na_color))
+            rgb_array.append(_series_to_rgb_array(data.loc[leaves, col], cmap, vmin=vmin, vmax=vmax, na_color=na_color))
     else:
         for key in keys:
             if data[key].dtype == "category":

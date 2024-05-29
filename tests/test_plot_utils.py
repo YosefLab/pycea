@@ -18,7 +18,7 @@ from pycea.pl._utils import (
 def test_layout_empty_tree():
     tree = nx.DiGraph()
     with pytest.raises(ValueError):
-        layout_trees({"tree":tree})
+        layout_trees({"tree": tree})
 
 
 def test_layout_tree():
@@ -27,29 +27,33 @@ def test_layout_tree():
         [("A", {"depth": 0}), ("B", {"depth": 1}), ("C", {"depth": 2}), ("D", {"depth": 2}), ("E", {"depth": 2})]
     )
     edges = [("A", "B"), ("B", "C"), ("B", "D"), ("A", "E")]
-    expected_edges = [("tree-A", "tree-B"), ("tree-B", "tree-C"), ("tree-B", "tree-D"), ("tree-A", "tree-E")]
+    expected_edges = [(("tree"), ("A", "B")), (("tree"), ("B", "C")), (("tree"), ("B", "D")), (("tree"), ("A", "E"))]
     tree.add_edges_from(edges)
-    node_coords, branch_coords, leaves, max_depth = layout_trees({"tree":tree}, extend_branches=True)
+    node_coords, branch_coords, leaves, max_depth = layout_trees({"tree": tree}, extend_branches=True)
     assert sorted(leaves) == ["C", "D", "E"]
     assert max_depth == 2
     assert set(branch_coords.keys()) == set(expected_edges)
-    assert branch_coords[("tree-B", "tree-C")][0] == [1, 1, 2]
-    assert branch_coords[("tree-B", "tree-C")][1] == [node_coords["tree-B"][1], node_coords["tree-C"][1], node_coords["tree-C"][1]]
+    assert branch_coords[("tree", ("B", "C"))][0] == [1, 1, 2]
+    assert branch_coords[("tree", ("B", "C"))][1] == [
+        node_coords[("tree", "B")][1],
+        node_coords[("tree", "C")][1],
+        node_coords[("tree", "C")][1],
+    ]
 
 
 def test_layout_multiple_trees():
-    tree1 = nx.DiGraph([("root","A")])
+    tree1 = nx.DiGraph([("root", "A")])
     tree1.nodes["root"]["depth"] = 0
     tree1.nodes["A"]["depth"] = 1
-    tree2 = nx.DiGraph([("root","B")])
+    tree2 = nx.DiGraph([("root", "B")])
     tree2.nodes["root"]["depth"] = 0
     tree2.nodes["B"]["depth"] = 2
-    expected_edges = [("1-root", "1-A"), ("2-root", "2-B")]
-    node_coords, branch_coords, leaves, max_depth = layout_trees({1:tree1,2:tree2}, extend_branches=False)
-    assert leaves == ["A","B"]
+    expected_edges = [(1, ("root", "A")), (2, ("root", "B"))]
+    node_coords, branch_coords, leaves, max_depth = layout_trees({1: tree1, 2: tree2}, extend_branches=False)
+    assert leaves == ["A", "B"]
     assert max_depth == 2
     assert set(branch_coords.keys()) == set(expected_edges)
-    assert branch_coords[("1-root", "1-A")][0] == [0, 0, 1]
+    assert branch_coords[(1, ("root", "A"))][0] == [0, 0, 1]
 
 
 def test_layout_polar_coordinates():
@@ -63,17 +67,17 @@ def test_layout_polar_coordinates():
         ]
     )
     tree.add_edges_from([("A", "B"), ("B", "C"), ("B", "D")])
-    node_coords, branch_coords, _, _ = layout_trees({"tree":tree}, polar=True)
-    assert len(branch_coords[("tree-B", "tree-C")][1]) > 2
-    assert np.mean(branch_coords[("tree-B", "tree-C")][0][:-2]) == 1
+    node_coords, branch_coords, _, _ = layout_trees({"tree": tree}, polar=True)
+    assert len(branch_coords[("tree", ("B", "C"))][1]) > 2
+    assert np.mean(branch_coords[("tree", ("B", "C"))][0][:-2]) == 1
 
 
 def test_layout_angled_branches():
     tree = nx.DiGraph()
     tree.add_nodes_from([("A", {"time": 0}), ("B", {"time": 1})])
     tree.add_edge("A", "B")
-    _, branch_coords, _, _ = layout_trees({"tree":tree}, angled_branches=True,depth_key="time")
-    assert len(branch_coords[("tree-A", "tree-B")][1]) == 2
+    _, branch_coords, _, _ = layout_trees({"tree": tree}, angled_branches=True, depth_key="time")
+    assert len(branch_coords[("tree", ("A", "B"))][1]) == 2
 
 
 # Test _get_default_categorical_colors

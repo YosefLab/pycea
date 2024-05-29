@@ -1,4 +1,5 @@
 """Plotting utilities"""
+
 from __future__ import annotations
 
 import warnings
@@ -115,7 +116,7 @@ def layout_trees(
     # Get leaf coordinates
     leaves = []
     depths = []
-    for _ , tree in trees.items():
+    for _, tree in trees.items():
         tree_leaves = get_leaves(tree)
         leaves.extend(tree_leaves)
         depths.extend(tree.nodes[leaf].get(depth_key) for leaf in tree_leaves)
@@ -132,11 +133,12 @@ def layout_trees(
     node_coords = {}
     branch_coords = {}
     for key, tree in trees.items():
-        tree_node_coords,tree_branch_coords = layout_nodes_and_branches(tree, leaf_coords, depth_key, polar, angled_branches)
-        node_coords.update({f"{key}-{node}": coords for node, coords in tree_node_coords.items()})
-        branch_coords.update({(f"{key}-{parent}", f"{key}-{child}"): coords for (parent, child), coords in tree_branch_coords.items()})
+        tree_node_coords, tree_branch_coords = layout_nodes_and_branches(
+            tree, leaf_coords, depth_key, polar, angled_branches
+        )
+        node_coords.update({(key, node): coords for node, coords in tree_node_coords.items()})
+        branch_coords.update({(key, edge): coords for edge, coords in tree_branch_coords.items()})
     return node_coords, branch_coords, leaves, max_depth
-
 
 
 def _get_default_categorical_colors(length):
