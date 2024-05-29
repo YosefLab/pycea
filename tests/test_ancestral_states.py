@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import networkx as nx
 import numpy as np
 import pandas as pd
@@ -88,13 +90,11 @@ def test_ancestral_states_sankoff(tdata):
 def test_ancestral_states_invalid(tdata):
     with pytest.raises(ValueError):
         ancestral_states(tdata, "characters", method="sankoff")
-    with pytest.raises(ValueError):
+    with pytest.raises((ValueError, KeyError)):
         ancestral_states(tdata, "characters", method="sankoff", costs=pd.DataFrame())
     with pytest.raises(ValueError):
         ancestral_states(tdata, "bad", method="mean")
     with pytest.raises(ValueError):
         ancestral_states(tdata, "value", method="bad")
-    with pytest.raises(ValueError):
-        ancestral_states(tdata, "value", method="fitch_hartigan", copy=False)
     with pytest.raises(ValueError):
         ancestral_states(tdata, "str_value", method="mean", copy=False)

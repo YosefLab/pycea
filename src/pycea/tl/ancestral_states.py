@@ -92,6 +92,11 @@ def _reconstruct_fitch_hartigan(tree, key, missing="-1", index=None):
 
 def _reconstruct_sankoff(tree, key, costs, missing="-1", index=None):
     """Reconstructs ancestral states using the Sankoff algorithm."""
+    # Set up
+    alphabet = list(costs.index)
+    num_states = len(alphabet)
+    cost_matrix = costs.to_numpy()
+    value_to_index = {value: i for i, value in enumerate(alphabet)}
 
     # Recursive function to calculate the Sankoff scores
     def sankoff_scores(node):
@@ -99,41 +104,39 @@ def _reconstruct_sankoff(tree, key, costs, missing="-1", index=None):
         if tree.out_degree(node) == 0:
             leaf_value = _get_node_value(tree, node, key, index)
             if leaf_value == missing:
-                return {value: 0 for value in alphabet}
+                return np.zeros(num_states)
             else:
-                return {value: 0 if value == leaf_value else float("inf") for value in alphabet}
+                scores = np.full(num_states, float("inf"))
+                scores[value_to_index[leaf_value]] = 0
+                return scores
         # Recursive case: internal node
         else:
-            scores = {value: 0 for value in alphabet}
-            pointers = {value: {} for value in alphabet}
-            for child in tree.successors(node):
+            scores = np.zeros(num_states)
+            pointers = np.zeros((num_states, len(list(tree.successors(node)))), dtype=int)
+            for i, child in enumerate(tree.successors(node)):
                 child_scores = sankoff_scores(child)
-                for value in alphabet:
-                    min_cost, min_value = float("inf"), None
-                    for child_value in alphabet:
-                        cost = child_scores[child_value] + costs.loc[value, child_value]
-                        if cost < min_cost:
-                            min_cost, min_value = cost, child_value
-                    scores[value] += min_cost
-                    pointers[value][child] = min_value
+                for j in range(num_states):
+                    costs_with_child = child_scores + cost_matrix[j, :]
+                    min_cost_index = np.argmin(costs_with_child)
+                    scores[j] += costs_with_child[min_cost_index]
+                    pointers[j, i] = min_cost_index
             tree.nodes[node]["_pointers"] = pointers
             return scores
 
     # Recursive function to traceback the Sankoff scores
-    def traceback(node, parent_value=None):
-        for child in tree.successors(node):
-            child_value = tree.nodes[node]["_pointers"][parent_value][child]
-            _set_node_value(tree, child, key, child_value, index)
-            traceback(child, child_value)
+    def traceback(node, parent_value_index):
+        for i, child in enumerate(tree.successors(node)):
+            child_value_index = tree.nodes[node]["_pointers"][parent_value_index, i]
+            _set_node_value(tree, child, key, alphabet[child_value_index], index)
+            traceback(child, child_value_index)
 
     # Get scores
-    root = get_root(tree)
-    alphabet = set(costs.index)
+    root = [n for n, d in tree.in_degree() if d == 0][0]
     root_scores = sankoff_scores(root)
     # Reconstruct ancestral states
-    root_value = min(root_scores, key=root_scores.get)
-    _set_node_value(tree, root, key, root_value, index)
-    traceback(root, root_value)
+    root_value_index = np.argmin(root_scores)
+    _set_node_value(tree, root, key, alphabet[root_value_index], index)
+    traceback(root, root_value_index)
     # Clean up
     for node in tree.nodes:
         if "_pointers" in tree.nodes[node]:
@@ -235,7 +238,7 @@ def ancestral_states(
         data, is_array = get_keyed_obs_data(tdata, keys)
         dtypes = {dtype.kind for dtype in data.dtypes}
         # Check data type
-        if dtypes.intersection({"i", "f"}):
+        if dtypes.intersection({"f"}):
             if method in ["fitch_hartigan", "sankoff"]:
                 raise ValueError(f"Method {method} requires categorical data.")
         if dtypes.intersection({"O", "S"}):
