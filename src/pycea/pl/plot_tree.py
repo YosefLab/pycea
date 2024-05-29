@@ -448,7 +448,7 @@ def annotation(
             end_lat = start_lat + attrs["depth"] + 2 * np.pi
             lats = np.linspace(start_lat, end_lat, data.shape[1] + 1)
         for col in data.columns:
-            rgb_array.append(_series_to_rgb_array(data.loc[col], cmap, vmin=vmin, vmax=vmax, na_color=na_color))
+            rgb_array.append(_series_to_rgb_array(data.loc[leaves,col], cmap, vmin=vmin, vmax=vmax, na_color=na_color))
     else:
         for key in keys:
             if data[key].dtype == "category":
