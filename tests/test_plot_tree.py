@@ -39,11 +39,12 @@ def test_matrix_annotation(tdata):
         node_color="clade",
         node_size="time",
         depth_key="time",
-        annotation_keys=["spatial_distance"],
+        keys=["spatial_distance"],
         ax=ax,
     )
     plt.savefig(plot_path / "matrix_annotation.png")
     plt.close()
+    assert False
 
 
 def test_branches_bad_input(tdata):

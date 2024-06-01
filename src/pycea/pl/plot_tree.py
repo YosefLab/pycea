@@ -409,7 +409,6 @@ def annotation(
     leaves = attrs["leaves"]
     # Get data
     data, is_array = get_keyed_obs_data(tdata, keys)
-    data = data.loc[leaves]
     numeric_data = data.select_dtypes(exclude="category")
     if len(numeric_data) > 0 and not vmin:
         vmin = numeric_data.min().min()
