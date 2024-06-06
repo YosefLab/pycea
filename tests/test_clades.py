@@ -16,7 +16,7 @@ def tree():
 
 @pytest.fixture
 def tdata(tree):
-    tdata = td.TreeData(obs=pd.DataFrame(index=["B", "D", "E"]), obst={"tree": tree,"empty": nx.DiGraph()})
+    tdata = td.TreeData(obs=pd.DataFrame(index=["B", "D", "E"]), obst={"tree": tree, "empty": nx.DiGraph()})
     yield tdata
 
 
