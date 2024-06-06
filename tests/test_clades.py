@@ -31,7 +31,7 @@ def test_clades_given_dict(tdata, tree):
     assert tdata.obs["clade"].tolist() == [0, 1, 1]
     assert tdata.obst["tree"].nodes["C"]["clade"] == 1
     assert tdata.obst["tree"].edges[("C", "D")]["clade"] == 1
-    clades(tdata, clades={"A": "0"}, clade_key="all")
+    clades(tdata, clades={"A": "0"}, key_added="all")
     assert tdata.obs["all"].tolist() == ["0", "0", "0"]
     assert tdata.obst["tree"].nodes["A"]["all"] == "0"
     assert tdata.obst["tree"].edges[("C", "D")]["all"] == "0"
@@ -59,7 +59,7 @@ def test_clades_multiple_trees():
     # need to specify tree with clade input
     with pytest.raises(ValueError):
         clades(tdata, clades={"root": 0})
-    clades(tdata, clades={"root": "0"}, tree="tree1", clade_key="test")
+    clades(tdata, clades={"root": "0"}, tree="tree1", key_added="test")
     assert tdata.obs.loc["A", "test"] == "0"
     assert pd.isna(tdata.obs.loc["B", "test"])
 
@@ -70,4 +70,4 @@ def test_clades_invalid(tdata):
     with pytest.raises(ValueError):
         clades(tdata, clades={"A": 0}, depth=0)
     with pytest.raises((KeyError, nx.NetworkXError)):
-        clades(tdata, clades={"bad": 0}, clade_key="clade")
+        clades(tdata, clades={"bad": 0}, key_added="clade")

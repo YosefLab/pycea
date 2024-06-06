@@ -29,8 +29,14 @@ def _clade_name_generator():
 
 def _clades(tree, depth, depth_key, clades, clade_key, name_generator):
     """Marks clades in a tree."""
+    # Check that root has depth key
+    root = get_root(tree)
+    if depth_key not in tree.nodes[root]:
+        raise ValueError(
+            f"Tree does not have {depth_key} attribute. You can run `pycea.pp.add_depth` to add depth attribute."
+        )
     if (depth is not None) and (clades is None):
-        nodes = _nodes_at_depth(tree, get_root(tree), [], depth, depth_key)
+        nodes = _nodes_at_depth(tree, root, [], depth, depth_key)
         clades = dict(zip(nodes, name_generator))
     elif (clades is not None) and (depth is None):
         pass
@@ -57,7 +63,7 @@ def clades(
     depth: int | float = None,
     depth_key: str = "depth",
     clades: str | Sequence[str] = None,
-    clade_key: str = "clade",
+    key_added: str = "clade",
     tree: str | Sequence[str] | None = None,
     copy: bool = False,
 ) -> None | Mapping:
@@ -73,17 +79,22 @@ def clades(
         Key where depth is stored.
     clades
         A dictionary mapping nodes to clades.
-    clade_key
+    key_added
         Key to store clades in.
     tree
         The `obst` key or keys of the trees to use. If `None`, all trees are used.
     copy
-        If True, returns a pd.DataFrame with clade nodes.
+        If True, returns a :class:`pandas.DataFrame` with clades.
 
     Returns
     -------
-    None or Mapping
-        If copy is True, returns pd.DataFrame with clade nodes.
+    Returns `None` if `copy=False`, else returns a :class:`pandas.DataFrame`. Sets the following fields:
+
+    `tdata.obs[key_added]` : :class:`pandas.Series` (dtype `Object`)
+        Clade.
+    `tdata.obst[tree].nodes[key_added]` : `Object`
+        Clade.
+
     """
     # Setup
     tree_keys = tree
@@ -95,13 +106,13 @@ def clades(
     leaf_to_clade = {}
     clade_nodes = []
     for key, tree in trees.items():
-        tree_nodes, tree_leaves = _clades(tree, depth, depth_key, clades, clade_key, name_generator)
-        tree_nodes = pd.DataFrame(tree_nodes.items(), columns=["node", clade_key])
+        tree_nodes, tree_leaves = _clades(tree, depth, depth_key, clades, key_added, name_generator)
+        tree_nodes = pd.DataFrame(tree_nodes.items(), columns=["node", key_added])
         tree_nodes["tree"] = key
         clade_nodes.append(tree_nodes)
         leaf_to_clade.update(tree_leaves)
     # Update TreeData and return
-    tdata.obs[clade_key] = tdata.obs.index.map(leaf_to_clade)
+    tdata.obs[key_added] = tdata.obs.index.map(leaf_to_clade)
     clade_nodes = pd.concat(clade_nodes)
     if copy:
         return clade_nodes
