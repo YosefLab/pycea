@@ -20,7 +20,7 @@ def tdata():
             {"value": [0, 0, 3, 2], "str_value": ["0", "0", "3", "2"], "with_missing": [0, np.nan, 3, 2]},
             index=["B", "D", "E", "F"],
         ),
-        obst={"tree1": tree1, "tree2": tree2},
+        obst={"tree1": tree1, "tree2": tree2, "empty": nx.DiGraph()},
         obsm={"spatial": spatial, "characters": characters},
     )
     yield tdata

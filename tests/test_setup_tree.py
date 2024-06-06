@@ -10,7 +10,8 @@ from pycea.pp.setup_tree import add_depth
 def tdata():
     tree1 = nx.DiGraph([("root", "A"), ("root", "B"), ("B", "C"), ("B", "D")])
     tree2 = nx.DiGraph([("root", "E"), ("root", "F")])
-    tdata = td.TreeData(obs=pd.DataFrame(index=["A", "C", "D", "E", "F"]), obst={"tree1": tree1, "tree2": tree2})
+    tdata = td.TreeData(obs=pd.DataFrame(index=["A", "C", "D", "E", "F"]),
+                        obst={"tree1": tree1, "tree2": tree2,"empty": nx.DiGraph()})
     yield tdata
 
 

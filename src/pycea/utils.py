@@ -142,5 +142,7 @@ def get_trees(tdata: td.TreeData, tree_keys: str | Sequence[str] | None) -> Mapp
     for key in tree_keys:
         if key not in tdata.obst.keys():
             raise ValueError(f"Key {key!r} is not present in obst.")
-        trees[key] = tdata.obst[key]
+        tree = tdata.obst[key]
+        if tree.number_of_nodes() != 0:
+            trees[key] = tdata.obst[key]
     return trees

@@ -49,7 +49,7 @@ def test_layout_multiple_trees():
     tree2.nodes["root"]["depth"] = 0
     tree2.nodes["B"]["depth"] = 2
     expected_edges = [(1, ("root", "A")), (2, ("root", "B"))]
-    node_coords, branch_coords, leaves, max_depth = layout_trees({1: tree1, 2: tree2}, extend_branches=False)
+    node_coords, branch_coords, leaves, max_depth = layout_trees({1: tree1, 2: tree2, "empty":nx.DiGraph()}, extend_branches=False)
     assert leaves == ["A", "B"]
     assert max_depth == 2
     assert set(branch_coords.keys()) == set(expected_edges)
