@@ -44,7 +44,6 @@ def test_matrix_annotation(tdata):
     )
     plt.savefig(plot_path / "matrix_annotation.png")
     plt.close()
-    assert False
 
 
 def test_branches_bad_input(tdata):

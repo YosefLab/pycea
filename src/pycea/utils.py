@@ -48,7 +48,7 @@ def get_keyed_edge_data(
 def get_keyed_node_data(
     tdata: td.TreeData, keys: str | Sequence[str], tree_keys: str | Sequence[str] = None
 ) -> pd.DataFrame:
-    """Gets node data for a given key a tree or set of trees."""
+    """Gets node data for a given key from a tree or set of trees."""
     if isinstance(tree_keys, str):
         tree_keys = [tree_keys]
     if isinstance(keys, str):
@@ -66,8 +66,29 @@ def get_keyed_node_data(
     return data
 
 
-def get_keyed_obs_data(tdata: td.TreeData, keys: Sequence[str], layer: str = None) -> pd.DataFrame:
+def get_keyed_leaf_data(
+    tdata: td.TreeData, keys: str | Sequence[str], tree_keys: str | Sequence[str] = None
+) -> pd.DataFrame:
+    """Gets node data for a given key from a tree or set of trees."""
+    if isinstance(tree_keys, str):
+        tree_keys = [tree_keys]
+    if isinstance(keys, str):
+        keys = [keys]
+    trees = get_trees(tdata, tree_keys)
+    data = []
+    for _, tree in trees.items():
+        tree_data = {key: nx.get_node_attributes(tree, key) for key in keys}
+        tree_data = pd.DataFrame(tree_data)
+        tree_data = tree_data.loc[get_leaves(tree)]
+        data.append(tree_data)
+    data = pd.concat(data)
+    return data
+
+
+def get_keyed_obs_data(tdata: td.TreeData, keys: str | Sequence[str], layer: str = None) -> pd.DataFrame:
     """Gets observation data for a given key from a tree."""
+    if isinstance(keys, str):
+        keys = [keys]
     data = []
     column_keys = False
     array_keys = False
@@ -81,10 +102,10 @@ def get_keyed_obs_data(tdata: td.TreeData, keys: Sequence[str], layer: str = Non
             data.append(pd.Series(tdata.obs_vector(key, layer=layer), index=tdata.obs_names))
             column_keys = True
         elif "obsm" in dir(tdata) and key in tdata.obsm.keys():
-            data.append(tdata.obsm[key])
+            data.append(pd.DataFrame(tdata.obsm[key], index=tdata.obs_names))
             array_keys = True
         elif "obsp" in dir(tdata) and key in tdata.obsp.keys():
-            data.append(tdata.obsp[key])
+            data.append(pd.DataFrame(tdata.obsp[key], index=tdata.obs_names, columns=tdata.obs_names))
             array_keys = True
         else:
             raise ValueError(
@@ -97,14 +118,11 @@ def get_keyed_obs_data(tdata: td.TreeData, keys: Sequence[str], layer: str = Non
         raise ValueError("Cannot request multiple matrix keys.")
     if not column_keys and not array_keys:
         raise ValueError("No valid keys found.")
-    # Convert to DataFrame
     if column_keys:
         data = pd.concat(data, axis=1)
         data.columns = keys
     elif array_keys:
-        data = pd.DataFrame(data[0], index=tdata.obs_names)
-        if data.shape[0] == data.shape[1]:
-            data.columns = tdata.obs_names
+        data = data[0]
     return data, array_keys
 
 
