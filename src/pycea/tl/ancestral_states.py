@@ -231,7 +231,14 @@ def ancestral_states(
     tree
         The `obst` key or keys of the trees to use. If `None`, all trees are used.
     copy
-        If True, returns a pd.DataFrame with ancestral states.
+        If True, returns a :class:`pandas.DataFrame` with ancestral states.
+
+    Returns
+    -------
+    Returns `None` if `copy=False`, else returns a :class:`pandas.DataFrame`. Sets the following fields for each key:
+
+    `tdata.obst[tree].nodes[key_added]` : `float` | `Object` | `List[Object]`
+        Inferred ancestral states. List of states if data was an array.
     """
     if isinstance(keys, str):
         keys = [keys]
