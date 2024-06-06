@@ -36,10 +36,18 @@ def test_ancestral_states(tdata):
     states = ancestral_states(tdata, "value", method=np.median, copy=True)
     assert tdata.obst["tree1"].nodes["root"]["value"] == 0
     # Mode
-    ancestral_states(tdata, "str_value", method="mode", copy=False, tree="tree1")
+    ancestral_states(
+        tdata,
+        ["value", "str_value"],
+        method="mode",
+        copy=False,
+        tree="tree1",
+        keys_added=["value_mode", "str_value_mode"],
+    )
     for node in tdata.obst["tree1"].nodes:
         print(node, tdata.obst["tree1"].nodes[node])
-    assert tdata.obst["tree1"].nodes["root"]["str_value"] == "0"
+    assert tdata.obst["tree1"].nodes["root"]["str_value_mode"] == "0"
+    assert tdata.obst["tree1"].nodes["root"]["value_mode"] == 0
 
 
 def test_ancestral_states_array(tdata):
@@ -98,3 +106,5 @@ def test_ancestral_states_invalid(tdata):
         ancestral_states(tdata, "value", method="bad")
     with pytest.raises(ValueError):
         ancestral_states(tdata, "str_value", method="mean", copy=False)
+    with pytest.raises(ValueError):
+        ancestral_states(tdata, "value", method="mean", keys_added=["bad", "bad"])

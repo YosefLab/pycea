@@ -205,6 +205,7 @@ def ancestral_states(
     missing_state: str = "-1",
     default_state: str = "0",
     costs: pd.DataFrame = None,
+    keys_added: str | Sequence[str] = None,
     tree: str | Sequence[str] | None = None,
     copy: bool = False,
 ) -> None:
@@ -225,6 +226,8 @@ def ancestral_states(
         The expected state for the root node.
     costs
         A pd.DataFrame with the costs of changing states (from rows to columns).
+    keys_added
+        The keys to store the ancestral states. If None, the same keys are used.
     tree
         The `obst` key or keys of the trees to use. If `None`, all trees are used.
     copy
@@ -232,6 +235,12 @@ def ancestral_states(
     """
     if isinstance(keys, str):
         keys = [keys]
+    if keys_added is None:
+        keys_added = keys
+    if isinstance(keys_added, str):
+        keys_added = [keys_added]
+    if len(keys) != len(keys_added):
+        raise ValueError("Length of keys must match length of keys_added.")
     tree_keys = tree
     trees = get_trees(tdata, tree_keys)
     for _, tree in trees.items():
@@ -251,13 +260,13 @@ def ancestral_states(
             for node in tree.nodes:
                 if node not in node_attrs:
                     node_attrs[node] = [None] * length
-            nx.set_node_attributes(tree, node_attrs, keys[0])
+            nx.set_node_attributes(tree, node_attrs, keys_added[0])
             for index in range(length):
-                _ancestral_states(tree, keys[0], method, costs, missing_state, default_state, index)
+                _ancestral_states(tree, keys_added[0], method, costs, missing_state, default_state, index)
         # If column add to tree as scalar
         else:
-            for key in keys:
-                nx.set_node_attributes(tree, data[key].to_dict(), key)
-                _ancestral_states(tree, key, method, missing_state, default_state)
+            for key, key_added in zip(keys, keys_added):
+                nx.set_node_attributes(tree, data[key].to_dict(), key_added)
+                _ancestral_states(tree, key_added, method, missing_state, default_state)
     if copy:
-        return get_keyed_node_data(tdata, keys, tree_keys)
+        return get_keyed_node_data(tdata, keys_added, tree_keys)
