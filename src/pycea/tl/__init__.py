@@ -1,3 +1,4 @@
-from .clades import clades
-from .sort import sort
 from .ancestral_states import ancestral_states
+from .clades import clades
+from .distance import distance
+from .sort import sort
