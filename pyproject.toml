@@ -28,6 +28,7 @@ dependencies = [
     "pandas",
     "session-info",
     "scipy",
+    "scikit-learn",
 ]
 
 [project.optional-dependencies]

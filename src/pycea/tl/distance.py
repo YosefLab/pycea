@@ -30,7 +30,7 @@ def distance(
     obs
         The observations to use:
         - If `None`, pairwise distance for all observations is stored in `tdata.obsp[key_added]`.
-        - If a string, distance to all other observations are is `tdata.obs[key_added]`.
+        - If a string, distance to all other observations is `tdata.obs[key_added]`.
         - If a sequence, pairwise distance is stored in `tdata.obsp[key_added]`.
         - If a sequence of pairs, distance between pairs is stored in `tdata.obsp[key_added]`.
     metric
@@ -53,7 +53,7 @@ def distance(
 
     """
     # Setup
-    metric = DistanceMetric.get_metric(metric, **(metric_kwargs or {}))
+    metric_fn = DistanceMetric.get_metric(metric, **(metric_kwargs or {}))
     key_added = key_added or key + "_distances"
     if key == "X":
         X = tdata.X
@@ -63,22 +63,22 @@ def distance(
         raise ValueError(f"Key {key} not found in `tdata.obsm`.")
     # Compute distances
     if obs is None:
-        distances = metric.pairwise(X)
+        distances = metric_fn.pairwise(X)
         tdata.obsp[key_added] = distances
     elif isinstance(obs, str):
         idx = tdata.obs_names.get_loc(obs)
-        distances = metric.pairwise(X[idx].reshape(1, -1), X).flatten()
+        distances = metric_fn.pairwise(X[idx].reshape(1, -1), X).flatten()
         tdata.obs[key_added] = distances
     elif isinstance(obs, Sequence):
         if isinstance(obs[0], str):
             idx = [tdata.obs_names.get_loc(o) for o in obs]
             rows = np.repeat(idx, len(idx))
             cols = np.tile(idx, len(idx))
-            select_distances = metric.pairwise(X[idx]).flatten()
+            select_distances = metric_fn.pairwise(X[idx]).flatten()
         elif isinstance(obs[0], tuple) and len(obs[0]):
             rows = [tdata.obs_names.get_loc(i) for i, _ in obs]
             cols = [tdata.obs_names.get_loc(j) for _, j in obs]
-            select_distances = [metric.pairwise(X[i : i + 1, :], X[j : j + 1, :])[0, 0] for i, j in zip(rows, cols)]
+            select_distances = [metric_fn.pairwise(X[i : i + 1, :], X[j : j + 1, :])[0, 0] for i, j in zip(rows, cols)]
         else:
             raise ValueError("Invalid type for parameter `obs`.")
         distances = sp.sparse.csr_matrix((select_distances, (rows, cols)), shape=(len(X), len(X)))
