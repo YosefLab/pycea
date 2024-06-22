@@ -26,7 +26,7 @@ def test_nodes_at_depth(tree):
     assert _nodes_at_depth(tree, "A", [], 2, "depth") == ["B", "D", "E"]
 
 
-def test_clades_given_dict(tdata, tree):
+def test_clades_given_dict(tdata):
     clades(tdata, clades={"B": 0, "C": 1})
     assert tdata.obs["clade"].tolist() == [0, 1, 1]
     assert tdata.obst["tree"].nodes["C"]["clade"] == 1
@@ -46,6 +46,19 @@ def test_clades_given_depth(tdata):
     assert tdata.obs["clade"].tolist() == ["0", "1", "1"]
     clades(tdata, depth=2)
     assert tdata.obs["clade"].tolist() == ["0", "1", "2"]
+
+
+def test_clades_update(tdata):
+    clades(tdata, depth=0)
+    assert tdata.obs["clade"].tolist() == ["0", "0", "0"]
+    clades(tdata, depth=1, update=True)
+    assert tdata.obst["tree"].nodes["A"]["clade"] == "0"
+    assert tdata.obs["clade"].tolist() == ["0", "1", "1"]
+    clades(tdata, depth=1, update=False)
+    assert "clade" not in tdata.obst["tree"].nodes["A"]
+    assert tdata.obs["clade"].tolist() == ["0", "1", "1"]
+    clades(tdata, clades={"D": "2"}, update=True)
+    assert tdata.obs["clade"].tolist() == ["0", "2", "1"]
 
 
 def test_clades_multiple_trees():
@@ -71,3 +84,7 @@ def test_clades_invalid(tdata):
         clades(tdata, clades={"A": 0}, depth=0)
     with pytest.raises((KeyError, nx.NetworkXError)):
         clades(tdata, clades={"bad": 0}, key_added="clade")
+
+
+if __name__ == "__main__":
+    pytest.main(["-v", __file__])
