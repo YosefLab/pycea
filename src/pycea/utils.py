@@ -79,7 +79,7 @@ def get_keyed_leaf_data(
     for _, tree in trees.items():
         tree_data = {key: nx.get_node_attributes(tree, key) for key in keys}
         tree_data = pd.DataFrame(tree_data)
-        tree_data = tree_data.loc[get_leaves(tree)]
+        tree_data = tree_data.loc[list(set(get_leaves(tree)).intersection(tree_data.index))]
         data.append(tree_data)
     data = pd.concat(data)
     return data

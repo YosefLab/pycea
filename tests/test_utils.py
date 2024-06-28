@@ -1,5 +1,4 @@
 import networkx as nx
-import numpy as np
 import pandas as pd
 import pytest
 import treedata as td
@@ -18,10 +17,10 @@ from pycea.utils import (
 def tree():
     t = nx.DiGraph()
     t.add_edges_from([("A", "B"), ("A", "C"), ("B", "D"), ("C", "E")])
-    nx.set_node_attributes(t, {"A": 1, "B": 2, "C": None, "D": 4, "E": 5}, "value")
-    nx.set_node_attributes(t, {"A": "red", "B": "red", "C": None, "D": "blue", "E": "blue"}, "color")
-    nx.set_edge_attributes(t, {("A", "B"): 5, ("A", "C"): None, ("B", "D"): 3, ("C", "E"): 4}, "weight")
-    nx.set_edge_attributes(t, {("A", "B"): "red", ("A", "C"): None, ("B", "D"): "red", ("C", "E"): "blue"}, "color")
+    nx.set_node_attributes(t, {"A": 1, "B": 2, "D": 4}, "value")
+    nx.set_node_attributes(t, {"A": "red", "B": "red", "D": "blue"}, "color")
+    nx.set_edge_attributes(t, {("A", "B"): 5, ("B", "D"): 3, ("C", "E"): 4}, "weight")
+    nx.set_edge_attributes(t, {("A", "B"): "red", ("B", "D"): "red", ("C", "E"): "blue"}, "color")
     yield t
 
 
@@ -56,21 +55,22 @@ def test_get_keyed_edge_data(tdata):
     data = get_keyed_edge_data(tdata, ["weight", "color"])
     assert data.columns.tolist() == ["weight", "color"]
     assert data.index.names == ["tree", "edge"]
-    assert np.allclose(data["weight"].values, [5, np.nan, 3, 4], equal_nan=True)
+    assert data["weight"].to_list() == [5, 3, 4]
 
 
 def test_get_keyed_node_data(tdata):
     data = get_keyed_node_data(tdata, ["value", "color"])
     assert data.columns.tolist() == ["value", "color"]
     assert data.index.names == ["tree", "node"]
-    assert np.allclose(data["value"].values, [1, 2, np.nan, 4, 5], equal_nan=True)
+    assert data["value"].to_list() == [1, 2, 4]
 
 
 def test_get_keyed_leaf_data(tdata):
     data = get_keyed_leaf_data(tdata, ["value", "color"])
+    print(data)
     assert data.columns.tolist() == ["value", "color"]
-    assert data["value"].tolist() == [4, 5]
-    assert data["color"].tolist() == ["blue", "blue"]
+    assert data["value"].tolist() == [4]
+    assert data["color"].tolist() == ["blue"]
 
 
 def test_get_keyed_obs_data_valid_keys(tdata):
