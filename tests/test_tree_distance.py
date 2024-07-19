@@ -2,6 +2,7 @@ import networkx as nx
 import pandas as pd
 import pytest
 import scipy as sp
+import numpy as np
 import treedata as td
 
 from pycea.tl.tree_distance import tree_distance
@@ -31,6 +32,14 @@ def test_tree_distance(tdata):
     assert tdata.obsp["lca_depth"][0, 1] == 0
     assert tdata.obsp["lca_depth"][0, 2] == 0
     assert tdata.obsp["lca_depth"][1, 2] == 1
+
+
+def test_all_tree_distance(tdata):
+    tdata_subset = tdata[tdata.obs.tree  == "tree1"].copy()
+    dist = tree_distance(tdata_subset, "depth", metric="path", copy=True)
+    expected = np.array([[0, 5, 6], [5, 0, 3], [6, 3, 0]])
+    assert isinstance(dist, np.ndarray)
+    np.testing.assert_array_equal(dist, expected)
 
 
 def test_obs_tree_distance(tdata):

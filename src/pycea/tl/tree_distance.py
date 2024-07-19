@@ -55,7 +55,7 @@ def tree_distance(
     ----------
     tdata
         The TreeData object.
-    key
+    depth_key
         Key where depth is stored.
     obs
         The observations to use:
@@ -140,10 +140,9 @@ def tree_distance(
         # Convert to matrix
         rows = [tdata.obs_names.get_loc(row) for row in rows]
         cols = [tdata.obs_names.get_loc(col) for col in cols]
+        distances = sp.sparse.csr_matrix((data, (rows, cols)), shape=(len(tdata.obs_names), len(tdata.obs_names)))
         if len(data) == len(tdata.obs_names) ** 2:
-            distances = np.array(data).reshape(len(tdata.obs_names), len(tdata.obs_names))
-        else:
-            distances = sp.sparse.csr_matrix((data, (rows, cols)), shape=(len(tdata.obs_names), len(tdata.obs_names)))
+            distances = distances.toarray()
         tdata.obsp[key_added] = distances
     # Return
     if copy:
