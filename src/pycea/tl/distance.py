@@ -137,6 +137,8 @@ def compare_distance(
     tdata: td.TreeData,
     dist_keys: str | Sequence[str] | None = None,
     sample_n: int | None = None,
+    groupby: str | None = None,
+    groups: str | Sequence[str] | None = None,
     random_state: int | None = None,
 ):
     """Get pairwise observation distances.
@@ -149,7 +151,12 @@ def compare_distance(
         One or more `tdata.obsp` distance keys to compare. Only pairs where all distances are
         available are returned.
     sample_n
-        If specified, randomly sample `sample_n` pairs of observations.
+        If specified, randomly sample `sample_n` pairs of observations. If groupby is specified,
+        the sample is taken within each group.
+    groupby
+        If specified, only compare distances within groups.
+    groups
+        Restrict the comparison to these groups.
     random_state
         Random seed for sampling.
 
@@ -161,8 +168,11 @@ def compare_distance(
 
     """
     # Setup
+    if isinstance(groups, str):
+        groups = [groups]
     if random_state is not None:
         random.seed(random_state)
+        np.random.seed(random_state)
     if isinstance(dist_keys, str):
         dist_keys = [dist_keys]
     dist_keys = [key.replace("_distances", "") for key in dist_keys]
@@ -181,23 +191,42 @@ def compare_distance(
                 shared = shared.multiply(tdata.obsp[f"{key}_connectivities"])
         else:
             dense = True
-    if sparse:
-        row, col = shared.nonzero()
-        pairs = list(zip(row, col))
-        if sample_n is not None:
-            pairs = random.sample(pairs, sample_n)
-    elif dense:
-        if sample_n is not None:
-            if sample_n > tdata.n_obs**2:
-                raise ValueError("Sample size is larger than the number of pairs.")
-            pairs = set()
-            while len(pairs) < sample_n:
-                pairs.add((random.randint(0, tdata.n_obs - 1), random.randint(0, tdata.n_obs - 1)))
-        else:
-            pairs = [(i, j) for i in range(tdata.n_obs) for j in range(tdata.n_obs)]
-    # Get distances
-    pair_names = [(tdata.obs_names[i], tdata.obs_names[j]) for i, j in pairs]
-    distances = pd.DataFrame(pair_names, columns=["obs1", "obs2"])
-    for key in dist_keys:
-        distances[f"{key}_distances"] = [tdata.obsp[f"{key}_distances"][i, j] for i, j in pairs]
+    # Get distances per group
+    if groupby is not None:
+        if groups is None:
+            groups = tdata.obs[groupby].unique()
+        indices = [np.where(tdata.obs[groupby] == group)[0] for group in groups]
+    else:
+        indices = [list(range(tdata.n_obs))]
+    distances = []
+    for i, idx in enumerate(indices):
+        # Get pairs with sparse matrix
+        if sparse:
+            row, col = shared[idx, :][:, idx].nonzero()
+            pairs = list(zip(row, col))
+            if sample_n is not None:
+                if sample_n > len(pairs):
+                    raise ValueError("Sample size is larger than the number of pairs.")
+                pairs = random.sample(pairs, sample_n)
+        # Get pairs with dense matrix
+        elif dense:
+            if sample_n is not None:
+                if sample_n > len(idx) ** 2:
+                    raise ValueError("Sample size is larger than the number of pairs.")
+                pairs = set()
+                while len(pairs) < sample_n:
+                    pair = (np.random.choice(idx), np.random.choice(idx))
+                    if pair not in pairs:
+                        pairs.add(pair)
+            else:
+                pairs = [(i, j) for i in idx for j in idx]
+        # Get distances
+        pair_names = [(tdata.obs_names[i], tdata.obs_names[j]) for i, j in pairs]
+        group_distances = pd.DataFrame(pair_names, columns=["obs1", "obs2"])
+        for key in dist_keys:
+            group_distances[f"{key}_distances"] = [tdata.obsp[f"{key}_distances"][i, j] for i, j in pairs]
+        if groupby is not None:
+            group_distances[groupby] = groups[i]
+        distances.append(group_distances)
+    distances = pd.concat(distances)
     return distances
