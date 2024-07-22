@@ -5,8 +5,8 @@ import warnings
 from collections.abc import Mapping, Sequence
 
 import numpy as np
-import scipy as sp
 import pandas as pd
+import scipy as sp
 import treedata as td
 from sklearn.metrics import DistanceMetric
 
@@ -85,7 +85,7 @@ def distance(
     pairs = None
     if connect_key is not None:
         if obs is not None:
-            warnings.warn("`obs` is ignored when connectivity is specified.")
+            warnings.warn("`obs` is ignored when connectivity is specified.", stacklevel=2)
         if connect_key not in tdata.obsp.keys():
             raise ValueError(f"Connectivity key {connect_key} not found in `tdata.obsp`.")
         pairs = list(zip(*tdata.obsp[connect_key].nonzero()))
@@ -93,7 +93,7 @@ def distance(
         if isinstance(obs, Sequence) and isinstance(obs[0], tuple):
             pairs = [(tdata.obs_names.get_loc(i), tdata.obs_names.get_loc(j)) for i, j in obs]
         elif obs is None and sample_n is not None:
-            pairs = [(i, j) for i in range(len(X)) for j in range(len(X))]
+            pairs = [(i, j) for i in range(tdata.n_obs) for j in range(tdata.n_obs)]
     # Compute distances from pairs
     if pairs is not None:
         if sample_n is not None:
@@ -103,8 +103,8 @@ def distance(
                 random.seed(random_state)
             pairs = random.sample(pairs, sample_n)
         distances = [metric_fn.pairwise(X[i : i + 1, :], X[j : j + 1, :])[0, 0] for i, j in pairs]
-        distances = sp.sparse.csr_matrix((distances, zip(*pairs)), shape=(len(X), len(X)))
-        connectivities = sp.sparse.csr_matrix((np.ones(len(pairs)), zip(*pairs)), shape=(len(X), len(X)))
+        distances = sp.sparse.csr_matrix((distances, zip(*pairs)), shape=(tdata.n_obs, tdata.n_obs))
+        connectivities = sp.sparse.csr_matrix((np.ones(len(pairs)), zip(*pairs)), shape=(tdata.n_obs, tdata.n_obs))
     # Compute point distances
     elif isinstance(obs, str):
         idx = tdata.obs_names.get_loc(obs)
@@ -118,8 +118,8 @@ def distance(
         rows = np.repeat(idx, len(idx))
         cols = np.tile(idx, len(idx))
         distances = metric_fn.pairwise(X[idx])
-        distances = sp.sparse.csr_matrix((distances.flatten(), (rows, cols)), shape=(len(X), len(X)))
-        connectivities = sp.sparse.csr_matrix((np.ones(len(idx) ** 2), (rows, cols)), shape=(len(X), len(X)))
+        distances = sp.sparse.csr_matrix((distances.flatten(), (rows, cols)), shape=(tdata.n_obs, tdata.n_obs))
+        connectivities = sp.sparse.csr_matrix((np.ones(len(idx) ** 2), (rows, cols)), shape=(tdata.n_obs, tdata.n_obs))
     else:
         raise ValueError("Invalid type for parameter `obs`.")
     # Store distances and connectivities
@@ -131,6 +131,7 @@ def distance(
         tdata.obsp[f"{key_added}_connectivities"] = connectivities
     if copy:
         return distances
+
 
 def compare_distance(
     tdata: td.TreeData,
@@ -172,7 +173,7 @@ def compare_distance(
     for key in dist_keys:
         if f"{key}_distances" not in tdata.obsp.keys():
             raise ValueError(f"Distance key {key} not found in `tdata.obsp`.")
-        if isinstance(tdata.obsp[f"{key}_distances"],sp.sparse.csr_matrix):
+        if isinstance(tdata.obsp[f"{key}_distances"], sp.sparse.csr_matrix):
             sparse = True
             if shared is None:
                 shared = tdata.obsp[f"{key}_connectivities"].copy()
@@ -187,7 +188,7 @@ def compare_distance(
             pairs = random.sample(pairs, sample_n)
     elif dense:
         if sample_n is not None:
-            if sample_n > tdata.n_obs ** 2:
+            if sample_n > tdata.n_obs**2:
                 raise ValueError("Sample size is larger than the number of pairs.")
             pairs = set()
             while len(pairs) < sample_n:
@@ -198,5 +199,5 @@ def compare_distance(
     pair_names = [(tdata.obs_names[i], tdata.obs_names[j]) for i, j in pairs]
     distances = pd.DataFrame(pair_names, columns=["obs1", "obs2"])
     for key in dist_keys:
-        distances[f"{key}_distances"]  = [tdata.obsp[f"{key}_distances"][i, j] for i, j in pairs]
+        distances[f"{key}_distances"] = [tdata.obsp[f"{key}_distances"][i, j] for i, j in pairs]
     return distances

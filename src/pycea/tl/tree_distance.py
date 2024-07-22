@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import random
+import warnings
+from collections import defaultdict
 from collections.abc import Sequence
 
 import networkx as nx
@@ -45,6 +48,9 @@ def tree_distance(
     depth_key: str = "depth",
     obs: str | Sequence[str] | None = None,
     metric: str = "path",
+    sample_n: int | None = None,
+    connect_key: str | None = None,
+    random_state: int | None = None,
     key_added: str | None = None,
     tree: str | Sequence[str] | None = None,
     copy: bool = False,
@@ -67,8 +73,16 @@ def tree_distance(
         The type of tree distance to compute:
         - `'lca'`: lowest common ancestor depth.
         - `'path'`: abs(node1 depth + node2 depth - 2 * lca depth).
+    sample_n
+        If specified, randomly sample `sample_n` pairs of observations.
+    connect_key
+        If specified, compute distances only between connected observations specified by
+         `tdata.obsp['{connect_key}_connectivities']`.
+    random_state
+        Random seed for sampling.
     key_added
-        Distances are stored in `'tree_distances'` unless `key_added` is specified.
+        Distances are stored in `tdata.obsp['{key_added}_distances']` and
+        connectivities in .obsp['{key_added}_connectivities']. Defaults to 'tree'.
     tree
         The `obst` key or keys of the trees to use. If `None`, all trees are used.
     copy
@@ -79,12 +93,19 @@ def tree_distance(
     Returns `None` if `copy=False`, else returns a :class:`numpy.array` or :class:`scipy.sparse.csr_matrix`.
     Sets the following fields:
 
-    `tdata.obsp[key_added]` : :class:`numpy.array` or :class:`scipy.sparse.csr_matrix` (dtype `float`)
+    `tdata.obsp['{key_added}_distances']` : :class:`numpy.array` or :class:`scipy.sparse.csr_matrix` (dtype `float`)
     if `obs` is `None` or a sequence.
-    `tdata.obs[key_added]` : :class:`pandas.Series` (dtype `float`) if `obs` is a string.
+    `tdata.obsp['{key_added}_connectivities']` : ::class:`scipy.sparse.csr_matrix` (dtype `float`)
+    if distances is sparse.
+    `tdata.obs['{key_added}_distances']` : :class:`pandas.Series` (dtype `float`) if `obs` is a string.
     """
     # Setup
-    key_added = key_added or "tree_distances"
+    if random_state is not None:
+        random.seed(random_state)
+    key_added = key_added or "tree"
+    if connect_key is not None:
+        if "connectivities" not in connect_key:
+            connect_key = f"{connect_key}_connectivities"
     tree_keys = tree
     trees = get_trees(tdata, tree_keys)
     if metric == "lca":
@@ -95,55 +116,91 @@ def tree_distance(
         raise ValueError(f"Unknown metric {metric}. Valid metrics are 'lca' and 'path'.")
     if len(trees) > 1 and tdata.allow_overlap and len(tree_keys) != 1:
         raise ValueError("Must specify a singe tree if tdata.allow_overlap is True.")
-    # Case 1: single obs
-    if isinstance(obs, str):
-        for _, tree in trees.items():
-            leaves = get_leaves(tree)
-            if obs in leaves:
-                pairs = [(node, obs) for node in leaves]
-                rows, cols, data = _tree_distance(tree, depth_key, metric_fn, pairs)
-                distances = pd.DataFrame({key_added: data}, index=rows)
-                tdata.obs[key_added] = distances[key_added]
-    # Case 2: multiple obs
-    else:
-        tree_pairs = {}
-        if obs is None:
+    # All pairs
+    if obs is None and connect_key is None:
+        # Without sampling
+        if sample_n is None:
+            tree_pairs = {}
             for key, tree in trees.items():
                 leaves = get_leaves(tree)
-                pairs = [(node1, node2) for node1 in leaves for node2 in leaves]
-                tree_pairs[key] = pairs
-        elif isinstance(obs, Sequence):
-            if isinstance(obs[0], str):
-                for key, tree in trees.items():
-                    leaves = list(set(get_leaves(tree)).intersection(obs))
-                    pairs = [(node1, node2) for node1 in leaves for node2 in leaves]
-                    tree_pairs[key] = pairs
-            elif isinstance(obs[0], tuple) and len(obs[0]):
-                for key, tree in trees.items():
-                    leaves = get_leaves(tree)
-                    pairs = []
-                    for node1, node2 in obs:
-                        if node1 in leaves and node2 in leaves:
-                            pairs.append((node1, node2))
-                    tree_pairs[key] = pairs
-            else:
-                raise ValueError("Invalid type for parameter `obs`.")
+                tree_pairs[key] = [(i, j) for i in leaves for j in leaves]
+        # With sampling
+        else:
+            tree_to_leaf = {key: get_leaves(tree) for key, tree in trees.items()}
+            tree_keys = list(tree_to_leaf.keys())
+            tree_n_pairs = np.array([len(leaves) ** 2 for leaves in tree_to_leaf.values()])
+            tree_pairs = defaultdict(set)
+            n_pairs = 0
+            if sample_n > tree_n_pairs.sum():
+                raise ValueError("Sample size is larger than the number of pairs.")
+            k = 0
+            while k < sample_n:
+                tree = random.choices(tree_keys, tree_n_pairs, k=1)[0]
+                i = random.choice(tree_to_leaf[tree])
+                j = random.choice(tree_to_leaf[tree])
+                if (i, j) not in tree_pairs[tree]:
+                    tree_pairs[tree].add((i, j))
+                    n_pairs += 1
+                k += 1
+            tree_pairs = {key: list(pairs) for key, pairs in tree_pairs.items()}
+    # Selected pairs
+    else:
+        if connect_key is not None:
+            if obs is not None:
+                warnings.warn("`obs` is ignored when connectivity is specified.", stacklevel=2)
+            if connect_key not in tdata.obsp.keys():
+                raise ValueError(f"Connectivity key {connect_key} not found in `tdata.obsp`.")
+            pairs = list(zip(*tdata.obsp[connect_key].nonzero()))
+            pairs = [(tdata.obs_names[i], tdata.obs_names[j]) for i, j in pairs]
+        elif isinstance(obs, str):
+            pairs = [(i, obs) for i in tdata.obs_names]
+        elif isinstance(obs, Sequence) and isinstance(obs[0], str):
+            pairs = [(i, j) for i in obs for j in obs]
+        elif isinstance(obs, Sequence) and isinstance(obs[0], tuple):
+            pairs = obs
         else:
             raise ValueError("Invalid type for parameter `obs`.")
-        # Compute distances
+        # Assign pairs to trees
+        leaf_to_tree = {leaf: key for key, tree in trees.items() for leaf in get_leaves(tree)}
+        has_tree = set(leaf_to_tree.keys())
+        tree_pairs = defaultdict(list)
+        for i, j in pairs:
+            if i in has_tree and j in has_tree and leaf_to_tree[i] == leaf_to_tree[j]:
+                tree_pairs[leaf_to_tree[i]].append((i, j))
+        # Sample pairs
+        if sample_n is not None:
+            pairs_to_tree = {pair: key for key, pairs in tree_pairs.items() for pair in pairs}
+            if sample_n > len(pairs_to_tree):
+                raise ValueError("Sample size is larger than the number of pairs.")
+            sampled_pairs = random.sample(pairs_to_tree.keys(), sample_n)
+            tree_pairs = {key: [pair for pair in pairs if pair in sampled_pairs] for key, pairs in tree_pairs.items()}
+    # Compute distances
+    if tree_pairs is not None:
         rows, cols, data = [], [], []
         for key, pairs in tree_pairs.items():
             tree_rows, tree_cols, tree_data = _tree_distance(trees[key], depth_key, metric_fn, pairs)
             rows.extend(tree_rows)
             cols.extend(tree_cols)
             data.extend(tree_data)
-        # Convert to matrix
-        rows = [tdata.obs_names.get_loc(row) for row in rows]
-        cols = [tdata.obs_names.get_loc(col) for col in cols]
-        distances = sp.sparse.csr_matrix((data, (rows, cols)), shape=(len(tdata.obs_names), len(tdata.obs_names)))
-        if len(data) == len(tdata.obs_names) ** 2:
-            distances = distances.toarray()
-        tdata.obsp[key_added] = distances
-    # Return
+        # Point distances
+        if isinstance(obs, str):
+            key = list(tree_pairs.keys())[0]
+            pairs = tree_pairs[key]
+            rows, cols, data = _tree_distance(trees[key], depth_key, metric_fn, pairs)
+            distances = pd.DataFrame({key_added: data}, index=rows)
+            tdata.obs[f"{key_added}_distances"] = distances
+        # Pairwise distances
+        else:
+            rows = [tdata.obs_names.get_loc(row) for row in rows]
+            cols = [tdata.obs_names.get_loc(col) for col in cols]
+            distances = sp.sparse.csr_matrix((data, (rows, cols)), shape=(tdata.n_obs, tdata.n_obs))
+            if len(data) == tdata.n_obs**2:
+                distances = distances.toarray()
+            else:
+                connectivities = sp.sparse.csr_matrix(
+                    (np.ones(len(data)), (rows, cols)), shape=(tdata.n_obs, tdata.n_obs)
+                )
+                tdata.obsp[f"{key_added}_connectivities"] = connectivities
+            tdata.obsp[f"{key_added}_distances"] = distances
     if copy:
         return distances
