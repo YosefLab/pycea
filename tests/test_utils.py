@@ -10,6 +10,7 @@ from pycea.utils import (
     get_keyed_obs_data,
     get_leaves,
     get_root,
+    get_subtree_leaves,
 )
 
 
@@ -50,6 +51,13 @@ def test_get_leaves(tree):
     # test with empty graph
     assert get_leaves(nx.DiGraph()) == []
 
+def test_get_subtree_leaves(tree):
+    assert get_subtree_leaves(tree, "B") == ["D"]
+    assert get_subtree_leaves(tree, "A") == ["D", "E"]
+    # Test with a single node
+    single_node_tree = nx.DiGraph()
+    single_node_tree.add_node("A")
+    assert get_subtree_leaves(single_node_tree, "A") == ["A"]
 
 def test_get_keyed_edge_data(tdata):
     data = get_keyed_edge_data(tdata, ["weight", "color"])

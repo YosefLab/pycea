@@ -24,6 +24,11 @@ def get_leaves(tree: nx.DiGraph):
     return [node for node in nx.dfs_postorder_nodes(tree, get_root(tree)) if tree.out_degree(node) == 0]
 
 
+def get_subtree_leaves(tree: nx.DiGraph, node: str):
+    """Finds the leaves of a subtree"""
+    return [node for node in nx.dfs_postorder_nodes(tree, node) if tree.out_degree(node) == 0]
+
+
 def get_keyed_edge_data(
     tdata: td.TreeData, keys: str | Sequence[str], tree_keys: str | Sequence[str] = None
 ) -> pd.DataFrame:
