@@ -22,7 +22,7 @@ dependencies = [
     "cycler",
     "networkx",
     "scanpy",
-    "treedata>=0.0.2",
+    "treedata",
     "matplotlib",
     "numpy",
     "pandas",
