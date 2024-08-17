@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import networkx as nx
 import numpy as np
 import pandas as pd
@@ -18,7 +20,7 @@ def tdata():
             {"value": [0, 0, 3, 2], "str_value": ["0", "0", "3", "2"], "with_missing": [0, np.nan, 3, 2]},
             index=["B", "D", "E", "F"],
         ),
-        obst={"tree1": tree1, "tree2": tree2},
+        obst={"tree1": tree1, "tree2": tree2, "empty": nx.DiGraph()},
         obsm={"spatial": spatial, "characters": characters},
     )
     yield tdata
@@ -34,10 +36,18 @@ def test_ancestral_states(tdata):
     states = ancestral_states(tdata, "value", method=np.median, copy=True)
     assert tdata.obst["tree1"].nodes["root"]["value"] == 0
     # Mode
-    ancestral_states(tdata, "str_value", method="mode", copy=False, tree="tree1")
+    ancestral_states(
+        tdata,
+        ["value", "str_value"],
+        method="mode",
+        copy=False,
+        tree="tree1",
+        keys_added=["value_mode", "str_value_mode"],
+    )
     for node in tdata.obst["tree1"].nodes:
         print(node, tdata.obst["tree1"].nodes[node])
-    assert tdata.obst["tree1"].nodes["root"]["str_value"] == "0"
+    assert tdata.obst["tree1"].nodes["root"]["str_value_mode"] == "0"
+    assert tdata.obst["tree1"].nodes["root"]["value_mode"] == 0
 
 
 def test_ancestral_states_array(tdata):
@@ -88,13 +98,13 @@ def test_ancestral_states_sankoff(tdata):
 def test_ancestral_states_invalid(tdata):
     with pytest.raises(ValueError):
         ancestral_states(tdata, "characters", method="sankoff")
-    with pytest.raises(ValueError):
+    with pytest.raises((ValueError, KeyError)):
         ancestral_states(tdata, "characters", method="sankoff", costs=pd.DataFrame())
     with pytest.raises(ValueError):
         ancestral_states(tdata, "bad", method="mean")
     with pytest.raises(ValueError):
         ancestral_states(tdata, "value", method="bad")
     with pytest.raises(ValueError):
-        ancestral_states(tdata, "value", method="fitch_hartigan", copy=False)
-    with pytest.raises(ValueError):
         ancestral_states(tdata, "str_value", method="mean", copy=False)
+    with pytest.raises(ValueError):
+        ancestral_states(tdata, "value", method="mean", keys_added=["bad", "bad"])

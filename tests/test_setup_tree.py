@@ -10,16 +10,19 @@ from pycea.pp.setup_tree import add_depth
 def tdata():
     tree1 = nx.DiGraph([("root", "A"), ("root", "B"), ("B", "C"), ("B", "D")])
     tree2 = nx.DiGraph([("root", "E"), ("root", "F")])
-    tdata = td.TreeData(obs=pd.DataFrame(index=["A", "C", "D", "E", "F"]), obst={"tree1": tree1, "tree2": tree2})
+    tdata = td.TreeData(
+        obs=pd.DataFrame(index=["A", "C", "D", "E", "F"]), obst={"tree1": tree1, "tree2": tree2, "empty": nx.DiGraph()}
+    )
     yield tdata
 
 
 def test_add_depth(tdata):
-    depths = add_depth(tdata, depth_key="depth", copy=True)
+    depths = add_depth(tdata, key_added="depth", copy=True)
     assert depths.loc[("tree1", "root"), "depth"] == 0
     assert depths.loc[("tree1", "C"), "depth"] == 2
     assert tdata.obst["tree1"].nodes["root"]["depth"] == 0
     assert tdata.obst["tree1"].nodes["C"]["depth"] == 2
+    assert tdata.obs.loc["C", "depth"] == 2
 
 
 if __name__ == "__main__":

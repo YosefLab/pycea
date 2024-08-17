@@ -23,7 +23,11 @@
 
     tl.ancestral_states
     tl.clades
+    tl.compare_distance
+    tl.distance
     tl.sort
+    tl.tree_distance
+    tl.tree_neighbors
 ```
 
 ## Plotting

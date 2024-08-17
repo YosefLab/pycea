@@ -1,3 +1,6 @@
-from .clades import clades
-from .sort import sort
 from .ancestral_states import ancestral_states
+from .clades import clades
+from .distance import compare_distance, distance
+from .sort import sort
+from .tree_distance import tree_distance
+from .tree_neighbors import tree_neighbors

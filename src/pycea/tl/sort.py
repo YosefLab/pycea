@@ -31,11 +31,15 @@ def sort(tdata: td.TreeData, key: str, reverse: bool = False, tree: str | Sequen
     tdata
         TreeData object.
     key
-        Node attribute to sort by.
+        Attribute of `tdata.obst[tree].nodes` to sort by.
     reverse
         If True, sort in descending order.
     tree
         The `obst` key or keys of the trees to use. If `None`, all trees are used.
+
+    Returns
+    -------
+    Returns `None` and does not set any fields.
     """
     trees = get_trees(tdata, tree)
     for name, tree in trees.items():

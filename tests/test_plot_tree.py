@@ -11,7 +11,7 @@ plot_path = Path(__file__).parent / "plots"
 def test_polar_with_clades(tdata):
     fig, ax = plt.subplots(dpi=300, subplot_kw={"polar": True})
     pycea.pl.branches(
-        tdata, tree="clone1", polar=True, color="clade", depth_key="time", palette="Set1", na_color="black", ax=ax
+        tdata, tree="2", polar=True, color="clade", depth_key="time", palette="Set1", na_color="black", ax=ax
     )
     pycea.pl.nodes(tdata, color="clade", palette="Set1", style="clade", ax=ax)
     pycea.pl.annotation(tdata, keys="clade", ax=ax)
@@ -24,7 +24,7 @@ def test_angled_numeric_annotations(tdata):
         tdata, polar=False, color="length", cmap="hsv", linewidth="length", depth_key="time", angled_branches=True
     )
     pycea.pl.nodes(tdata, nodes="all", color="time", style="s", size=20)
-    pycea.pl.nodes(tdata, nodes=["5"], tree="clone2", color="black", style="*", size=200)
+    pycea.pl.nodes(tdata, nodes=["2"], tree="1", color="black", style="*", size=200)
     pycea.pl.annotation(tdata, keys=["x", "y"], cmap="magma", width=0.1, gap=0.05, border_width=2)
     pycea.pl.annotation(tdata, keys=["0", "1", "2", "3", "4", "5"], label="genes", border_width=2)
     plt.savefig(plot_path / "angled_numeric.png")
@@ -39,7 +39,7 @@ def test_matrix_annotation(tdata):
         node_color="clade",
         node_size="time",
         depth_key="time",
-        annotation_keys=["spatial_distance"],
+        keys=["spatial_distances"],
         ax=ax,
     )
     plt.savefig(plot_path / "matrix_annotation.png")
@@ -85,3 +85,7 @@ def test_annotation_bad_input(tdata):
     with pytest.raises(ValueError):
         pycea.pl.annotation(tdata, keys="clade", label={}, ax=ax)
     plt.close()
+
+
+if __name__ == "__main__":
+    pytest.main(["-v", __file__])
