@@ -130,7 +130,7 @@ def distance(
         pairs = _sample_pairs(pairs, sample_n, tdata.n_obs)
         # Compute distances
         distances = [metric_fn.pairwise(X[i : i + 1, :], X[j : j + 1, :])[0, 0] for i, j in pairs]
-        distances = sp.sparse.csr_matrix((distances, zip(*pairs)), shape=(tdata.n_obs, tdata.n_obs))
+        distances = sp.sparse.csr_matrix((distances, tuple(map(list, zip(*pairs)))), shape=(tdata.n_obs, tdata.n_obs))
     # Distance given indices
     elif obs is None or (isinstance(obs, Sequence) and isinstance(obs[0], str)):
         if obs is None:
