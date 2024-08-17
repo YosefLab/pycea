@@ -96,9 +96,15 @@ def test_distance_invalid(tdata):
     with pytest.raises(ValueError):
         distance(tdata, "spatial", obs=[("A", "B", "C")], metric="cityblock")
     with pytest.raises(ValueError):
+        distance(tdata, "spatial", sample_n=100, metric="cityblock")
+    with pytest.raises(ValueError):
+        distance(tdata, "spatial", obs=["A", "B"], sample_n=100, metric="cityblock")
+    with pytest.raises(ValueError):
         distance(tdata, "spatial", metric="bad")
     with pytest.raises(KeyError):
         distance(tdata, "spatial", connect_key="bad", metric="cityblock")
+    with pytest.raises(ValueError):
+        distance(tdata, "spatial", connect_key=-1, metric="cityblock")
 
 
 def test_compare_distance(tdata):

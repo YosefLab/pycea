@@ -74,6 +74,8 @@ def test_sampled_tree_distance(tdata):
     assert tdata.obsp["tree_distances"].data.tolist() == [0, 3, 2]
     assert tdata.obsp["tree_connectivities"].shape == (5, 5)
     assert len(tdata.obsp["tree_connectivities"].data) == 3
+    tree_distance(tdata, "depth", sample_n=3, obs=["A", "C"], random_state=0, metric="path", update=False)
+    assert len(tdata.obsp["tree_distances"].data) == 3
 
 
 def test_connected_tree_distance(tdata):
@@ -107,6 +109,10 @@ def test_tree_distance_invalid(tdata):
         tree_distance(tdata, "depth", obs=[("A",)], metric="path")
     with pytest.raises(ValueError):
         tree_distance(tdata, "depth", obs=[("A", "B", "C")], metric="path")
+    with pytest.raises(ValueError):
+        tree_distance(tdata, "depth", sample_n=100, metric="path")
+    with pytest.raises(ValueError):
+        tree_distance(tdata, "depth", obs=["A", "C"], sample_n=100, metric="path")
     with pytest.raises(ValueError):
         tree_distance(tdata, "depth", metric="bad")
 

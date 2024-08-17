@@ -81,7 +81,7 @@ def _sample_pairs(tree_pairs, sample_n):
         pairs_to_tree = {pair: key for key, pairs in tree_pairs.items() for pair in pairs}
         if sample_n > len(pairs_to_tree):
             raise ValueError("Sample size is larger than the number of pairs.")
-        sampled_pairs = random.sample(pairs_to_tree.keys(), sample_n)
+        sampled_pairs = random.sample(list(pairs_to_tree.keys()), sample_n)
         tree_pairs = {key: [pair for pair in pairs if pair in sampled_pairs] for key, pairs in tree_pairs.items()}
     return tree_pairs
 
