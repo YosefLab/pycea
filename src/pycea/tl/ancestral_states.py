@@ -208,7 +208,7 @@ def ancestral_states(
     keys_added: str | Sequence[str] = None,
     tree: str | Sequence[str] | None = None,
     copy: bool = False,
-) -> None:
+) -> None | pd.DataFrame:
     """Reconstructs ancestral states for an attribute.
 
     Parameters
@@ -218,8 +218,13 @@ def ancestral_states(
     keys
         One or more `obs_keys`, `var_names`, `obsm_keys`, or `obsp_keys` to reconstruct.
     method
-        Method to reconstruct ancestral states. One of "mean", "mode", "fitch_hartigan", "sankoff",
-         or any function that takes a list of values and returns a single value.
+        Method to reconstruct ancestral states:
+
+        * 'mean' : The mean of leaves in subtree.
+        * 'mode' : The most common value in the subtree.
+        * 'fitch_hartigan' : The Fitch-Hartigan algorithm.
+        * 'sankoff' : The Sankoff algorithm with specified costs.
+        * Any function that takes a list of values and returns a single value.
     missing_state
         The state to consider as missing data.
     default_state
@@ -227,18 +232,20 @@ def ancestral_states(
     costs
         A pd.DataFrame with the costs of changing states (from rows to columns).
     keys_added
-        The keys to store the ancestral states. If None, the same keys are used.
+        Attribute keys of `tdata.obst[tree].nodes` where ancestral states will be stored. If `None`, `keys` are used.
     tree
         The `obst` key or keys of the trees to use. If `None`, all trees are used.
     copy
-        If True, returns a :class:`pandas.DataFrame` with ancestral states.
+        If True, returns a :class:`DataFrame <pandas.DataFrame>` with ancestral states.
 
     Returns
     -------
-    Returns `None` if `copy=False`, else returns a :class:`pandas.DataFrame`. Sets the following fields for each key:
+    Returns `None` if `copy=False`, else return :class:`DataFrame <pandas.DataFrame>` with ancestral states.
 
-    `tdata.obst[tree].nodes[key_added]` : `float` | `Object` | `List[Object]`
-        Inferred ancestral states. List of states if data was an array.
+    Sets the following fields for each key:
+
+    * `tdata.obst[tree].nodes[key_added]` : `float` | `Object` | `List[Object]`
+        - Inferred ancestral states. List of states if data was an array.
     """
     if isinstance(keys, str):
         keys = [keys]

@@ -25,6 +25,8 @@ def test_pairwise_distance(tdata):
     assert tdata.obsp["euclidean_distances"][1, 2] == pytest.approx(np.sqrt(2))
     assert tdata.obsp["euclidean_distances"][0, 2] == pytest.approx(np.sqrt(8))
     assert "euclidean_connectivities" not in tdata.obsp.keys()
+    assert "euclidean_distances" in tdata.uns.keys()
+    assert tdata.uns["euclidean_distances"]["params"]["metric"] == "euclidean"
     metric = lambda x, y: np.abs(x - y).sum()
     distance(tdata, "characters", metric=metric, key_added="manhatten")
     assert tdata.obsp["manhatten_distances"][0, 1] == 2
@@ -58,7 +60,7 @@ def test_sampled_distance(tdata):
     distance(tdata, "spatial", sample_n=2, metric="cityblock", random_state=0)
     assert tdata.obsp["spatial_distances"].shape == (3, 3)
     assert len(tdata.obsp["spatial_distances"].data) == 2
-    assert tdata.obsp["spatial_distances"].data.tolist() == [4, 0]
+    assert tdata.obsp["spatial_distances"].data.tolist() == [2, 0]
     assert tdata.obsp["spatial_connectivities"].shape == (3, 3)
     assert len(tdata.obsp["spatial_connectivities"].data) == 2
 
@@ -69,6 +71,17 @@ def test_connected_distance(tdata):
     assert len(dist.data) == 2
     assert dist.data.tolist() == [2, 4]
     np.testing.assert_equal(tdata.obsp["spatial_connectivities"].data, tdata.obsp["connectivities"].data)
+
+
+def test_update_distance(tdata):
+    distance(tdata, "spatial", sample_n=2, metric="cityblock", random_state=0)
+    assert tdata.obsp["spatial_distances"].data.tolist() == [2, 0]
+    distance(tdata, "spatial", sample_n=2, metric="cityblock", random_state=3, update=True)
+    assert tdata.obsp["spatial_distances"].data.tolist() == [2, 4, 0, 4]
+    distance(tdata, "spatial", sample_n=2, metric="cityblock", random_state=0, update=False)
+    assert tdata.obsp["spatial_distances"].data.tolist() == [2, 0]
+    with pytest.raises(ValueError):
+        distance(tdata, "spatial", sample_n=2, metric="euclidean", update=True)
 
 
 def test_distance_invalid(tdata):
@@ -84,7 +97,7 @@ def test_distance_invalid(tdata):
         distance(tdata, "spatial", obs=[("A", "B", "C")], metric="cityblock")
     with pytest.raises(ValueError):
         distance(tdata, "spatial", metric="bad")
-    with pytest.raises(ValueError):
+    with pytest.raises(KeyError):
         distance(tdata, "spatial", connect_key="bad", metric="cityblock")
 
 
@@ -106,11 +119,11 @@ def test_compare_sparse_distance(tdata):
     distance(tdata, "spatial", metric="cityblock", key_added="cityblock", connect_key="euclidean")
     dist = compare_distance(tdata, dist_keys=["euclidean", "cityblock"])
     assert dist.shape == (4, 4)
-    assert dist["cityblock_distances"].to_list() == [0, 2, 4, 0]
+    assert dist["cityblock_distances"].to_list() == [2, 4, 0, 2]
     # sampled
     dist = compare_distance(tdata, dist_keys=["euclidean", "cityblock"], sample_n=2, random_state=1)
     assert dist.shape == (2, 4)
-    assert dist["cityblock_distances"].to_list() == [2, 4]
+    assert dist["cityblock_distances"].to_list() == [4, 0]
 
 
 def test_compare_group_distance(tdata):
@@ -118,6 +131,7 @@ def test_compare_group_distance(tdata):
     distance(tdata, "spatial", metric="cityblock", key_added="cityblock")
     dist = compare_distance(tdata, dist_keys=["euclidean", "cityblock"], groupby="group")
     assert "group" in dist.columns
+    print(dist)
     assert dist.shape == (5, 5)
     # specify group
     dist = compare_distance(tdata, dist_keys=["euclidean", "cityblock"], groupby="group", groups="1")

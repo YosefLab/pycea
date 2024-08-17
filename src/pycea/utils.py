@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import random
 from collections.abc import Mapping, Sequence
 
 import networkx as nx
 import pandas as pd
+import scipy as sp
 import treedata as td
 
 
@@ -27,6 +29,18 @@ def get_leaves(tree: nx.DiGraph):
 def get_subtree_leaves(tree: nx.DiGraph, node: str):
     """Finds the leaves of a subtree"""
     return [node for node in nx.dfs_postorder_nodes(tree, node) if tree.out_degree(node) == 0]
+
+
+def check_tree_has_key(tree: nx.DiGraph, key: str):
+    """Checks that tree nodes have a given key."""
+    # sample 10 nodes to check if the key is present
+    sampled_nodes = random.sample(list(tree.nodes), min(10, len(tree.nodes)))
+    for node in sampled_nodes:
+        if key not in tree.nodes[node]:
+            message = f"Tree does not have {key} attribute."
+            if key == "depth":
+                message += " You can run `pycea.pp.add_depth` to add depth attribute."
+            raise ValueError(message)
 
 
 def get_keyed_edge_data(
@@ -129,6 +143,17 @@ def get_keyed_obs_data(tdata: td.TreeData, keys: str | Sequence[str], layer: str
     elif array_keys:
         data = data[0]
     return data, array_keys
+
+
+def get_keyed_obsm_data(tdata: td.TreeData, key: str) -> sp.sparse.csr_matrix:
+    """Gets observation matrix data for a given key from a tree."""
+    if key == "X":
+        X = tdata.X
+    elif key in tdata.obsm:
+        X = tdata.obsm[key]
+    else:
+        raise ValueError(f"Key {key} not found in `tdata.obsm`.")
+    return X
 
 
 def get_trees(tdata: td.TreeData, tree_keys: str | Sequence[str] | None) -> Mapping[str, nx.DiGraph]:

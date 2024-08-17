@@ -27,10 +27,6 @@ jobs:
             python: "3.9"
           - os: ubuntu-latest
             python: "3.11"
-          - os: ubuntu-latest
-            python: "3.11"
-            pip-flags: "--pre"
-            name: PRE-RELEASE DEPENDENCIES
 
     name: ${{ matrix.name }} Python ${{ matrix.python }}
 

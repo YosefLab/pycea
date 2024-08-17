@@ -6,7 +6,7 @@ import networkx as nx
 import pandas as pd
 import treedata as td
 
-from pycea.utils import get_keyed_leaf_data, get_root, get_trees
+from pycea.utils import check_tree_has_key, get_keyed_leaf_data, get_root, get_trees
 
 
 def _nodes_at_depth(tree, parent, nodes, depth, depth_key):
@@ -32,10 +32,7 @@ def _clades(tree, depth, depth_key, clades, clade_key, name_generator, update):
     # Check that root has depth key
     root = get_root(tree)
     if (depth is not None) and (clades is None):
-        if depth_key not in tree.nodes[root]:
-            raise ValueError(
-                f"Tree does not have {depth_key} attribute. You can run `pycea.pp.add_depth` to add depth attribute."
-            )
+        check_tree_has_key(tree, depth_key)
         nodes = _nodes_at_depth(tree, root, [], depth, depth_key)
         clades = dict(zip(nodes, name_generator))
     elif (clades is not None) and (depth is None):
@@ -78,7 +75,7 @@ def clades(
     depth
         Depth to cut tree at. Must be specified if clades is None.
     depth_key
-        Key where depth is stored.
+        Attribute of `tdata.obst[tree].nodes` where depth is stored.
     clades
         A dictionary mapping nodes to clades.
     key_added
@@ -88,17 +85,18 @@ def clades(
     tree
         The `obst` key or keys of the trees to use. If `None`, all trees are used.
     copy
-        If True, returns a :class:`pandas.DataFrame` with clades.
+        If True, returns a :class:`DataFrame <pandas.DataFrame>` with clades.
 
     Returns
     -------
-    Returns `None` if `copy=False`, else returns a :class:`pandas.DataFrame`. Sets the following fields:
+    Returns `None` if `copy=False`, else returns a :class:`DataFrame <pandas.DataFrame>`.
 
-    `tdata.obs[key_added]` : :class:`pandas.Series` (dtype `Object`)
-        Clade.
-    `tdata.obst[tree].nodes[key_added]` : `Object`
-        Clade.
+    Sets the following fields:
 
+    * `tdata.obs[key_added]` : :class:`Series <pandas.Series>` (dtype `Object`)
+        - Clade assignment for each observation.
+    * `tdata.obst[tree].nodes[key_added]` : `Object`
+        - Clade assignment for each node.
     """
     # Setup
     tree_keys = tree

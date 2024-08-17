@@ -31,7 +31,7 @@ def sort(tdata: td.TreeData, key: str, reverse: bool = False, tree: str | Sequen
     tdata
         TreeData object.
     key
-        Node attribute to sort by.
+        Attribute of `tdata.obst[tree].nodes` to sort by.
     reverse
         If True, sort in descending order.
     tree

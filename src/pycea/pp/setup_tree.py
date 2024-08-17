@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 import networkx as nx
+import pandas as pd
 import treedata as td
 
 from pycea.utils import get_keyed_leaf_data, get_keyed_node_data, get_root, get_trees
@@ -17,7 +18,7 @@ def _add_depth(tree, depth_key):
 
 def add_depth(
     tdata: td.TreeData, key_added: str = "depth", tree: str | Sequence[str] | None = None, copy: bool = False
-):
+) -> None | pd.DataFrame:
     """Adds a depth attribute to the tree.
 
     Parameters
@@ -29,17 +30,18 @@ def add_depth(
     tree
         The `obst` key or keys of the trees to use. If `None`, all trees are used.
     copy
-        If True, returns a :class:`pandas.DataFrame` with node depths.
+        If True, returns a :class:`DataFrame <pandas.DataFrame>` with node depths.
 
     Returns
     -------
-    Returns `None` if `copy=False`, else returns a :class:`pandas.DataFrame`. Sets the following fields:
+    Returns `None` if `copy=False`, else returns node depths.
 
-    `tdata.obs[key_added]` : :class:`pandas.Series` (dtype `float`)
-        Distance from the root node.
-    `tdata.obst[tree].nodes[key_added]` : `float`
-        Distance from the root node.
+    Sets the following fields:
 
+    * `tdata.obs[key_added]` : :class:`Series <pandas.Series>` (dtype `float`)
+        - Distance from the root node.
+    * `tdata.obst[tree].nodes[key_added]` : `float`
+        - Distance from the root node.
     """
     tree_keys = tree
     trees = get_trees(tdata, tree_keys)
