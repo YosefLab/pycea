@@ -25,6 +25,7 @@
     tl.clades
     tl.compare_distance
     tl.distance
+    tl.neighbor_distance
     tl.sort
     tl.tree_distance
     tl.tree_neighbors

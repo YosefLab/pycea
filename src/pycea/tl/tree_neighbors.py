@@ -90,7 +90,7 @@ def tree_neighbors(
     tree: str | Sequence[str] | None = None,
     copy: bool = False,
 ) -> None | tuple[sp.sparse.csr_matrix, sp.sparse.csr_matrix]:
-    """Identify neighbors in the tree.
+    """Identifies neighbors in the tree.
 
     Parameters
     ----------
