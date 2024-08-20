@@ -15,7 +15,6 @@ from pycea.utils import check_tree_has_key, get_leaves, get_root, get_trees
 from ._metrics import _get_tree_metric, _TreeMetric
 from ._utils import (
     _check_previous_params,
-    _check_tree_overlap,
     _csr_data_mask,
     _format_keys,
     _set_distances_and_connectivities,
@@ -168,7 +167,6 @@ def tree_distance(
     trees = get_trees(tdata, tree_keys)
     metric_fn = _get_tree_metric(metric)
     single_obs = False
-    _check_tree_overlap(tdata, tree_keys)
     if update:
         _check_previous_params(tdata, {"metric": metric}, key_added, ["neighbors", "distances"])
     # Get set of pairs for each tree

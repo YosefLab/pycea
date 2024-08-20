@@ -14,7 +14,6 @@ from ._metrics import _get_tree_metric, _TreeMetric
 from ._utils import (
     _assert_param_xor,
     _check_previous_params,
-    _check_tree_overlap,
     _csr_data_mask,
     _set_distances_and_connectivities,
     _set_random_state,
@@ -50,7 +49,7 @@ def _bfs_by_distance(tree, start_node, n_neighbors, max_dist, metric, depth_key)
                         if len(neighbors) >= n_neighbors:
                             break
                     heapq.heappush(queue, (child_distance, child))
-                    visited.add(child)
+                visited.add(child)
         # Add parents to queue
         for parent in nx.ancestors(tree, node):
             if parent not in visited:
@@ -60,7 +59,7 @@ def _bfs_by_distance(tree, start_node, n_neighbors, max_dist, metric, depth_key)
                     parent_distance = tree.nodes[parent][depth_key]
                 if parent_distance <= max_dist:
                     heapq.heappush(queue, (parent_distance, parent))
-                    visited.add(parent)
+                visited.add(parent)
     return neighbors, neighbor_distances
 
 
@@ -143,7 +142,6 @@ def tree_neighbors(
     _assert_param_xor({"n_neighbors": n_neighbors, "max_dist": max_dist})
     _ = _get_tree_metric(metric)
     tree_keys = tree
-    _check_tree_overlap(tdata, tree_keys)
     if update:
         _check_previous_params(tdata, {"metric": metric}, key_added, ["neighbors", "distances"])
     # Neighbors of a single leaf
