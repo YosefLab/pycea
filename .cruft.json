@@ -1,0 +1,29 @@
+{
+  "template": "https://github.com/scverse/cookiecutter-scverse",
+  "commit": "46d65f5fc94481576d7c5ec587c35208c57ae921",
+  "checkout": null,
+  "context": {
+    "cookiecutter": {
+      "project_name": "pycea",
+      "package_name": "pycea",
+      "project_description": "Scverse lineage tracing toolkit",
+      "author_full_name": "William Colgan",
+      "author_email": "wcolgan@mit.edu",
+      "github_user": "colganwi",
+      "project_repo": "https://github.com/YosefLab/pycea",
+      "license": "BSD 3-Clause License",
+      "_copy_without_render": [
+        ".github/workflows/build.yaml",
+        ".github/workflows/test.yaml",
+        "docs/_templates/autosummary/**.rst"
+      ],
+      "_render_devdocs": false,
+      "_jinja2_env_vars": {
+        "lstrip_blocks": true,
+        "trim_blocks": true
+      },
+      "_template": "https://github.com/scverse/cookiecutter-scverse"
+    }
+  },
+  "directory": null
+}
