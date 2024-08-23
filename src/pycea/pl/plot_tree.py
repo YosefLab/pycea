@@ -562,7 +562,7 @@ def tree(
         ax=ax,
     )
     # Plot nodes
-    if nodes:
+    if nodes or node_color != "black" or node_style != "o" or node_size != 10:
         ax = _nodes(
             tdata,
             nodes=nodes,
