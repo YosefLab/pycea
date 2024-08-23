@@ -79,9 +79,9 @@ def branches(
     """  # noqa: D205
     # Setup
     tree_keys = tree
-    if not ax:
-        ax = plt.gca()
-    if (ax.name == "polar" and not polar) or (ax.name != "polar" and polar):
+    if ax is None:
+        fig, ax = plt.subplots(subplot_kw={"projection": "polar"} if polar else None)
+    elif (ax.name == "polar" and not polar) or (ax.name != "polar" and polar):
         warnings.warn("Polar setting of axes does not match requested type. Creating new axes.", stacklevel=2)
         fig, ax = plt.subplots(subplot_kw={"projection": "polar"} if polar else None)
     kwargs = kwargs if kwargs else {}
@@ -492,7 +492,7 @@ def tree(
     tdata: td.TreeData,
     keys: str | Sequence[str] = None,
     tree: str | Sequence[str] | None = None,
-    nodes: str | Sequence[str] = None,
+    nodes: str | Sequence[str] | None = None,
     polar: bool = False,
     extend_branches: bool = False,
     angled_branches: bool = False,
@@ -520,7 +520,7 @@ def tree(
     tree
         The `obst` key or keys of the trees to plot. If `None`, all trees are plotted.
     nodes
-        Either "all", "leaves", "internal", or a list of nodes to plot.
+        Either "all", "leaves", "internal", or a list of nodes to plot. Defaults to "internal" if node color, style, or size is set.
     polar
         Whether to plot the tree in polar coordinates.
     extend_branches
@@ -562,7 +562,9 @@ def tree(
         ax=ax,
     )
     # Plot nodes
-    if nodes or node_color != "black" or node_style != "o" or node_size != 10:
+    if nodes is None and (node_color != "black" or node_style != "o" or node_size != 10):
+        nodes = "internal"
+    if nodes:
         ax = _nodes(
             tdata,
             nodes=nodes,
