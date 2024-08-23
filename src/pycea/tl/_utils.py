@@ -62,14 +62,6 @@ def _format_as_list(obj):
     return obj
 
 
-def _check_tree_overlap(tdata, tree_keys):
-    """If overlap is allowed there can only be one tree"""
-    n_trees = len(tdata.obst.keys())
-    if (n_trees > 1) and tdata.allow_overlap and len(tree_keys) != 1:
-        raise ValueError("Must specify a singe tree if tdata.allow_overlap is True.")
-    return
-
-
 def _set_distances_and_connectivities(tdata, key_added, dist, connect, update):
     """Set distances and connectivities in tdata"""
     dist_key = f"{key_added}_distances"

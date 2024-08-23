@@ -37,7 +37,7 @@ def check_tree_has_key(tree: nx.DiGraph, key: str):
     sampled_nodes = random.sample(list(tree.nodes), min(10, len(tree.nodes)))
     for node in sampled_nodes:
         if key not in tree.nodes[node]:
-            message = f"Tree does not have {key} attribute."
+            message = f"Tree nodes to not have {key} attribute."
             if key == "depth":
                 message += " You can run `pycea.pp.add_depth` to add depth attribute."
             raise ValueError(message)
