@@ -13,7 +13,7 @@ import networkx as nx
 import numpy as np
 from scanpy.plotting import palettes
 
-from pycea.utils import get_leaves, get_root
+from pycea.utils import check_tree_has_key, get_leaves, get_root
 
 
 def layout_nodes_and_branches(
@@ -117,13 +117,12 @@ def layout_trees(
     leaves = []
     depths = []
     for _, tree in trees.items():
+        check_tree_has_key(tree, depth_key)
         tree_leaves = get_leaves(tree)
         leaves.extend(tree_leaves)
         depths.extend(tree.nodes[leaf].get(depth_key) for leaf in tree_leaves)
         if len(depths) != len(leaves):
-            raise ValueError(
-                f"Tree does not have {depth_key} attribute. You can run `pycea.pp.add_depth` to add depth attribute."
-            )
+            raise ValueError(f"Every node in the tree must have a {depth_key} attribute. ")
     max_depth = max(depths)
     n_leaves = len(leaves)
     leaf_coords = {}
