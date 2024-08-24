@@ -265,7 +265,7 @@ def _series_to_rgb_array(series, colors, vmin=None, vmax=None, na_color="#808080
         color_series = series.map(colors).astype("object")
         color_series[series.isna()] = na_color
         rgb_array = np.array([mcolors.to_rgb(color) for color in color_series])
-    elif isinstance(colors, mcolors.ListedColormap):
+    elif isinstance(colors, mcolors.ListedColormap | mcolors.LinearSegmentedColormap):
         # Normalize and map values if cmap is a ListedColormap
         if vmin is not None and vmax is not None:
             norm = mcolors.Normalize(vmin, vmax)

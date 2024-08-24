@@ -25,7 +25,7 @@ def test_angled_numeric_annotations(tdata):
     )
     pycea.pl.nodes(tdata, nodes="all", color="time", style="s", size=20)
     pycea.pl.nodes(tdata, nodes=["2"], tree="1", color="black", style="*", size=200)
-    pycea.pl.annotation(tdata, keys=["x", "y"], cmap="magma", width=0.1, gap=0.05, border_width=2)
+    pycea.pl.annotation(tdata, keys=["x", "y"], cmap="jet", width=0.1, gap=0.05, border_width=2)
     pycea.pl.annotation(tdata, keys=["0", "1", "2", "3", "4", "5"], label="genes", border_width=2)
     plt.savefig(plot_path / "angled_numeric.png")
     plt.close()
