@@ -109,6 +109,8 @@ def distance(
     connect_key = _format_keys(connect_key, "connectivities")
     single_obs = False
     X = get_keyed_obsm_data(tdata, key)
+    if isinstance(X, pd.DataFrame):
+        X = X.values
     if update:
         _check_previous_params(
             tdata, {"metric": metric, "metric_kwds": metric_kwds}, key_added, ["neighbors", "distances"]

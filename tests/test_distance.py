@@ -11,7 +11,10 @@ from pycea.tl.distance import compare_distance, distance
 def tdata():
     tdata = td.TreeData(
         obs=pd.DataFrame({"group": ["1", "1", "2"]}, index=["A", "B", "C"]),
-        obsm={"spatial": np.array([[0, 0], [1, 1], [2, 2]]), "characters": np.array([[0, 0], [1, 1], [0, 1]])},
+        obsm={
+            "spatial": np.array([[0, 0], [1, 1], [2, 2]]),
+            "characters": pd.DataFrame(np.array([[0, 0], [1, 1], [0, 1]]), index=["A", "B", "C"], columns=["c1", "c2"]),
+        },
         obsp={"connectivities": sp.sparse.csr_matrix(([1, 1], ([0, 0], [1, 2])), shape=(3, 3))},
     )
     yield tdata
@@ -63,6 +66,10 @@ def test_sampled_distance(tdata):
     assert tdata.obsp["spatial_distances"].data.tolist() == [2, 0]
     assert tdata.obsp["spatial_connectivities"].shape == (3, 3)
     assert len(tdata.obsp["spatial_connectivities"].data) == 2
+    distance(tdata, "characters", sample_n=2, metric="cityblock", random_state=3)
+    assert tdata.obsp["characters_distances"].shape == (3, 3)
+    assert len(tdata.obsp["characters_distances"].data) == 2
+    assert tdata.obsp["characters_distances"].data.tolist() == [1, 1]
 
 
 def test_connected_distance(tdata):
