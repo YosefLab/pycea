@@ -31,8 +31,9 @@ def tree():
 def tdata(tree):
     tdata = td.TreeData(
         obs=pd.DataFrame({"value": ["1", "2"]}, index=["D", "E"]),
-        obst={"tree": tree},
+        obst={"tree": tree, "tree2": tree},
         obsm={"spatial": pd.DataFrame([[0, 0], [1, 1]], index=["D", "E"])},
+        allow_overlap=True,
     )
     yield tdata
 
@@ -64,22 +65,27 @@ def test_get_subtree_leaves(tree):
 
 
 def test_get_keyed_edge_data(tdata):
-    data = get_keyed_edge_data(tdata, ["weight", "color"])
+    data = get_keyed_edge_data(tdata, ["weight", "color"], tree="tree")
     assert data.columns.tolist() == ["weight", "color"]
     assert data.index.names == ["tree", "edge"]
     assert data["weight"].to_list() == [5, 3, 4]
+    data = get_keyed_edge_data(tdata, ["weight", "color"])
+    assert data.shape[0] == 6
+    assert data.index.get_level_values("tree").unique().tolist() == ["tree", "tree2"]
 
 
 def test_get_keyed_node_data(tdata):
-    data = get_keyed_node_data(tdata, ["value", "color"])
+    data = get_keyed_node_data(tdata, ["value", "color"], tree="tree")
     assert data.columns.tolist() == ["value", "color"]
     assert data.index.names == ["tree", "node"]
     assert data["value"].to_list() == [1, 2, 2, 4, 4]
+    data = get_keyed_node_data(tdata, ["value", "color"])
+    assert data.shape[0] == 10
+    assert data.index.get_level_values("tree").unique().tolist() == ["tree", "tree2"]
 
 
 def test_get_keyed_leaf_data(tdata):
-    data = get_keyed_leaf_data(tdata, ["value", "color"])
-    print(data)
+    data = get_keyed_leaf_data(tdata, ["value", "color"], tree="tree")
     assert data.columns.tolist() == ["value", "color"]
     assert data["value"].tolist() == [4, 4]
     assert data["color"].tolist() == ["blue", "blue"]

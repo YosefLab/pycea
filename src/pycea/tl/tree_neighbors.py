@@ -14,6 +14,7 @@ from ._metrics import _get_tree_metric, _TreeMetric
 from ._utils import (
     _assert_param_xor,
     _check_previous_params,
+    _check_tree_overlap,
     _csr_data_mask,
     _set_distances_and_connectivities,
     _set_random_state,
@@ -142,6 +143,7 @@ def tree_neighbors(
     _assert_param_xor({"n_neighbors": n_neighbors, "max_dist": max_dist})
     _ = _get_tree_metric(metric)
     tree_keys = tree
+    _check_tree_overlap(tdata, tree_keys)
     if update:
         _check_previous_params(tdata, {"metric": metric}, key_added, ["neighbors", "distances"])
     # Neighbors of a single leaf

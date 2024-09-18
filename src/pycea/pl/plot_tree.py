@@ -18,6 +18,7 @@ from pycea.utils import get_keyed_edge_data, get_keyed_node_data, get_keyed_obs_
 
 from ._docs import _doc_params, doc_common_plot_args
 from ._utils import (
+    _check_tree_overlap,
     _get_categorical_colors,
     _get_categorical_markers,
     _series_to_rgb_array,
@@ -34,7 +35,7 @@ def branches(
     extend_branches: bool = False,
     angled_branches: bool = False,
     color: str = "black",
-    linewidth: int | float | str = .5,
+    linewidth: int | float | str = 0.5,
     depth_key: str = "depth",
     tree: str | Sequence[str] | None = None,
     cmap: str | mcolors.Colormap = "viridis",
@@ -79,6 +80,7 @@ def branches(
     """  # noqa: D205
     # Setup
     tree_keys = tree
+    _check_tree_overlap(tdata, tree_keys)
     if ax is None:
         fig, ax = plt.subplots(subplot_kw={"projection": "polar"} if polar else None)
     elif (ax.name == "polar" and not polar) or (ax.name != "polar" and polar):
@@ -498,7 +500,7 @@ def tree(
     angled_branches: bool = False,
     depth_key: str = "depth",
     branch_color: str = "black",
-    branch_linewidth: int | float | str = .5,
+    branch_linewidth: int | float | str = 0.5,
     node_color: str = "black",
     node_style: str = "o",
     node_size: int | float = 10,

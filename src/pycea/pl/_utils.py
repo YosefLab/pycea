@@ -277,3 +277,18 @@ def _series_to_rgb_array(series, colors, vmin=None, vmax=None, na_color="#808080
     else:
         raise ValueError("cmap must be either a dictionary or a ListedColormap.")
     return rgb_array
+
+
+def _check_tree_overlap(tdata, tree_keys):
+    """Check single tree is requested when allow_overlap is True"""
+    if tree_keys is None:
+        tree_keys = tdata.obst.keys()
+        if tdata.allow_overlap and len(tree_keys) > 1:
+            raise ValueError("Must specify a tree when tdata.allow_overlap is True.")
+    elif isinstance(tree_keys, str):
+        pass
+    elif isinstance(tree_keys, Sequence):
+        if tdata.allow_overlap:
+            raise ValueError("Cannot request multiple trees when tdata.allow_overlap is True.")
+    else:
+        raise ValueError("Tree keys must be a string, list of strings, or None.")

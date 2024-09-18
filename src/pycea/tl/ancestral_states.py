@@ -9,6 +9,8 @@ import treedata as td
 
 from pycea.utils import get_keyed_node_data, get_keyed_obs_data, get_root, get_trees
 
+from ._utils import _check_tree_overlap
+
 
 def _most_common(arr):
     """Finds the most common element in a list."""
@@ -256,6 +258,7 @@ def ancestral_states(
     if len(keys) != len(keys_added):
         raise ValueError("Length of keys must match length of keys_added.")
     tree_keys = tree
+    _check_tree_overlap(tdata, tree_keys)
     trees = get_trees(tdata, tree_keys)
     for _, tree in trees.items():
         data, is_array = get_keyed_obs_data(tdata, keys)

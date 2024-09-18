@@ -44,9 +44,10 @@ def check_tree_has_key(tree: nx.DiGraph, key: str):
 
 
 def get_keyed_edge_data(
-    tdata: td.TreeData, keys: str | Sequence[str], tree_keys: str | Sequence[str] = None
+    tdata: td.TreeData, keys: str | Sequence[str], tree: str | Sequence[str] = None
 ) -> pd.DataFrame:
     """Gets edge data for a given key from a tree or set of trees."""
+    tree_keys = tree
     if isinstance(tree_keys, str):
         tree_keys = [tree_keys]
     if isinstance(keys, str):
@@ -65,9 +66,10 @@ def get_keyed_edge_data(
 
 
 def get_keyed_node_data(
-    tdata: td.TreeData, keys: str | Sequence[str], tree_keys: str | Sequence[str] = None
+    tdata: td.TreeData, keys: str | Sequence[str], tree: str | Sequence[str] = None
 ) -> pd.DataFrame:
     """Gets node data for a given key from a tree or set of trees."""
+    tree_keys = tree
     if isinstance(tree_keys, str):
         tree_keys = [tree_keys]
     if isinstance(keys, str):
@@ -86,9 +88,10 @@ def get_keyed_node_data(
 
 
 def get_keyed_leaf_data(
-    tdata: td.TreeData, keys: str | Sequence[str], tree_keys: str | Sequence[str] = None
+    tdata: td.TreeData, keys: str | Sequence[str], tree: str | Sequence[str] = None
 ) -> pd.DataFrame:
     """Gets node data for a given key from a tree or set of trees."""
+    tree_keys = tree
     if isinstance(tree_keys, str):
         tree_keys = [tree_keys]
     if isinstance(keys, str):
@@ -156,16 +159,15 @@ def get_keyed_obsm_data(tdata: td.TreeData, key: str) -> sp.sparse.csr_matrix:
     return X
 
 
-def get_trees(tdata: td.TreeData, tree_keys: str | Sequence[str] | None) -> Mapping[str, nx.DiGraph]:
+def get_trees(tdata: td.TreeData, tree: str | Sequence[str] | None) -> Mapping[str, nx.DiGraph]:
     """Gets tree data for a given key from a tree."""
     trees = {}
+    tree_keys = tree
     if tree_keys is None:
         tree_keys = tdata.obst.keys()
     elif isinstance(tree_keys, str):
         tree_keys = [tree_keys]
     elif isinstance(tree_keys, Sequence):
-        if tdata.allow_overlap:
-            raise ValueError("Cannot request multiple trees when tdata.allow_overlap is True.")
         tree_keys = list(tree_keys)
     else:
         raise ValueError("Tree keys must be a string, list of strings, or None.")
