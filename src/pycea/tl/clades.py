@@ -8,6 +8,8 @@ import treedata as td
 
 from pycea.utils import check_tree_has_key, get_keyed_leaf_data, get_root, get_trees
 
+from ._utils import _check_tree_overlap
+
 
 def _nodes_at_depth(tree, parent, nodes, depth, depth_key):
     """Recursively finds nodes at a given depth."""
@@ -100,6 +102,7 @@ def clades(
     """
     # Setup
     tree_keys = tree
+    _check_tree_overlap(tdata, tree_keys)
     trees = get_trees(tdata, tree_keys)
     if clades and len(trees) > 1:
         raise ValueError("Multiple trees are present. Must specify a single tree if clades are given.")

@@ -15,6 +15,7 @@ from pycea.utils import check_tree_has_key, get_leaves, get_root, get_trees
 from ._metrics import _get_tree_metric, _TreeMetric
 from ._utils import (
     _check_previous_params,
+    _check_tree_overlap,
     _csr_data_mask,
     _format_keys,
     _set_distances_and_connectivities,
@@ -164,6 +165,7 @@ def tree_distance(
     key_added = key_added or "tree"
     connect_key = _format_keys(connect_key, "connectivities")
     tree_keys = tree
+    _check_tree_overlap(tdata, tree_keys)
     trees = get_trees(tdata, tree_keys)
     metric_fn = _get_tree_metric(metric)
     single_obs = False
