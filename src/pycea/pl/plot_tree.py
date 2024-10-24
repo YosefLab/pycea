@@ -40,6 +40,8 @@ def branches(
     tree: str | Sequence[str] | None = None,
     cmap: str | mcolors.Colormap = "viridis",
     palette: cycler.Cycler | mcolors.ListedColormap | Sequence[str] | Mapping[str] | None = None,
+    vmax: int | float | None = None,
+    vmin: int | float | None = None,
     na_color: str = "lightgrey",
     na_linewidth: int | float = 1,
     ax: Axes | None = None,
@@ -107,7 +109,11 @@ def branches(
         if len(color_data) == 0:
             raise ValueError(f"Key {color!r} is not present in any edge.")
         if color_data.dtype.kind in ["i", "f"]:
-            norm = plt.Normalize(vmin=color_data.min(), vmax=color_data.max())
+            if not vmin:
+                vmin = color_data.min()
+            if not vmax:
+                vmax = color_data.max()
+            norm = plt.Normalize(vmin=vmin, vmax=vmax)
             cmap = plt.get_cmap(cmap)
             colors = [cmap(norm(color_data[edge])) if edge in color_data.index else na_color for edge in edges]
             kwargs.update({"color": colors})

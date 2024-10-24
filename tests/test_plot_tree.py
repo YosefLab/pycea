@@ -21,7 +21,7 @@ def test_polar_with_clades(tdata):
 
 def test_angled_numeric_annotations(tdata):
     pycea.pl.branches(
-        tdata, polar=False, color="length", cmap="hsv", linewidth="length", depth_key="time", angled_branches=True
+        tdata, polar=False, color="length", cmap="hsv", linewidth="length", depth_key="time", angled_branches=True, vmax = 2,
     )
     pycea.pl.nodes(tdata, nodes="all", color="time", style="s", size=20)
     pycea.pl.nodes(tdata, nodes=["2"], tree="1", color="black", style="*", size=200)
