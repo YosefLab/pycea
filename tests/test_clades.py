@@ -77,6 +77,18 @@ def test_clades_multiple_trees():
     assert pd.isna(tdata.obs.loc["B", "test"])
 
 
+def test_clades_dtype(tdata):
+    clades(tdata, depth=0, dtype=int)
+    assert tdata.obs["clade"].dtype == int
+    assert tdata.obst["tree"].nodes["A"]["clade"] == 0
+    clades(tdata, depth=0, dtype="int")
+    assert tdata.obs["clade"].dtype == int
+    assert tdata.obst["tree"].nodes["A"]["clade"] == 0
+    clades(tdata, depth=1, dtype=float)
+    assert tdata.obs["clade"].dtype == float
+    assert tdata.obst["tree"].nodes["C"]["clade"] == 1.0
+
+
 def test_clades_invalid(tdata):
     with pytest.raises(ValueError):
         clades(td.TreeData(), clades={"A": 0}, depth=0)

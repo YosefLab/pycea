@@ -21,11 +21,15 @@ def _nodes_at_depth(tree, parent, nodes, depth, depth_key):
     return nodes
 
 
-def _clade_name_generator():
+def _clade_name_generator(dtype=int):
     """Generates clade names."""
+    valid_dtypes = {"str": str, "int": int, "float": float, str: str, int: int, float: float}
+    if dtype not in valid_dtypes:
+        raise ValueError("dtype must be one of str, int, or float")
+    converter = valid_dtypes[dtype]
     i = 0
     while True:
-        yield str(i)
+        yield converter(i)
         i += 1
 
 
@@ -65,6 +69,7 @@ def clades(
     clades: str | Sequence[str] = None,
     key_added: str = "clade",
     update: bool = False,
+    dtype: type | str = str,
     tree: str | Sequence[str] | None = None,
     copy: bool = False,
 ) -> None | Mapping:
@@ -84,6 +89,8 @@ def clades(
         Key to store clades in.
     update
         If True, updates existing clades instead of overwriting.
+    dtype
+        Data type of clade names. One of `str`, `int`, or `float`.
     tree
         The `obst` key or keys of the trees to use. If `None`, all trees are used.
     copy
@@ -107,7 +114,7 @@ def clades(
     if clades and len(trees) > 1:
         raise ValueError("Multiple trees are present. Must specify a single tree if clades are given.")
     # Identify clades
-    name_generator = _clade_name_generator()
+    name_generator = _clade_name_generator(dtype=dtype)
     lcas = []
     for key, tree in trees.items():
         tree_lcas = _clades(tree, depth, depth_key, clades, key_added, name_generator, update)
