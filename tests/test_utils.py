@@ -1,6 +1,8 @@
 import networkx as nx
+import numpy as np
 import pandas as pd
 import pytest
+import scipy as sp
 import treedata as td
 
 from pycea.utils import (
@@ -30,11 +32,14 @@ def tree():
 @pytest.fixture
 def tdata(tree):
     tdata = td.TreeData(
+        X=np.array([[1, 2], [3, 4]]),
         obs=pd.DataFrame({"value": ["1", "2"]}, index=["D", "E"]),
         obst={"tree": tree, "tree2": tree},
         obsm={"spatial": pd.DataFrame([[0, 0], [1, 1]], index=["D", "E"])},
+        obsp={"dense":np.eye(2), "sparse":sp.sparse.csr_matrix(np.eye(2))},
         allow_overlap=True,
     )
+    tdata.layers["scaled"] = tdata.X
     yield tdata
 
 
@@ -98,12 +103,27 @@ def test_get_keyed_obs_data_valid_keys(tdata):
     # Automatically converts object columns to category
     assert data["value"].dtype == "category"
     assert tdata.obs["value"].dtype == "category"
+    # Gets gene expression data
+    data, is_array = get_keyed_obs_data(tdata, "1", layer="scaled")
+    assert not is_array
+    assert data["1"].tolist() == [2, 4]
 
 
 def test_get_keyed_obs_data_array(tdata):
+    # spatial obsm array
     data, is_array = get_keyed_obs_data(tdata, ["spatial"])
     assert data.columns.tolist() == [0, 1]
     assert data[0].tolist() == [0, 1]
+    assert is_array
+    assert isinstance(data, pd.DataFrame)
+    assert data.shape[1] == 2
+    # dense obsp array
+    data, is_array = get_keyed_obs_data(tdata, ["dense"])
+    assert is_array
+    assert isinstance(data, pd.DataFrame)
+    assert data.shape[1] == 2
+    # sparse obsp array
+    data, is_array = get_keyed_obs_data(tdata, ["sparse"])
     assert is_array
     assert isinstance(data, pd.DataFrame)
     assert data.shape[1] == 2

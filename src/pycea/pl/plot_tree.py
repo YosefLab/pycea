@@ -360,6 +360,7 @@ def annotation(
     width: int | float = 0.05,
     gap: int | float = 0.03,
     label: bool | str | Sequence[str] = True,
+    layer: str | None = None,
     border_width: int | float = 0,
     tree: str | Sequence[str] | None = None,
     cmap: str | mcolors.Colormap = None,
@@ -386,6 +387,8 @@ def annotation(
     label
         Annotation labels. If `True`, the keys are used as labels.
         If a string or a sequence of strings, the strings are used as labels.
+    layer
+        Name of the TreeData object layer to use. If `None`, `tdata.X` is plotted.
     border_width
         The width of the border around the annotation bar.
     tree
@@ -416,7 +419,7 @@ def annotation(
     cmap = plt.get_cmap(cmap)
     leaves = attrs["leaves"]
     # Get data
-    data, is_array = get_keyed_obs_data(tdata, keys)
+    data, is_array = get_keyed_obs_data(tdata, keys, layer=layer)
     numeric_data = data.select_dtypes(exclude="category")
     if len(numeric_data) > 0 and not vmin:
         vmin = numeric_data.min().min()
