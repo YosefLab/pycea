@@ -2,10 +2,16 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 import pytest
+import treedata as td
 
 import pycea
 
 plot_path = Path(__file__).parent / "plots"
+
+
+@pytest.fixture
+def tdata() -> td.TreeData:
+    return td.read_h5ad("tests/data/tdata.h5ad")
 
 
 def test_polar_with_clades(tdata):
@@ -32,7 +38,7 @@ def test_angled_numeric_annotations(tdata):
 
 
 def test_matrix_annotation(tdata):
-    fig, ax = plt.subplots(dpi=300)
+    fig, ax = plt.subplots(dpi=300, figsize=(7, 3))
     pycea.pl.tree(
         tdata,
         nodes="internal",
@@ -42,6 +48,8 @@ def test_matrix_annotation(tdata):
         keys=["spatial_distances"],
         ax=ax,
     )
+    pycea.tl.tree_neighbors(tdata, max_dist=5, depth_key="time",update=False)
+    pycea.pl.annotation(tdata, keys="tree_connectivities", ax=ax,cmap = "Purples")
     plt.savefig(plot_path / "matrix_annotation.png")
     plt.close()
 

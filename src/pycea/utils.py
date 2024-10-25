@@ -124,10 +124,16 @@ def get_keyed_obs_data(tdata: td.TreeData, keys: str | Sequence[str], layer: str
             data.append(pd.Series(tdata.obs_vector(key, layer=layer), index=tdata.obs_names))
             column_keys = True
         elif "obsm" in dir(tdata) and key in tdata.obsm.keys():
-            data.append(pd.DataFrame(tdata.obsm[key], index=tdata.obs_names))
+            if sp.sparse.issparse(tdata.obsm[key]):
+                data.append(pd.DataFrame(tdata.obsm[key].toarray(), index=tdata.obs_names))
+            else:
+                data.append(pd.DataFrame(tdata.obsm[key], index=tdata.obs_names))
             array_keys = True
         elif "obsp" in dir(tdata) and key in tdata.obsp.keys():
-            data.append(pd.DataFrame(tdata.obsp[key], index=tdata.obs_names, columns=tdata.obs_names))
+            if sp.sparse.issparse(tdata.obsp[key]):
+                data.append(pd.DataFrame(tdata.obsp[key].toarray(), index=tdata.obs_names, columns=tdata.obs_names))
+            else:
+                data.append(pd.DataFrame(tdata.obsp[key], index=tdata.obs_names, columns=tdata.obs_names))
             array_keys = True
         else:
             raise ValueError(
