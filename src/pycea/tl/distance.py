@@ -207,7 +207,7 @@ def _get_pairs_for_group(idx, shared, dense, sample_n):
             pairs = [(i, j) for i in idx for j in idx]
     else:
         row, col = shared[idx, :][:, idx].nonzero()
-        pairs = list(zip(row, col))
+        pairs = list(zip(idx[row], idx[col]))
         if sample_n is not None:
             if sample_n > len(pairs):
                 raise ValueError("Sample size is larger than the number of pairs.")
