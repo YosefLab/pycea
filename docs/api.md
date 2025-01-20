@@ -22,6 +22,7 @@
     :toctree: generated
 
     tl.ancestral_states
+    tl.autocorr
     tl.clades
     tl.compare_distance
     tl.distance
