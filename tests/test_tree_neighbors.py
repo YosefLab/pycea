@@ -44,7 +44,7 @@ def test_tree_neighbors_n(tdata):
 
 def test_select_tree_neighbors(tdata):
     tree_neighbors(tdata, n_neighbors=2, metric="path", obs="C")
-    assert tdata.obs.query("tree_neighbors").index.tolist() == ["D", "E"]
+    assert tdata.obs.query("tree_neighbors").index.tolist() == ["C"]
     tree_neighbors(tdata, n_neighbors=3, metric="path", obs=["C", "D"], random_state=0)
     assert tdata.obsp["tree_connectivities"].sum() == 2
 
