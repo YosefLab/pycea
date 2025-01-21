@@ -71,8 +71,8 @@ def _tree_neighbors(tree, n_neighbors, max_dist, depth_key, metric, leaves=None)
         leaves = [node for node in tree.nodes() if tree.out_degree(node) == 0]
     for leaf in leaves:
         neighbors, neighbor_distances = _bfs_by_distance(tree, leaf, n_neighbors, max_dist, metric, depth_key)
-        rows.extend(neighbors)
-        cols.extend([leaf] * len(neighbors))
+        rows.extend([leaf] * len(neighbors))
+        cols.extend(neighbors)
         distances.extend(neighbor_distances)
     return rows, cols, distances
 
