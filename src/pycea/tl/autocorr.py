@@ -21,7 +21,7 @@ def _g_moments(w: sp.sparse.spmatrix | np.ndarray) -> tuple[float, float, float]
     s0 = w.sum()
     # s1
     t = w.transpose() + w
-    t2 = t.multiply(t) if isinstance(t,sp.sparse.spmatrix) else t * t
+    t2 = t.multiply(t) if isinstance(t, sp.sparse.spmatrix) else t * t
     s1 = t2.sum() / 2.0
     # s2
     s2 = (np.array(w.sum(1) + w.sum(0).transpose()) ** 2).sum()
@@ -109,13 +109,14 @@ def autocorr(
         if isinstance(keys, str):
             keys = [keys]
         data, _ = get_keyed_obs_data(tdata, keys, layer=layer)
+        keys = data.columns
     method_names = {"moran": "moranI", "geary": "gearyC"}
     # Calculate autocorrelation
     if method == "moran":
-        corr = sc.metrics.morans_i(tdata.obsp[connect_key],data.T)
+        corr = sc.metrics.morans_i(tdata.obsp[connect_key], data.T)
         tdata.uns["moranI"] = corr
     elif method == "geary":
-        corr = sc.metrics.gearys_c(tdata.obsp[connect_key],data.T)
+        corr = sc.metrics.gearys_c(tdata.obsp[connect_key], data.T)
         tdata.uns["gearyC"] = corr
     else:
         raise ValueError(f"Method {method} not recognized. Must be 'moran' or 'geary'.")
