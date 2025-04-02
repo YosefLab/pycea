@@ -37,7 +37,7 @@ def check_tree_has_key(tree: nx.DiGraph, key: str):
     sampled_nodes = random.sample(list(tree.nodes), min(10, len(tree.nodes)))
     for node in sampled_nodes:
         if key not in tree.nodes[node]:
-            message = f"Tree nodes to not have {key} attribute."
+            message = f"One or more nodes do not have {key} attribute."
             if key == "depth":
                 message += " You can run `pycea.pp.add_depth` to add depth attribute."
             raise ValueError(message)
@@ -181,6 +181,6 @@ def get_trees(tdata: td.TreeData, tree: str | Sequence[str] | None) -> Mapping[s
         if key not in tdata.obst.keys():
             raise ValueError(f"Key {key!r} is not present in obst.")
         tree = tdata.obst[key]
-        if tree.number_of_nodes() != 0:
+        if tree.number_of_nodes() != 0:  # type: ignore
             trees[key] = tdata.obst[key]
     return trees
