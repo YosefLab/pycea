@@ -22,7 +22,10 @@ def tdata():
 
 
 def test_tree_neighbors_max(tdata):
-    (dist, neighbors) = tree_neighbors(tdata, max_dist=3, metric="path", copy=True)
+    result = tree_neighbors(tdata, max_dist=3, metric="path", copy=True)
+    assert isinstance(result, tuple)
+    if isinstance(result, tuple):
+        dist, _ = result
     assert tdata.obsp["tree_connectivities"].sum() == 10
     assert np.sum(dist > 0) == 10
     assert "tree_neighbors" in tdata.uns.keys()
@@ -62,7 +65,7 @@ def test_update_tree_neighbors(tdata):
 
 def test_tree_neighbors_invalid(tdata):
     with pytest.raises(ValueError):
-        tree_neighbors(tdata, n_neighbors=3, metric="invalid")
+        tree_neighbors(tdata, n_neighbors=3, metric="invalid")  # type: ignore
     with pytest.raises(ValueError):
         tree_neighbors(tdata, n_neighbors=3, metric="path", obs="invalid")
     with pytest.raises(ValueError):
