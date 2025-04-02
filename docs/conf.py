@@ -93,12 +93,9 @@ source_suffix = {
 
 intersphinx_mapping = {
     "anndata": ("https://anndata.readthedocs.io/en/stable/", None),
-<<<<<<< HEAD
     "cycler": ("https://matplotlib.org/cycler/", None),
     "matplotlib": ("https://matplotlib.org/stable/", None),
-=======
     "scanpy": ("https://scanpy.readthedocs.io/en/stable/", None),
->>>>>>> cc2f509b9286fc8e253a54975941ca424675a7a6
     "numpy": ("https://numpy.org/doc/stable/", None),
     "networkx": ("https://networkx.org/documentation/stable/", None),
     "pandas": ("https://pandas.pydata.org/pandas-docs/stable/", None),
