@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import warnings
 from collections.abc import Mapping, Sequence
+from typing import Any, cast
 
 import cycler
 import matplotlib as mpl
@@ -10,7 +11,7 @@ import matplotlib.markers as mmarkers
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import treedata as td
+import treedata as td  # type: ignore
 from matplotlib.axes import Axes
 from matplotlib.collections import LineCollection
 
@@ -39,7 +40,7 @@ def branches(
     depth_key: str = "depth",
     tree: str | Sequence[str] | None = None,
     cmap: str | mcolors.Colormap = "viridis",
-    palette: cycler.Cycler | mcolors.ListedColormap | Sequence[str] | Mapping[str] | None = None,
+    palette: cycler.Cycler | mcolors.ListedColormap | Sequence[str] | Mapping[Any, str] | None = None,
     vmax: int | float | None = None,
     vmin: int | float | None = None,
     na_color: str = "lightgrey",
@@ -84,10 +85,11 @@ def branches(
     tree_keys = tree
     _check_tree_overlap(tdata, tree_keys)
     if ax is None:
-        fig, ax = plt.subplots(subplot_kw={"projection": "polar"} if polar else None)
+        fig, ax = plt.subplots(subplot_kw={"projection": "polar"} if polar else None)  # type: ignore
     elif (ax.name == "polar" and not polar) or (ax.name != "polar" and polar):
         warnings.warn("Polar setting of axes does not match requested type. Creating new axes.", stacklevel=2)
-        fig, ax = plt.subplots(subplot_kw={"projection": "polar"} if polar else None)
+        fig, ax = plt.subplots(subplot_kw={"projection": "polar"} if polar else None)  # type: ignore
+    ax = cast(Axes, ax)
     kwargs = kwargs if kwargs else {}
     trees = get_trees(tdata, tree_keys)
     # Get layout
@@ -113,9 +115,9 @@ def branches(
                 vmin = color_data.min()
             if not vmax:
                 vmax = color_data.max()
-            norm = plt.Normalize(vmin=vmin, vmax=vmax)
-            cmap = plt.get_cmap(cmap)
-            colors = [cmap(norm(color_data[edge])) if edge in color_data.index else na_color for edge in edges]
+            norm = mcolors.Normalize(vmin=vmin, vmax=vmax)
+            color_map = plt.get_cmap(cmap)  # type: ignore
+            colors = [color_map(norm(color_data[edge])) if edge in color_data.index else na_color for edge in edges]
             kwargs.update({"color": colors})
         else:
             if color in tdata.obs.columns:
@@ -126,13 +128,13 @@ def branches(
                             pd.Categorical(color_data, categories=tdata.obs[color].cat.categories),
                             index=color_data.index,
                         )
-            cmap = _get_categorical_colors(tdata, color, color_data, palette)
-            colors = [cmap[color_data[edge]] if edge in color_data.index else na_color for edge in edges]
+            color_map = _get_categorical_colors(tdata, str(color), color_data, palette)
+            colors = [color_map[color_data[edge]] if edge in color_data.index else na_color for edge in edges]
             kwargs.update({"color": colors})
     else:
         raise ValueError("Invalid color value. Must be a color name, or an str specifying an attribute of the edges.")
     # Get linewidths
-    if isinstance(linewidth, (int, float)):
+    if isinstance(linewidth, int | float):  # type: ignore
         kwargs.update({"linewidth": linewidth})
     elif isinstance(linewidth, str):
         linewidth_data = get_keyed_edge_data(tdata, linewidth, tree_keys)[linewidth]
@@ -146,13 +148,13 @@ def branches(
     else:
         raise ValueError("Invalid linewidth value. Must be int, float, or an str specifying an attribute of the edges.")
     # Plot
-    ax.add_collection(LineCollection(zorder=1, **kwargs))
+    ax.add_collection(LineCollection(zorder=1, **kwargs))  # type: ignore
     if polar:
-        ax.set_ylim((-depth * 0.05, depth * 1.05))
+        ax.set_ylim(-depth * 0.05, depth * 1.05)
         ax.spines["polar"].set_visible(False)
     else:
-        ax.set_ylim((-0.03 * np.pi, 2.03 * np.pi))
-        ax.set_xlim((-depth * 0.05, depth * 1.05))
+        ax.set_ylim(-0.03 * np.pi, 2.03 * np.pi)
+        ax.set_xlim(-depth * 0.05, depth * 1.05)
         ax.spines["top"].set_visible(False)
         ax.spines["right"].set_visible(False)
         ax.spines["left"].set_visible(False)
@@ -160,7 +162,7 @@ def branches(
     ax.tick_params(length=0)
     ax.set_xticks([])
     ax.set_yticks([])
-    ax._attrs = {
+    ax._attrs = {  # type: ignore
         "node_coords": node_coords,
         "leaves": leaves,
         "depth": depth,
@@ -184,10 +186,10 @@ def nodes(
     color: str = "black",
     style: str = "o",
     size: int | float | str = 10,
-    cmap: str | mcolors.Colormap = None,
+    cmap: str | mcolors.Colormap | None = None,
     tree: str | Sequence[str] | None = None,
-    palette: cycler.Cycler | mcolors.ListedColormap | Sequence[str] | Mapping[str] | None = None,
-    markers: Sequence[str] | Mapping[str] = None,
+    palette: cycler.Cycler | mcolors.ListedColormap | Sequence[str] | Mapping[Any, str] | None = None,
+    markers: Sequence[str] | Mapping[str, str] | None = None,
     vmax: int | float | None = None,
     vmin: int | float | None = None,
     na_color: str = "#FFFFFF00",
@@ -235,12 +237,13 @@ def nodes(
     kwargs = kwargs if kwargs else {}
     if not ax:
         ax = plt.gca()
-    attrs = ax._attrs if hasattr(ax, "_attrs") else None
+    ax = cast(Axes, ax)
+    attrs = ax._attrs if hasattr(ax, "_attrs") else None  # type: ignore
     if not attrs:
         raise ValueError("Branches most be plotted with pycea.pl.branches before annotations can be plotted.")
     if not cmap:
         cmap = mpl.rcParams["image.cmap"]
-    cmap = plt.get_cmap(cmap)
+    color_map = plt.get_cmap(cmap)  # type: ignore
     if tree is None:
         tree_keys = attrs["tree_keys"]
     else:
@@ -255,23 +258,23 @@ def nodes(
         if node[0] in tree_keys:
             all_nodes.append(node)
     if nodes == "all":
-        nodes = all_nodes
+        plot_nodes = all_nodes
     elif nodes == "leaves":
-        nodes = [node for node in all_nodes if node[1] in attrs["leaves"]]
+        plot_nodes = [node for node in all_nodes if node[1] in attrs["leaves"]]
     elif nodes == "internal":
-        nodes = [node for node in all_nodes if node[1] not in attrs["leaves"]]
+        plot_nodes = [node for node in all_nodes if node[1] not in attrs["leaves"]]
     elif isinstance(nodes, Sequence):
         if len(attrs["tree_keys"]) > 1 and len(tree_keys) > 1:
             raise ValueError("Multiple trees are present. To plot a list of nodes, you must specify the tree.")
-        nodes = [(tree_keys[0], node) for node in nodes]
-        if set(nodes).issubset(all_nodes):
-            nodes = list(nodes)
+        plot_nodes = [(tree_keys[0], node) for node in nodes]
+        if set(plot_nodes).issubset(all_nodes):
+            plot_nodes = list(plot_nodes)
         else:
             raise ValueError("Nodes must be a list of nodes in the tree.")
     else:
         raise ValueError("Invalid nodes value. Must be 'all', 'leaves', 'no_leaves', or a list of nodes.")
     # Get coordinates
-    coords = np.vstack([attrs["node_coords"][node] for node in nodes])
+    coords = np.vstack([attrs["node_coords"][node] for node in plot_nodes])
     if attrs["polar"]:
         kwargs.update({"x": coords[:, 1], "y": coords[:, 0]})
     else:
@@ -289,8 +292,10 @@ def nodes(
                 vmin = color_data.min()
             if not vmax:
                 vmax = color_data.max()
-            norm = plt.Normalize(vmin=vmin, vmax=vmax)
-            colors = [cmap(norm(color_data[node])) if node in color_data.index else na_color for node in nodes]
+            norm = mcolors.Normalize(vmin=vmin, vmax=vmax)
+            colors = [
+                color_map(norm(color_data[node])) if node in color_data.index else na_color for node in plot_nodes
+            ]
             kwargs.update({"color": colors})
         else:
             if color in tdata.obs.columns:
@@ -301,19 +306,19 @@ def nodes(
                             pd.Categorical(color_data, categories=tdata.obs[color].cat.categories),
                             index=color_data.index,
                         )
-            cmap = _get_categorical_colors(tdata, color, color_data, palette)
-            colors = [cmap[color_data[node]] if node in color_data.index else na_color for node in nodes]
+            color_map = _get_categorical_colors(tdata, color, color_data, palette)
+            colors = [color_map[color_data[node]] if node in color_data.index else na_color for node in plot_nodes]
             kwargs.update({"color": colors})
     else:
         raise ValueError("Invalid color value. Must be a color name, or an str specifying an attribute of the nodes.")
     # Get sizes
-    if isinstance(size, (int, float)):
+    if isinstance(size, int | float):  # type: ignore
         kwargs.update({"s": size})
     elif isinstance(size, str):
         size_data = get_keyed_node_data(tdata, size, tree_keys)[size]
         if len(size_data) == 0:
             raise ValueError(f"Key {size!r} is not present in any node.")
-        sizes = [size_data[node] if node in size_data.index else na_size for node in nodes]
+        sizes = [size_data[node] if node in size_data.index else na_size for node in plot_nodes]
         kwargs.update({"s": sizes})
     else:
         raise ValueError("Invalid size value. Must be int, float, or an str specifying an attribute of the nodes.")
@@ -325,12 +330,12 @@ def nodes(
         if len(style_data) == 0:
             raise ValueError(f"Key {style!r} is not present in any node.")
         mmap = _get_categorical_markers(tdata, style, style_data, markers)
-        styles = [mmap[style_data[node]] if node in style_data.index else na_style for node in nodes]
+        styles = [mmap[style_data[node]] if node in style_data.index else na_style for node in plot_nodes]
         for style in set(styles):
             style_kwargs = {}
             idx = [i for i, x in enumerate(styles) if x == style]
             for key, value in kwargs.items():
-                if isinstance(value, (list, np.ndarray)):
+                if isinstance(value, list | np.ndarray):  # type: ignore
                     style_kwargs[key] = [value[i] for i in idx]
                 else:
                     style_kwargs[key] = value
@@ -356,15 +361,15 @@ _nodes = nodes
 )
 def annotation(
     tdata: td.TreeData,
-    keys: str | Sequence[str] = None,
+    keys: str | Sequence[str] | None = None,
     width: int | float = 0.05,
     gap: int | float = 0.03,
-    label: bool | str | Sequence[str] = True,
+    label: bool | str | Sequence[str] | None = True,
     layer: str | None = None,
     border_width: int | float = 0,
     tree: str | Sequence[str] | None = None,
-    cmap: str | mcolors.Colormap = None,
-    palette: cycler.Cycler | mcolors.ListedColormap | Sequence[str] | Mapping[str] | None = None,
+    cmap: str | mcolors.Colormap | None = None,
+    palette: cycler.Cycler | mcolors.ListedColormap | Sequence[str] | Mapping[Any, str] | None = None,
     vmax: int | float | None = None,
     vmin: int | float | None = None,
     na_color: str = "white",
@@ -408,15 +413,16 @@ def annotation(
         pass
     if not ax:
         ax = plt.gca()
-    attrs = ax._attrs if hasattr(ax, "_attrs") else None
+    ax = cast(Axes, ax)
+    attrs = ax._attrs if hasattr(ax, "_attrs") else None  # type: ignore
     if not attrs:
         raise ValueError("Branches most be plotted with pycea.pl.branches before annotations can be plotted.")
     if not keys:
         raise ValueError("No keys provided. Please provide one or more keys to plot.")
     keys = [keys] if isinstance(keys, str) else keys
     if not cmap:
-        cmap = mpl.rcParams["image.cmap"]
-    cmap = plt.get_cmap(cmap)
+        color_map = mpl.rcParams["image.cmap"]
+    color_map = plt.get_cmap(cmap)  # type: ignore
     leaves = attrs["leaves"]
     # Get data
     data, is_array = get_keyed_obs_data(tdata, keys, layer=layer)
@@ -444,21 +450,25 @@ def annotation(
     lons = lons - np.pi / len(leaves)
     # Covert to RGB array
     rgb_array = []
-    if is_array:
-        if data.shape[0] == data.shape[1]:
-            data = data.loc[leaves, reversed(leaves)]
+    if is_array:  # single cmap for all columns
+        if data.shape[0] == data.shape[1]:  # square matrix
+            data = data.loc[leaves, list(reversed(leaves))]
             end_lat = start_lat + attrs["depth"] + 2 * np.pi
             lats = np.linspace(start_lat, end_lat, data.shape[1] + 1)
+        if data.loc[:, data.columns[0]].dtype == "category":
+            color_map = _get_categorical_colors(tdata, keys[0], data.loc[leaves, data.columns[0]], palette)
         for col in data.columns:
-            rgb_array.append(_series_to_rgb_array(data.loc[leaves, col], cmap, vmin=vmin, vmax=vmax, na_color=na_color))
-    else:
+            rgb_array.append(
+                _series_to_rgb_array(data.loc[leaves, col], color_map, vmin=vmin, vmax=vmax, na_color=na_color)
+            )
+    else:  # separate cmaps for each key
         for key in keys:
             if data[key].dtype == "category":
-                colors = _get_categorical_colors(tdata, key, data.loc[leaves, key], palette)
-                rgb_array.append(_series_to_rgb_array(data.loc[leaves, key], colors, na_color=na_color))
+                key_color_map = _get_categorical_colors(tdata, key, data.loc[leaves, key], palette)
+                rgb_array.append(_series_to_rgb_array(data.loc[leaves, key], key_color_map, na_color=na_color))
             else:
                 rgb_array.append(
-                    _series_to_rgb_array(data.loc[leaves, key], cmap, vmin=vmin, vmax=vmax, na_color=na_color)
+                    _series_to_rgb_array(data.loc[leaves, key], color_map, vmin=vmin, vmax=vmax, na_color=na_color)
                 )
     rgb_array = np.stack(rgb_array, axis=1)
     # Plot
@@ -482,13 +492,13 @@ def annotation(
             existing_ticks = ax.get_xticks()
             existing_labels = [label.get_text() for label in ax.get_xticklabels()]
             ax.set_xticks(np.append(existing_ticks, labels_lats[:-1]))
-            ax.set_xticklabels(existing_labels + labels)
-            for label in ax.get_xticklabels()[len(existing_ticks) :]:
+            ax.set_xticklabels(existing_labels + list(labels))
+            for xlabel in ax.get_xticklabels()[len(existing_ticks) :]:
                 if is_array and len(labels) == 1:
-                    label.set_rotation(0)
+                    xlabel.set_rotation(0)
                 else:
-                    label.set_rotation(90)
-    ax._attrs.update({"offset": end_lat})
+                    xlabel.set_rotation(90)
+    ax._attrs.update({"offset": end_lat})  # type: ignore
     return ax
 
 
@@ -501,7 +511,7 @@ _annotation = annotation
 )
 def tree(
     tdata: td.TreeData,
-    keys: str | Sequence[str] = None,
+    keys: str | Sequence[str] | None = None,
     tree: str | Sequence[str] | None = None,
     nodes: str | Sequence[str] | None = None,
     polar: bool = False,
@@ -512,10 +522,10 @@ def tree(
     branch_linewidth: int | float | str = 0.5,
     node_color: str = "black",
     node_style: str = "o",
-    node_size: int | float = 10,
+    node_size: str | int | float = 10,
     annotation_width: int | float = 0.05,
     cmap: str | mcolors.Colormap = "viridis",
-    palette: cycler.Cycler | mcolors.ListedColormap | Sequence[str] | Mapping[str] | None = None,
+    palette: cycler.Cycler | mcolors.ListedColormap | Sequence[str] | Mapping[Any, str] | None = None,
     ax: Axes | None = None,
     **kwargs,
 ) -> Axes:

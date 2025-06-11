@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import random
 from collections.abc import Mapping, Sequence
+from typing import cast
 
 import networkx as nx
 import pandas as pd
@@ -44,7 +45,7 @@ def check_tree_has_key(tree: nx.DiGraph, key: str):
 
 
 def get_keyed_edge_data(
-    tdata: td.TreeData, keys: str | Sequence[str], tree: str | Sequence[str] = None
+    tdata: td.TreeData, keys: str | Sequence[str], tree: str | Sequence[str] | None = None
 ) -> pd.DataFrame:
     """Gets edge data for a given key from a tree or set of trees."""
     tree_keys = tree
@@ -54,8 +55,8 @@ def get_keyed_edge_data(
         keys = [keys]
     trees = get_trees(tdata, tree_keys)
     data = []
-    for name, tree in trees.items():
-        edge_data = {key: nx.get_edge_attributes(tree, key) for key in keys}
+    for name, value in trees.items():
+        edge_data = {key: nx.get_edge_attributes(value, key) for key in keys}
         edge_data = pd.DataFrame(edge_data)
         edge_data["tree"] = name
         edge_data["edge"] = edge_data.index
@@ -66,7 +67,7 @@ def get_keyed_edge_data(
 
 
 def get_keyed_node_data(
-    tdata: td.TreeData, keys: str | Sequence[str], tree: str | Sequence[str] = None
+    tdata: td.TreeData, keys: str | Sequence[str], tree: str | Sequence[str] | None = None
 ) -> pd.DataFrame:
     """Gets node data for a given key from a tree or set of trees."""
     tree_keys = tree
@@ -76,8 +77,8 @@ def get_keyed_node_data(
         keys = [keys]
     trees = get_trees(tdata, tree_keys)
     data = []
-    for name, tree in trees.items():
-        tree_data = {key: nx.get_node_attributes(tree, key) for key in keys}
+    for name, value in trees.items():
+        tree_data = {key: nx.get_node_attributes(value, key) for key in keys}
         tree_data = pd.DataFrame(tree_data)
         tree_data["tree"] = name
         data.append(tree_data)
@@ -88,7 +89,7 @@ def get_keyed_node_data(
 
 
 def get_keyed_leaf_data(
-    tdata: td.TreeData, keys: str | Sequence[str], tree: str | Sequence[str] = None
+    tdata: td.TreeData, keys: str | Sequence[str], tree: str | Sequence[str] | None = None
 ) -> pd.DataFrame:
     """Gets node data for a given key from a tree or set of trees."""
     tree_keys = tree
@@ -98,16 +99,18 @@ def get_keyed_leaf_data(
         keys = [keys]
     trees = get_trees(tdata, tree_keys)
     data = []
-    for _, tree in trees.items():
-        tree_data = {key: nx.get_node_attributes(tree, key) for key in keys}
+    for _, value in trees.items():
+        tree_data = {key: nx.get_node_attributes(value, key) for key in keys}
         tree_data = pd.DataFrame(tree_data)
-        tree_data = tree_data.loc[list(set(get_leaves(tree)).intersection(tree_data.index))]
+        tree_data = tree_data.loc[list(set(get_leaves(value)).intersection(tree_data.index))]
         data.append(tree_data)
     data = pd.concat(data)
     return data
 
 
-def get_keyed_obs_data(tdata: td.TreeData, keys: str | Sequence[str], layer: str = None) -> pd.DataFrame:
+def get_keyed_obs_data(
+    tdata: td.TreeData, keys: str | Sequence[str], layer: str | None = None
+) -> tuple[pd.DataFrame, bool]:
     """Gets observation data for a given key from a tree."""
     if isinstance(keys, str):
         keys = [keys]
@@ -148,9 +151,17 @@ def get_keyed_obs_data(tdata: td.TreeData, keys: str | Sequence[str], layer: str
         raise ValueError("No valid keys found.")
     if column_keys:
         data = pd.concat(data, axis=1)
-        data.columns = keys
+        data.columns = keys  # type: ignore
     elif array_keys:
         data = data[0]
+    data = cast(pd.DataFrame, data)
+    if array_keys and len(set(data.dtypes)) > 1:
+        raise ValueError("Cannot use arrays with mixed dtypes.")
+    if array_keys and data.iloc[:, 0].dtype.kind in ["b", "O", "S"]:
+        categories = list(pd.unique(data.values.ravel()))
+        categories = [cat for cat in categories if pd.notna(cat)]
+        shared_categories = pd.CategoricalDtype(categories=categories)
+        data = data.apply(lambda col: col.astype(shared_categories))
     return data, array_keys
 
 

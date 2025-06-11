@@ -2,27 +2,30 @@
 
 from __future__ import annotations
 
+import copy
 import warnings
 from collections.abc import Mapping, Sequence
+from typing import Any
 
 import cycler
 import matplotlib as mpl
 import matplotlib.colors as mcolors
-import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
-from scanpy.plotting import palettes
+import pandas as pd
+import treedata as td
+from scanpy.plotting import palettes  # type: ignore
 
 from pycea.utils import check_tree_has_key, get_leaves, get_root
 
 
 def layout_nodes_and_branches(
     tree: nx.DiGraph,
-    leaf_coords: Mapping[str],
+    leaf_coords: dict[str, tuple[float, float]],
     depth_key: str = "depth",
     polar: bool = False,
     angled_branches: bool = False,
-):
+) -> tuple[dict[str, tuple[float, float]], dict[tuple[str, str], tuple[list[float], list[float]]]]:
     """Given a tree and leaf coordinates, computes the coordinates of the nodes and branches.
 
     Parameters
@@ -48,7 +51,7 @@ def layout_nodes_and_branches(
         A dictionary mapping edges to their coordinates.
     """
     # Get node coordinates
-    node_coords = leaf_coords.copy()
+    node_coords = copy.copy(leaf_coords)
     for node in nx.dfs_postorder_nodes(tree, get_root(tree)):
         if tree.out_degree(node) != 0:
             children = list(tree.successors(node))
@@ -81,12 +84,17 @@ def layout_nodes_and_branches(
 
 
 def layout_trees(
-    trees: Mapping[str],
+    trees: Mapping[str, nx.DiGraph],
     depth_key: str = "depth",
     polar: bool = False,
     extend_branches: bool = True,
     angled_branches: bool = False,
-):
+) -> tuple[
+    dict[tuple[str, str], tuple[float, float]],
+    dict[tuple[str, str], tuple[list[float], list[float]]],
+    list[str],
+    float,
+]:
     """Given a list of trees, computes the coordinates of the nodes and branches.
 
     Parameters
@@ -144,7 +152,7 @@ def layout_trees(
     return node_coords, branch_coords, leaves, max_depth
 
 
-def _get_default_categorical_colors(length):
+def _get_default_categorical_colors(length: int) -> list[str]:
     """Get default categorical colors for plotting."""
     # check if default matplotlib palette has enough colors
     if len(mpl.rcParams["axes.prop_cycle"].by_key()["color"]) >= length:
@@ -161,16 +169,18 @@ def _get_default_categorical_colors(length):
         else:
             palette = ["grey" for _ in range(length)]
             warnings.warn(
-                "The selected key has more than 103 categories. Uniform "
-                "'grey' color will be used for all categories.",
+                "The selected key has more than 103 categories. Uniform 'grey' color will be used for all categories.",
                 stacklevel=2,
             )
     colors_list = [mcolors.to_hex(palette[k], keep_alpha=True) for k in range(length)]
     return colors_list
 
 
-def _get_categorical_colors(tdata, key, data, palette=None):
+def _get_categorical_colors(tdata: td.TreeData, key: str, data: Any, palette: Any | None = None) -> dict[Any, Any]:
     """Get categorical colors for plotting."""
+    # Check type of data
+    if not isinstance(data, pd.Series):  # type: ignore
+        raise ValueError("Input data must be a pandas Series.")
     # Ensure data is a category
     if not data.dtype.name == "category":
         data = data.astype("category")
@@ -182,9 +192,9 @@ def _get_categorical_colors(tdata, key, data, palette=None):
             colors_list = _get_default_categorical_colors(len(categories))
     # Use provided palette
     else:
-        if isinstance(palette, str) and palette in plt.colormaps():
+        if isinstance(palette, str) and palette in mpl.colormaps:  # type: ignore
             # this creates a palette from a colormap. E.g. 'Accent, Dark2, tab20'
-            cmap = plt.get_cmap(palette)
+            cmap = mpl.colormaps.get_cmap(palette)  # type: ignore
             colors_list = [mcolors.to_hex(x, keep_alpha=True) for x in cmap(np.linspace(0, 1, len(categories)))]
         elif isinstance(palette, Mapping):
             colors_list = [mcolors.to_hex(palette[k], keep_alpha=True) for k in categories]
@@ -204,7 +214,7 @@ def _get_categorical_colors(tdata, key, data, palette=None):
                 _color_list = []
                 for color in palette:
                     if not mcolors.is_color_like(color):
-                        raise ValueError("The following color value of the given palette " f"is not valid: {color}")
+                        raise ValueError(f"The following color value of the given palette is not valid: {color}")
                     _color_list.append(color)
                 palette = cycler.cycler(color=_color_list)
             if not isinstance(palette, cycler.Cycler):
@@ -220,10 +230,12 @@ def _get_categorical_colors(tdata, key, data, palette=None):
     # store colors in tdata
     if len(categories) <= len(palettes.default_102):
         tdata.uns[key + "_colors"] = colors_list
-    return dict(zip(categories, colors_list))
+    return dict(zip(categories, colors_list, strict=True))  # type: ignore
 
 
-def _get_categorical_markers(tdata, key, data, markers=None):
+def _get_categorical_markers(
+    tdata: td.TreeData, key: str, data: pd.Series, markers: Mapping | Sequence | None = None
+) -> dict[Any, Any]:
     """Get categorical markers for plotting."""
     default_markers = ["o", "s", "D", "^", "v", "<", ">", "p", "P", "*", "h", "H", "X"]
     # Ensure data is a category
@@ -241,7 +253,7 @@ def _get_categorical_markers(tdata, key, data, markers=None):
             markers_list = [markers[k] for k in categories]
         else:
             if not isinstance(markers, Sequence):
-                raise ValueError("Please check that the value of 'markers' is a valid " "list of marker names.")
+                raise ValueError("Please check that the value of 'markers' is a valid list of marker names.")
             if len(markers) < len(categories):
                 warnings.warn(
                     "Length of markers is smaller than the number of "
@@ -250,28 +262,36 @@ def _get_categorical_markers(tdata, key, data, markers=None):
                     "Some categories will have the same marker.",
                     stacklevel=2,
                 )
-                markers_list = markers * (len(categories) // len(markers) + 1)
+                markers_list = list(markers) * (len(categories) // len(markers) + 1)
             else:
                 markers_list = markers[: len(categories)]
     # store markers in tdata
     tdata.uns[key + "_markers"] = markers_list
-    return dict(zip(categories, markers_list))
+    return dict(zip(categories, markers_list, strict=False))  # type: ignore
 
 
-def _series_to_rgb_array(series, colors, vmin=None, vmax=None, na_color="#808080"):
+def _series_to_rgb_array(
+    series: Any,
+    colors: dict[Any, Any] | mcolors.ListedColormap | mcolors.LinearSegmentedColormap,
+    vmin: float | None = None,
+    vmax: float | None = None,
+    na_color: str = "#808080",
+) -> np.ndarray:
     """Converts a pandas Series to an N x 3 numpy array based using a color map."""
+    if not isinstance(series, pd.Series):
+        raise ValueError("Input must be a pandas Series.")
     if isinstance(colors, dict):
         # Map using the dictionary
         color_series = series.map(colors).astype("object")
         color_series[series.isna()] = na_color
         rgb_array = np.array([mcolors.to_rgb(color) for color in color_series])
-    elif isinstance(colors, mcolors.ListedColormap | mcolors.LinearSegmentedColormap):
+    elif isinstance(colors, mcolors.ListedColormap | mcolors.LinearSegmentedColormap):  # type: ignore
         # Normalize and map values if cmap is a ListedColormap
         if vmin is not None and vmax is not None:
             norm = mcolors.Normalize(vmin, vmax)
             colors.set_bad(na_color)
             color_series = colors(norm(series))
-            rgb_array = np.vstack(color_series[:, :3])
+            rgb_array = np.array(color_series)[:, :3]
         else:
             raise ValueError("vmin and vmax must be specified when using a ListedColormap.")
     else:
@@ -279,11 +299,13 @@ def _series_to_rgb_array(series, colors, vmin=None, vmax=None, na_color="#808080
     return rgb_array
 
 
-def _check_tree_overlap(tdata, tree_keys):
+def _check_tree_overlap(
+    tdata: td.TreeData,
+    tree_keys: str | Sequence[str] | None = None,
+) -> None:
     """Check single tree is requested when allow_overlap is True"""
     if tree_keys is None:
-        tree_keys = tdata.obst.keys()
-        if tdata.allow_overlap and len(tree_keys) > 1:
+        if tdata.allow_overlap and len(tdata.obst.keys()) > 1:
             raise ValueError("Must specify a tree when tdata.allow_overlap is True.")
     elif isinstance(tree_keys, str):
         pass
