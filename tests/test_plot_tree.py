@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import matplotlib.pyplot as plt
+import pandas as pd
 import pytest
 import treedata as td
 
@@ -27,7 +28,14 @@ def test_polar_with_clades(tdata):
 
 def test_angled_numeric_annotations(tdata):
     pycea.pl.branches(
-        tdata, polar=False, color="length", cmap="hsv", linewidth="length", depth_key="time", angled_branches=True, vmax = 2,
+        tdata,
+        polar=False,
+        color="length",
+        cmap="hsv",
+        linewidth="length",
+        depth_key="time",
+        angled_branches=True,
+        vmax=2,
     )
     pycea.pl.nodes(tdata, nodes="all", color="time", style="s", size=20)
     pycea.pl.nodes(tdata, nodes=["2"], tree="1", color="black", style="*", size=200)
@@ -48,18 +56,34 @@ def test_matrix_annotation(tdata):
         keys=["spatial_distances"],
         ax=ax,
     )
-    pycea.tl.tree_neighbors(tdata, max_dist=5, depth_key="time",update=False)
-    pycea.pl.annotation(tdata, keys="tree_connectivities", ax=ax,cmap = "Purples")
+    pycea.tl.tree_neighbors(tdata, max_dist=5, depth_key="time", update=False)
+    pycea.pl.annotation(tdata, keys="tree_connectivities", ax=ax, palette={True: "black", False: "white"})
     plt.savefig(plot_path / "matrix_annotation.png")
+    plt.close()
+
+
+def test_character_annotation(tdata):
+    tdata.obsm["characters"] = pd.DataFrame(tdata.obsm["characters"], index=tdata.obs_names).astype(str)
+    tdata.obsm["characters"].replace("-1", pd.NA, inplace=True)
+    palette = {"0": "lightgray"}
+    palette.update({str(i + 1): plt.cm.rainbow(i / 7) for i in range(8)})  # type: ignore
+    pycea.pl.tree(
+        tdata,
+        depth_key="time",
+        keys="characters",
+        palette=palette,
+    )
+    assert "characters_colors" in tdata.uns_keys()
+    plt.savefig(plot_path / "character_annotation.png")
     plt.close()
 
 
 def test_branches_bad_input(tdata):
     fig, ax = plt.subplots()
     with pytest.raises(ValueError):
-        pycea.pl.branches(tdata, color=["bad"] * 5, depth_key="time")
+        pycea.pl.branches(tdata, color="bad", depth_key="time")
     with pytest.raises(ValueError):
-        pycea.pl.branches(tdata, linewidth=["bad"] * 5, depth_key="time")
+        pycea.pl.branches(tdata, linewidth="bad", depth_key="time")
     # Warns about polar
     with pytest.warns(match="Polar"):
         pycea.pl.branches(tdata, polar=True, ax=ax, depth_key="time")
@@ -91,7 +115,7 @@ def test_annotation_bad_input(tdata):
     with pytest.raises(ValueError):
         pycea.pl.annotation(tdata, tree="bad", ax=ax)
     with pytest.raises(ValueError):
-        pycea.pl.annotation(tdata, keys="clade", label={}, ax=ax)
+        pycea.pl.annotation(tdata, keys="clade", label=None, ax=ax)
     plt.close()
 
 
