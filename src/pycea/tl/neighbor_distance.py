@@ -64,7 +64,7 @@ def neighbor_distance(
 
     Returns
     -------
-    Returns `None` if `copy=False`, else returns a :class:`Series <pandas.Series>.
+    Returns `None` if `copy=False`, else returns a :class:`Series <pandas.Series>`.
 
     Sets the following fields:
 

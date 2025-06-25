@@ -23,16 +23,17 @@ classifiers = [
   "Programming Language :: Python :: 3.13",
 ]
 dependencies = [
-    "cycler",
-    "networkx",
-    "scanpy",
-    "treedata",
-    "matplotlib",
-    "numpy",
-    "pandas",
-    "session-info",
-    "scipy",
-    "scikit-learn",
+  "cycler",
+  "matplotlib",
+  "networkx",
+  "numpy",
+  "pandas",
+  "requests",
+  "scanpy>=1.10",
+  "scikit-learn",
+  "scipy",
+  "session-info",
+  "treedata>=0.2",
 ]
 optional-dependencies.dev = [
   "pre-commit",
@@ -121,6 +122,9 @@ testpaths = [ "tests" ]
 xfail_strict = true
 addopts = [
   "--import-mode=importlib", # allow using test files with same name
+]
+markers = [
+  "internet: tests which rely on internet resources (enable with `--internet-tests`)",
 ]
 
 [tool.coverage.run]
