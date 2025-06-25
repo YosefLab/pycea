@@ -28,6 +28,7 @@ dependencies = [
   "networkx",
   "numpy",
   "pandas",
+  "requests",
   "scanpy",
   "scikit-learn",
   "scipy",
