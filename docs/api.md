@@ -46,3 +46,17 @@
     pl.nodes
     pl.annotation
 ```
+
+## Datasets
+
+```{eval-rst}
+.. module:: pycea.datasets
+.. currentmodule:: pycea
+
+.. autosummary::
+    :toctree: generated
+
+    datasets.packer19
+    datasets.yang22
+    datasets.koblan25
+```

@@ -18,4 +18,11 @@
     "python.analysis.diagnosticSeverityOverrides": {
         "reportMissingImports": "none",
     },
+    "cSpell.words": [
+        "barcoding",
+        "CRISPR",
+        "recombinase",
+        "tdata",
+        "transplantable",
+    ],
 }

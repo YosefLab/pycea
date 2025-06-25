@@ -12,7 +12,7 @@ plot_path = Path(__file__).parent / "plots"
 
 @pytest.fixture
 def tdata() -> td.TreeData:
-    return td.read_h5ad("tests/data/tdata.h5ad")
+    return td.read_h5td("tests/data/tdata.h5ad")
 
 
 def test_polar_with_clades(tdata):
