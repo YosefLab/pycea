@@ -29,7 +29,7 @@ dependencies = [
   "numpy",
   "pandas",
   "requests",
-  "scanpy",
+  "scanpy>=1.10",
   "scikit-learn",
   "scipy",
   "session-info",
