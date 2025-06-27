@@ -176,7 +176,9 @@ def _get_default_categorical_colors(length: int) -> list[str]:
     return colors_list
 
 
-def _get_categorical_colors(tdata: td.TreeData, key: str, data: Any, palette: Any | None = None) -> dict[Any, Any]:
+def _get_categorical_colors(
+    tdata: td.TreeData, key: str, data: Any, palette: Any | None = None, save: bool = True
+) -> dict[Any, Any]:
     """Get categorical colors for plotting."""
     # Check type of data
     if not isinstance(data, pd.Series):  # type: ignore
@@ -228,7 +230,7 @@ def _get_categorical_colors(tdata: td.TreeData, key: str, data: Any, palette: An
             cc = palette()
             colors_list = [mcolors.to_hex(next(cc)["color"], keep_alpha=True) for x in range(len(categories))]
     # store colors in tdata
-    if len(categories) <= len(palettes.default_102):
+    if save and len(categories) <= len(palettes.default_102):
         tdata.uns[key + "_colors"] = colors_list
     return dict(zip(categories, colors_list, strict=True))  # type: ignore
 

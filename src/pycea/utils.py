@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import random
 from collections.abc import Mapping, Sequence
-from typing import cast
+from typing import Any, cast
 
 import networkx as nx
 import pandas as pd
@@ -108,8 +108,24 @@ def get_keyed_leaf_data(
     return data
 
 
+def _get_categories(data: pd.Series, sort: str | None) -> list[Any]:
+    """Gets the categories for a given data series."""
+    if sort == "alphabetical":
+        categories = sorted(data.drop_duplicates().tolist())
+    elif sort == "frequency":
+        categories = data.value_counts().index.tolist()
+    elif sort == "random":
+        categories = data.drop_duplicates().sample(frac=1).tolist()
+    elif sort is None:
+        categories = data.drop_duplicates().tolist()
+    else:
+        raise ValueError(f"Unknown sort type: {sort}. Must be 'alphabetical', 'frequency', or 'random'.")
+    categories = [cat for cat in categories if pd.notna(cat)]
+    return categories
+
+
 def get_keyed_obs_data(
-    tdata: td.TreeData, keys: str | Sequence[str], layer: str | None = None
+    tdata: td.TreeData, keys: str | Sequence[str], layer: str | None = None, sort: str | None = None
 ) -> tuple[pd.DataFrame, bool]:
     """Gets observation data for a given key from a tree."""
     if isinstance(keys, str):
@@ -120,7 +136,8 @@ def get_keyed_obs_data(
     for key in keys:
         if key in tdata.obs_keys():
             if tdata.obs[key].dtype.kind in ["b", "O", "S"]:
-                tdata.obs[key] = tdata.obs[key].astype("category")
+                categories = _get_categories(tdata.obs[key], sort)
+                tdata.obs[key] = pd.Categorical(tdata.obs[key], categories=categories, ordered=True)
             data.append(tdata.obs[key])
             column_keys = True
         elif key in tdata.var_names:
@@ -158,10 +175,10 @@ def get_keyed_obs_data(
     if array_keys and len(set(data.dtypes)) > 1:
         raise ValueError("Cannot use arrays with mixed dtypes.")
     if array_keys and data.iloc[:, 0].dtype.kind in ["b", "O", "S"]:
-        categories = list(pd.unique(data.values.ravel()))
-        categories = [cat for cat in categories if pd.notna(cat)]
-        shared_categories = pd.CategoricalDtype(categories=categories)
-        data = data.apply(lambda col: col.astype(shared_categories))
+        long_data = data.values.ravel()
+        categories = _get_categories(pd.Series(long_data), sort)
+        categorical_type = pd.CategoricalDtype(categories=categories)
+        data = data.apply(lambda col: col.astype(categorical_type))
     return data, array_keys
 
 
