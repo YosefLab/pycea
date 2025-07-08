@@ -10,7 +10,7 @@ if TYPE_CHECKING:
     from os import PathLike
 
 DATASET_DIR = "~/.treedata/datasets"
-ZENODO_DOI = "15738756"  # Needs to be updated if the dataset is changed
+ZENODO_DOI = "15750529"  # Needs to be updated if the dataset is changed
 
 
 def _load_dataset(

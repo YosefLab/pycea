@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from typing import Literal, overload
 
 import numpy as np
 import pandas as pd
@@ -21,14 +22,14 @@ def _g_moments(w: sp.sparse.spmatrix | np.ndarray) -> tuple[float, float, float]
     s0 = w.sum()
     # s1
     t = w.transpose() + w
-    t2 = t.multiply(t) if isinstance(t, sp.sparse.spmatrix) else t * t
+    t2 = t.multiply(t) if isinstance(t, sp.sparse.spmatrix) else t * t  # type: ignore
     s1 = t2.sum() / 2.0
     # s2
     s2 = (np.array(w.sum(1) + w.sum(0).transpose()) ** 2).sum()
     return s0, s1, s2
 
 
-def _analytic_pval(score: float, g: sp.sparse.spmatrix | np.ndarray, method: str) -> tuple[float, float]:
+def _analytic_pval(score: np.ndarray, g: sp.sparse.spmatrix | np.ndarray, method: str) -> tuple[np.ndarray, np.ndarray]:
     """
     Analytic p-value computation.
 
@@ -54,17 +55,35 @@ def _analytic_pval(score: float, g: sp.sparse.spmatrix | np.ndarray, method: str
     p_norm[z_norm > 0] = 1 - sp.stats.norm.cdf(z_norm[z_norm > 0])
     p_norm[z_norm <= 0] = sp.stats.norm.cdf(z_norm[z_norm <= 0])
 
-    return p_norm, Vscore_norm
+    return p_norm, np.array(Vscore_norm)
 
 
+@overload
 def autocorr(
     tdata: td.TreeData,
-    keys: str | Sequence[str] = None,
-    connect_key: str = None,
+    keys: str | Sequence[str] | None = None,
+    connect_key: str = "tree_connectivities",
     method: str = "moran",
-    layer: str = None,
-    copy: bool = False,
-) -> None | pd.DataFrame:
+    layer: str | None = None,
+    copy: Literal[True] = True,
+) -> pd.DataFrame: ...
+@overload
+def autocorr(
+    tdata: td.TreeData,
+    keys: str | Sequence[str] | None = None,
+    connect_key: str = "tree_connectivities",
+    method: str = "moran",
+    layer: str | None = None,
+    copy: Literal[False] = False,
+) -> None: ...
+def autocorr(
+    tdata: td.TreeData,
+    keys: str | Sequence[str] | None = None,
+    connect_key: str = "tree_connectivities",
+    method: str = "moran",
+    layer: str | None = None,
+    copy: Literal[True, False] = False,
+) -> pd.DataFrame | None:
     """Calculate autocorrelation statistic.
 
     Parameters
@@ -100,7 +119,7 @@ def autocorr(
     """
     # Setup
     if keys is None:
-        keys = tdata.var_names
+        keys = list(tdata.var_names)
         if layer is None:
             data = tdata.X
         else:
@@ -109,14 +128,14 @@ def autocorr(
         if isinstance(keys, str):
             keys = [keys]
         data, _ = get_keyed_obs_data(tdata, keys, layer=layer)
-        keys = data.columns
+        keys = list(data.columns)
     method_names = {"moran": "moranI", "geary": "gearyC"}
     # Calculate autocorrelation
     if method == "moran":
-        corr = sc.metrics.morans_i(tdata.obsp[connect_key], data.T)
+        corr = np.array(sc.metrics.morans_i(tdata.obsp[connect_key], data.T))  # type: ignore
         tdata.uns["moranI"] = corr
     elif method == "geary":
-        corr = sc.metrics.gearys_c(tdata.obsp[connect_key], data.T)
+        corr = np.array(sc.metrics.gearys_c(tdata.obsp[connect_key], data.T))  # type: ignore
         tdata.uns["gearyC"] = corr
     else:
         raise ValueError(f"Method {method} not recognized. Must be 'moran' or 'geary'.")

@@ -14,7 +14,7 @@ import networkx as nx
 import numpy as np
 import pandas as pd
 import treedata as td
-from scanpy.plotting import palettes  # type: ignore
+from scanpy.plotting import palettes
 
 from pycea.utils import check_tree_has_key, get_leaves, get_root
 
@@ -176,10 +176,12 @@ def _get_default_categorical_colors(length: int) -> list[str]:
     return colors_list
 
 
-def _get_categorical_colors(tdata: td.TreeData, key: str, data: Any, palette: Any | None = None) -> dict[Any, Any]:
+def _get_categorical_colors(
+    tdata: td.TreeData, key: str, data: Any, palette: Any | None = None, save: bool = True
+) -> dict[Any, Any]:
     """Get categorical colors for plotting."""
     # Check type of data
-    if not isinstance(data, pd.Series):  # type: ignore
+    if not isinstance(data, pd.Series):
         raise ValueError("Input data must be a pandas Series.")
     # Ensure data is a category
     if not data.dtype.name == "category":
@@ -192,9 +194,9 @@ def _get_categorical_colors(tdata: td.TreeData, key: str, data: Any, palette: An
             colors_list = _get_default_categorical_colors(len(categories))
     # Use provided palette
     else:
-        if isinstance(palette, str) and palette in mpl.colormaps:  # type: ignore
+        if isinstance(palette, str) and palette in mpl.colormaps:
             # this creates a palette from a colormap. E.g. 'Accent, Dark2, tab20'
-            cmap = mpl.colormaps.get_cmap(palette)  # type: ignore
+            cmap = mpl.colormaps.get_cmap(palette)
             colors_list = [mcolors.to_hex(x, keep_alpha=True) for x in cmap(np.linspace(0, 1, len(categories)))]
         elif isinstance(palette, Mapping):
             colors_list = [mcolors.to_hex(palette[k], keep_alpha=True) for k in categories]
@@ -228,9 +230,9 @@ def _get_categorical_colors(tdata: td.TreeData, key: str, data: Any, palette: An
             cc = palette()
             colors_list = [mcolors.to_hex(next(cc)["color"], keep_alpha=True) for x in range(len(categories))]
     # store colors in tdata
-    if len(categories) <= len(palettes.default_102):
+    if save and len(categories) <= len(palettes.default_102):
         tdata.uns[key + "_colors"] = colors_list
-    return dict(zip(categories, colors_list, strict=True))  # type: ignore
+    return dict(zip(categories, colors_list, strict=False))
 
 
 def _get_categorical_markers(
@@ -267,12 +269,12 @@ def _get_categorical_markers(
                 markers_list = markers[: len(categories)]
     # store markers in tdata
     tdata.uns[key + "_markers"] = markers_list
-    return dict(zip(categories, markers_list, strict=False))  # type: ignore
+    return dict(zip(categories, markers_list, strict=False))
 
 
 def _series_to_rgb_array(
     series: Any,
-    colors: dict[Any, Any] | mcolors.ListedColormap | mcolors.LinearSegmentedColormap,
+    colors: dict[Any, Any] | mcolors.Colormap,
     vmin: float | None = None,
     vmax: float | None = None,
     na_color: str = "#808080",
@@ -285,7 +287,7 @@ def _series_to_rgb_array(
         color_series = series.map(colors).astype("object")
         color_series[series.isna()] = na_color
         rgb_array = np.array([mcolors.to_rgb(color) for color in color_series])
-    elif isinstance(colors, mcolors.ListedColormap | mcolors.LinearSegmentedColormap):  # type: ignore
+    elif isinstance(colors, mcolors.ListedColormap | mcolors.LinearSegmentedColormap):
         # Normalize and map values if cmap is a ListedColormap
         if vmin is not None and vmax is not None:
             norm = mcolors.Normalize(vmin, vmax)

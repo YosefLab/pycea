@@ -21,7 +21,7 @@ def tdata():
             index=["B", "D", "E", "F"],
         ),
         obst={"tree1": tree1, "tree2": tree2, "empty": nx.DiGraph()},
-        obsm={"spatial": spatial, "characters": characters},
+        obsm={"spatial": spatial, "characters": characters},  # type: ignore
     )
     yield tdata
 
@@ -31,6 +31,7 @@ def test_ancestral_states(tdata):
     states = ancestral_states(tdata, "value", method="mean", copy=True)
     assert tdata.obst["tree1"].nodes["root"]["value"] == 1
     assert tdata.obst["tree1"].nodes["C"]["value"] == 1.5
+    assert states is not None
     assert states["value"].tolist() == [1, 0, 1.5, 0, 3, 2, 2]
     # Median
     states = ancestral_states(tdata, "value", method=np.median, copy=True)
@@ -55,6 +56,7 @@ def test_ancestral_states_array(tdata):
     states = ancestral_states(tdata, "spatial", method="mean", copy=True)
     assert tdata.obst["tree1"].nodes["root"]["spatial"] == [1.0, 2.0]
     assert tdata.obst["tree1"].nodes["C"]["spatial"] == [1.5, 1.0]
+    assert states is not None
     assert states.loc[("tree1", "root"), "spatial"] == [1.0, 2.0]
     # Median
     states = ancestral_states(tdata, "spatial", method=np.median, copy=True)
@@ -66,13 +68,15 @@ def test_ancestral_states_missing(tdata):
     states = ancestral_states(tdata, "with_missing", method=np.nanmean, copy=True)
     assert tdata.obst["tree1"].nodes["root"]["with_missing"] == 1.5
     assert tdata.obst["tree1"].nodes["C"]["with_missing"] == 3
+    assert states is not None
     assert states.loc[("tree1", "root"), "with_missing"] == 1.5
 
 
 def test_ancestral_state_fitch(tdata):
-    states = ancestral_states(tdata, "characters", method="fitch_hartigan", copy=True)
+    states = ancestral_states(tdata, "characters", method="fitch_hartigan", missing_state="-1", copy=True)
     assert tdata.obst["tree1"].nodes["root"]["characters"] == ["1", "0"]
     assert tdata.obst["tree2"].nodes["F"]["characters"] == ["1", "2"]
+    assert states is not None
     assert states.loc[("tree1", "root"), "characters"] == ["1", "0"]
 
 
@@ -82,16 +86,17 @@ def test_ancestral_states_sankoff(tdata):
         index=["0", "1", "2"],
         columns=["0", "1", "2"],
     )
-    states = ancestral_states(tdata, "characters", method="sankoff", costs=costs, copy=True)
+    states = ancestral_states(tdata, "characters", method="sankoff", missing_state="-1", costs=costs, copy=True)
     assert tdata.obst["tree1"].nodes["root"]["characters"] == ["0", "0"]
     assert tdata.obst["tree2"].nodes["F"]["characters"] == ["1", "2"]
+    assert states is not None
     assert states.loc[("tree1", "root"), "characters"] == ["0", "0"]
     costs = pd.DataFrame(
         [[0, 10, 10], [1, 0, 2], [2, 1, 0]],
         index=["0", "1", "2"],
         columns=["0", "1", "2"],
     )
-    states = ancestral_states(tdata, "characters", method="sankoff", costs=costs, copy=True)
+    states = ancestral_states(tdata, "characters", method="sankoff", missing_state="-1", costs=costs, copy=True)
     assert tdata.obst["tree1"].nodes["root"]["characters"] == ["2", "1"]
 
 
@@ -108,3 +113,7 @@ def test_ancestral_states_invalid(tdata):
         ancestral_states(tdata, "str_value", method="mean", copy=False)
     with pytest.raises(ValueError):
         ancestral_states(tdata, "value", method="mean", keys_added=["bad", "bad"])
+
+
+if __name__ == "__main__":
+    pytest.main(["-v", __file__])
