@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
+from typing import Any
 
 import networkx as nx
 import numpy as np
@@ -12,14 +13,14 @@ from pycea.utils import get_keyed_node_data, get_keyed_obs_data, get_root, get_t
 from ._utils import _check_tree_overlap
 
 
-def _most_common(arr):
+def _most_common(arr: np.ndarray) -> Any:
     """Finds the most common element in a list."""
     unique_values, counts = np.unique(arr, return_counts=True)
     most_common_index = np.argmax(counts)
     return unique_values[most_common_index]
 
 
-def _get_node_value(tree, node, key, index):
+def _get_node_value(tree: nx.DiGraph, node: str, key: str, index: int | None) -> Any:
     """Gets the value of a node attribute."""
     if key in tree.nodes[node]:
         if index is not None:
@@ -30,7 +31,7 @@ def _get_node_value(tree, node, key, index):
         return None
 
 
-def _set_node_value(tree, node, key, value, index):
+def _set_node_value(tree: nx.DiGraph, node: str, key: str, value: Any, index: int | None) -> None:
     """Sets the value of a node attribute."""
     if index is not None:
         tree.nodes[node][key][index] = value
@@ -38,7 +39,16 @@ def _set_node_value(tree, node, key, value, index):
         tree.nodes[node][key] = value
 
 
-def _reconstruct_fitch_hartigan(tree, key, missing="-1", index=None):
+def _remove_node_attributes(tree: nx.DiGraph, key: str) -> None:
+    """Removes a node attribute from all nodes in the tree."""
+    for node in tree.nodes:
+        if key in tree.nodes[node]:
+            del tree.nodes[node][key]
+
+
+def _reconstruct_fitch_hartigan(
+    tree: nx.DiGraph, key: str, missing: str | None = None, index: int | None = None
+) -> None:
     """Reconstructs ancestral states using the Fitch-Hartigan algorithm."""
 
     # Recursive function to calculate the downpass
@@ -92,7 +102,14 @@ def _reconstruct_fitch_hartigan(tree, key, missing="-1", index=None):
             del tree.nodes[node]["value_set"]
 
 
-def _reconstruct_sankoff(tree, key, costs, missing="-1", index=None):
+def _reconstruct_sankoff(
+    tree: nx.DiGraph,
+    key: str,
+    costs: pd.DataFrame,
+    missing: str | None = None,
+    default: str | None = None,
+    index: int | None = None,
+) -> None:
     """Reconstructs ancestral states using the Sankoff algorithm."""
     # Set up
     alphabet = list(costs.index)
@@ -145,7 +162,7 @@ def _reconstruct_sankoff(tree, key, costs, missing="-1", index=None):
             del tree.nodes[node]["_pointers"]
 
 
-def _reconstruct_mean(tree, key, index):
+def _reconstruct_mean(tree: nx.DiGraph, key: str, index: int | None) -> None:
     """Reconstructs ancestral by averaging the values of the children."""
 
     def subtree_mean(node):
@@ -165,7 +182,7 @@ def _reconstruct_mean(tree, key, index):
     subtree_mean(root)
 
 
-def _reconstruct_list(tree, key, sum_func, index):
+def _reconstruct_list(tree: nx.DiGraph, key: str, sum_func: Callable, index: int | None) -> None:
     """Reconstructs ancestral states by concatenating the values of the children."""
 
     def subtree_list(node):
@@ -182,12 +199,20 @@ def _reconstruct_list(tree, key, sum_func, index):
     subtree_list(root)
 
 
-def _ancestral_states(tree, key, method="mean", costs=None, missing=None, default=None, index=None):
+def _ancestral_states(
+    tree: nx.DiGraph,
+    key: str,
+    method: str | Callable = "mean",
+    costs: pd.DataFrame | None = None,
+    missing: str | None = None,
+    default: str | None = None,
+    index: int | None = None,
+) -> None:
     """Reconstructs ancestral states for a given attribute using a given method"""
     if method == "sankoff":
         if costs is None:
             raise ValueError("Costs matrix must be provided for Sankoff algorithm.")
-        _reconstruct_sankoff(tree, key, costs, missing, index)
+        _reconstruct_sankoff(tree, key, costs, missing, default, index)
     elif method == "fitch_hartigan":
         _reconstruct_fitch_hartigan(tree, key, missing, index)
     elif method == "mean":
@@ -203,14 +228,14 @@ def _ancestral_states(tree, key, method="mean", costs=None, missing=None, defaul
 def ancestral_states(
     tdata: td.TreeData,
     keys: str | Sequence[str],
-    method: str = "mean",
-    missing_state: str = "-1",
-    default_state: str = "0",
-    costs: pd.DataFrame = None,
-    keys_added: str | Sequence[str] = None,
+    method: str | Callable = "mean",
+    missing_state: str | None = None,
+    default_state: str | None = None,
+    costs: pd.DataFrame | None = None,
+    keys_added: str | Sequence[str] | None = None,
     tree: str | Sequence[str] | None = None,
     copy: bool = False,
-) -> None | pd.DataFrame:
+) -> pd.DataFrame | None:
     """Reconstructs ancestral states for an attribute.
 
     Parameters
@@ -260,7 +285,7 @@ def ancestral_states(
     tree_keys = tree
     _check_tree_overlap(tdata, tree_keys)
     trees = get_trees(tdata, tree_keys)
-    for _, tree in trees.items():
+    for _, t in trees.items():
         data, is_array = get_keyed_obs_data(tdata, keys)
         dtypes = {dtype.kind for dtype in data.dtypes}
         # Check data type
@@ -269,21 +294,23 @@ def ancestral_states(
                 raise ValueError(f"Method {method} requires categorical data.")
         if dtypes.intersection({"O", "S"}):
             if method in ["mean"]:
-                raise ValueError(f"Method {method} requires numerical data.")
+                raise ValueError(f"Method {method} requires numeric data.")
         # If array add to tree as list
         if is_array:
             length = data.shape[1]
             node_attrs = data.apply(lambda row: list(row), axis=1).to_dict()
-            for node in tree.nodes:
+            for node in t.nodes:
                 if node not in node_attrs:
                     node_attrs[node] = [None] * length
-            nx.set_node_attributes(tree, node_attrs, keys_added[0])
+            _remove_node_attributes(t, keys_added[0])
+            nx.set_node_attributes(t, node_attrs, keys_added[0])
             for index in range(length):
-                _ancestral_states(tree, keys_added[0], method, costs, missing_state, default_state, index)
+                _ancestral_states(t, keys_added[0], method, costs, missing_state, default_state, index)
         # If column add to tree as scalar
         else:
-            for key, key_added in zip(keys, keys_added):
-                nx.set_node_attributes(tree, data[key].to_dict(), key_added)
-                _ancestral_states(tree, key_added, method, missing_state, default_state)
+            for key, key_added in zip(keys, keys_added, strict=False):
+                _remove_node_attributes(t, key_added)
+                nx.set_node_attributes(t, data[key].to_dict(), key_added)
+                _ancestral_states(t, key_added, method, costs, missing_state, default_state)
     if copy:
         return get_keyed_node_data(tdata, keys_added, tree_keys)

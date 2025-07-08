@@ -15,7 +15,7 @@ import treedata as td  # type: ignore
 from matplotlib.axes import Axes
 from matplotlib.collections import LineCollection
 
-from pycea.utils import get_keyed_edge_data, get_keyed_node_data, get_keyed_obs_data, get_trees
+from pycea.utils import _get_categories, get_keyed_edge_data, get_keyed_node_data, get_keyed_obs_data, get_trees
 
 from ._docs import _doc_params, doc_common_plot_args
 from ._utils import (
@@ -110,7 +110,7 @@ def branches(
         color_data = get_keyed_edge_data(tdata, color, tree_keys)[color]
         if len(color_data) == 0:
             raise ValueError(f"Key {color!r} is not present in any edge.")
-        if color_data.dtype.kind in ["i", "f"]:
+        if color_data.dtype.kind in ["i", "f"]:  # Numeric
             if not vmin:
                 vmin = color_data.min()
             if not vmax:
@@ -119,13 +119,14 @@ def branches(
             color_map = plt.get_cmap(cmap)  # type: ignore
             colors = [color_map(norm(color_data[edge])) if edge in color_data.index else na_color for edge in edges]
             kwargs.update({"color": colors})
-        else:
+        else:  # Categorical
             if color in tdata.obs.columns:
                 if tdata.obs[color].dtype.kind not in ["i", "f"]:
-                    tdata.obs[color] = tdata.obs[color].astype("category")
-                    if set(color_data.unique()).issubset(tdata.obs[color].cat.categories):
+                    categories = _get_categories(tdata.obs[color], sort=None)
+                    tdata.obs[color] = pd.Categorical(tdata.obs[color], categories=categories)
+                    if set(color_data.unique()).issubset(categories):
                         color_data = pd.Series(
-                            pd.Categorical(color_data, categories=tdata.obs[color].cat.categories),
+                            pd.Categorical(color_data, categories=categories),
                             index=color_data.index,
                         )
             color_map = _get_categorical_colors(tdata, str(color), color_data, palette)
@@ -287,7 +288,7 @@ def nodes(
         color_data = get_keyed_node_data(tdata, color, tree_keys)[color]
         if len(color_data) == 0:
             raise ValueError(f"Key {color!r} is not present in any node.")
-        if color_data.dtype.kind in ["i", "f"]:
+        if color_data.dtype.kind in ["i", "f"]:  # Numeric
             if not vmin:
                 vmin = color_data.min()
             if not vmax:
@@ -297,13 +298,14 @@ def nodes(
                 color_map(norm(color_data[node])) if node in color_data.index else na_color for node in plot_nodes
             ]
             kwargs.update({"color": colors})
-        else:
+        else:  # Categorical
             if color in tdata.obs.columns:
                 if tdata.obs[color].dtype.kind not in ["i", "f"]:
-                    tdata.obs[color] = tdata.obs[color].astype("category")
-                    if set(color_data.unique()).issubset(tdata.obs[color].cat.categories):
+                    categories = _get_categories(tdata.obs[color], sort=None)
+                    tdata.obs[color] = pd.Categorical(tdata.obs[color], categories=categories)
+                    if set(color_data.unique()).issubset(categories):
                         color_data = pd.Series(
-                            pd.Categorical(color_data, categories=tdata.obs[color].cat.categories),
+                            pd.Categorical(color_data, categories=categories),
                             index=color_data.index,
                         )
             color_map = _get_categorical_colors(tdata, color, color_data, palette)

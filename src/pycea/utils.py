@@ -145,15 +145,15 @@ def get_keyed_obs_data(
             column_keys = True
         elif "obsm" in dir(tdata) and key in tdata.obsm.keys():
             if sp.sparse.issparse(tdata.obsm[key]):
-                data.append(pd.DataFrame(tdata.obsm[key].toarray(), index=tdata.obs_names))
+                data.append(pd.DataFrame(tdata.obsm[key].toarray(), index=tdata.obs_names))  # type: ignore
             else:
-                data.append(pd.DataFrame(tdata.obsm[key], index=tdata.obs_names))
+                data.append(pd.DataFrame(tdata.obsm[key], index=tdata.obs_names))  # type: ignore
             array_keys = True
         elif "obsp" in dir(tdata) and key in tdata.obsp.keys():
             if sp.sparse.issparse(tdata.obsp[key]):
-                data.append(pd.DataFrame(tdata.obsp[key].toarray(), index=tdata.obs_names, columns=tdata.obs_names))
+                data.append(pd.DataFrame(tdata.obsp[key].toarray(), index=tdata.obs_names, columns=tdata.obs_names))  # type: ignore
             else:
-                data.append(pd.DataFrame(tdata.obsp[key], index=tdata.obs_names, columns=tdata.obs_names))
+                data.append(pd.DataFrame(tdata.obsp[key], index=tdata.obs_names, columns=tdata.obs_names))  # type: ignore
             array_keys = True
         else:
             raise ValueError(
@@ -208,7 +208,6 @@ def get_trees(tdata: td.TreeData, tree: str | Sequence[str] | None) -> Mapping[s
     for key in tree_keys:
         if key not in tdata.obst.keys():
             raise ValueError(f"Key {key!r} is not present in obst.")
-        tree = tdata.obst[key]
-        if tree.number_of_nodes() != 0:  # type: ignore
+        if tdata.obst[key].number_of_nodes() != 0:
             trees[key] = tdata.obst[key]
     return trees

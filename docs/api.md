@@ -47,6 +47,18 @@
     pl.annotation
 ```
 
+## Getting elements
+
+```{eval-rst}
+.. module:: pycea.get
+.. currentmodule:: pycea
+
+.. autosummary::
+    :toctree: generated
+
+    get.palette
+```
+
 ## Datasets
 
 ```{eval-rst}
