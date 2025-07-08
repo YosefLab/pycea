@@ -19,9 +19,9 @@ def _colors_from_cmap(
     """Generates a color mapping from a colormap or cycler for a list of categories."""
     n = len(categories)
     # If cmap is a string or a Matplotlib colormap, sample uniformly from it.
-    if isinstance(cmap, str | mcolors.Colormap):  # type: ignore
+    if isinstance(cmap, str | mcolors.Colormap):
         if isinstance(cmap, str):
-            cmap_obj = plt.get_cmap(cmap)  # type: ignore
+            cmap_obj = plt.get_cmap(cmap)
         else:
             cmap_obj = cmap
         if sort_frequency:
@@ -30,7 +30,7 @@ def _colors_from_cmap(
         else:
             indices = [i / max(n - 1, 1) for i in range(n)]
         sampled_colors = [mcolors.to_hex(cmap_obj(i)) for i in indices]
-        colors = dict(zip(categories, sampled_colors, strict=True))  # type: ignore
+        colors = dict(zip(categories, sampled_colors, strict=True))
     # If cmap is a Cycler, extract its colors and sample uniformly.
     elif isinstance(cmap, cycler.Cycler):
         color_list = list(cmap.by_key().get("color", []))
@@ -39,7 +39,7 @@ def _colors_from_cmap(
             sampled_colors = [color_list[i] for i in indices]
         else:
             sampled_colors = color_list[:n]
-        colors = dict(zip(categories, sampled_colors, strict=True))  # type: ignore
+        colors = dict(zip(categories, sampled_colors, strict=True))
     else:
         raise ValueError("Unsupported type for cmap; must be str, Colormap, or Cycler.")
     return colors
@@ -54,10 +54,9 @@ def _adjust_colors_for_priors(colors: dict[Any, Any], priors: Mapping[Any, float
             original_rgb = mcolors.to_rgb(colors[category])
             gray = (0.5, 0.5, 0.5)
             adjusted_rgb = tuple(
-                (1 - normalized_prior) * c + normalized_prior * g
-                for c, g in zip(original_rgb, gray, strict=False)  # type: ignore
+                (1 - normalized_prior) * c + normalized_prior * g for c, g in zip(original_rgb, gray, strict=False)
             )
-            colors[category] = mcolors.to_hex(adjusted_rgb)
+            colors[category] = mcolors.to_hex(adjusted_rgb)  # type: ignore
     return colors
 
 
@@ -107,7 +106,7 @@ def palette(
         raise ValueError(f"Data for key '{key}' cannot be converted to categorical.")
     # Palette exists
     if not any([custom, cmap, priors, sort]) and f"{key}_colors" in tdata.uns:
-        return dict(zip(data[key].cat.categories, tdata.uns[f"{key}_colors"], strict=True))  # type: ignore
+        return dict(zip(data[key].cat.categories, tdata.uns[f"{key}_colors"], strict=True))
     # Create palette from cmap
     if cmap is not None:
         colors = _colors_from_cmap(cmap, data[key].cat.categories.tolist(), False)
@@ -118,5 +117,4 @@ def palette(
         colors = _adjust_colors_for_priors(colors, priors)
     if custom is not None:
         colors.update(custom)
-    # Placeholder implementation to ensure a dictionary is always returned
     return colors

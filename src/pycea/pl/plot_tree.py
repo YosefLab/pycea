@@ -11,7 +11,7 @@ import matplotlib.markers as mmarkers
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import treedata as td  # type: ignore
+import treedata as td
 from matplotlib.axes import Axes
 from matplotlib.collections import LineCollection
 
@@ -85,10 +85,10 @@ def branches(
     tree_keys = tree
     _check_tree_overlap(tdata, tree_keys)
     if ax is None:
-        fig, ax = plt.subplots(subplot_kw={"projection": "polar"} if polar else None)  # type: ignore
+        fig, ax = plt.subplots(subplot_kw={"projection": "polar"} if polar else None)
     elif (ax.name == "polar" and not polar) or (ax.name != "polar" and polar):
         warnings.warn("Polar setting of axes does not match requested type. Creating new axes.", stacklevel=2)
-        fig, ax = plt.subplots(subplot_kw={"projection": "polar"} if polar else None)  # type: ignore
+        fig, ax = plt.subplots(subplot_kw={"projection": "polar"} if polar else None)
     ax = cast(Axes, ax)
     kwargs = kwargs if kwargs else {}
     trees = get_trees(tdata, tree_keys)
@@ -116,7 +116,7 @@ def branches(
             if not vmax:
                 vmax = color_data.max()
             norm = mcolors.Normalize(vmin=vmin, vmax=vmax)
-            color_map = plt.get_cmap(cmap)  # type: ignore
+            color_map = plt.get_cmap(cmap)
             colors = [color_map(norm(color_data[edge])) if edge in color_data.index else na_color for edge in edges]
             kwargs.update({"color": colors})
         else:  # Categorical
@@ -135,7 +135,7 @@ def branches(
     else:
         raise ValueError("Invalid color value. Must be a color name, or an str specifying an attribute of the edges.")
     # Get linewidths
-    if isinstance(linewidth, int | float):  # type: ignore
+    if isinstance(linewidth, int | float):
         kwargs.update({"linewidth": linewidth})
     elif isinstance(linewidth, str):
         linewidth_data = get_keyed_edge_data(tdata, linewidth, tree_keys)[linewidth]
@@ -149,7 +149,7 @@ def branches(
     else:
         raise ValueError("Invalid linewidth value. Must be int, float, or an str specifying an attribute of the edges.")
     # Plot
-    ax.add_collection(LineCollection(zorder=1, **kwargs))  # type: ignore
+    ax.add_collection(LineCollection(zorder=1, **kwargs))
     if polar:
         ax.set_ylim(-depth * 0.05, depth * 1.05)
         ax.spines["polar"].set_visible(False)
@@ -244,7 +244,7 @@ def nodes(
         raise ValueError("Branches most be plotted with pycea.pl.branches before annotations can be plotted.")
     if not cmap:
         cmap = mpl.rcParams["image.cmap"]
-    color_map = plt.get_cmap(cmap)  # type: ignore
+    color_map = plt.get_cmap(cmap)
     if tree is None:
         tree_keys = attrs["tree_keys"]
     else:
@@ -314,7 +314,7 @@ def nodes(
     else:
         raise ValueError("Invalid color value. Must be a color name, or an str specifying an attribute of the nodes.")
     # Get sizes
-    if isinstance(size, int | float):  # type: ignore
+    if isinstance(size, int | float):
         kwargs.update({"s": size})
     elif isinstance(size, str):
         size_data = get_keyed_node_data(tdata, size, tree_keys)[size]
@@ -337,7 +337,7 @@ def nodes(
             style_kwargs = {}
             idx = [i for i, x in enumerate(styles) if x == style]
             for key, value in kwargs.items():
-                if isinstance(value, list | np.ndarray):  # type: ignore
+                if isinstance(value, list | np.ndarray):
                     style_kwargs[key] = [value[i] for i in idx]
                 else:
                     style_kwargs[key] = value
@@ -424,7 +424,7 @@ def annotation(
     keys = [keys] if isinstance(keys, str) else keys
     if not cmap:
         color_map = mpl.rcParams["image.cmap"]
-    color_map = plt.get_cmap(cmap)  # type: ignore
+    color_map = plt.get_cmap(cmap)
     leaves = attrs["leaves"]
     # Get data
     data, is_array = get_keyed_obs_data(tdata, keys, layer=layer)

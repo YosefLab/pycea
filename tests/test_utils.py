@@ -35,11 +35,11 @@ def tdata(tree):
         X=np.array([[1, 2], [3, 4]]),
         obs=pd.DataFrame({"value": ["1", "2"]}, index=["D", "E"]),
         obst={"tree": tree, "tree2": tree},
-        obsm={"spatial": pd.DataFrame([[0, 0], [1, 1]], index=["D", "E"])},
-        obsp={"dense":np.eye(2), "sparse":sp.sparse.csr_matrix(np.eye(2))},
+        obsm={"spatial": pd.DataFrame([[0, 0], [1, 1]], index=["D", "E"])},  # type: ignore
+        obsp={"dense": np.eye(2), "sparse": sp.sparse.csr_matrix(np.eye(2))},  # type: ignore
         allow_overlap=True,
     )
-    tdata.layers["scaled"] = tdata.X
+    tdata.layers["scaled"] = tdata.X  # type: ignore
     yield tdata
 
 
@@ -144,6 +144,7 @@ def test_check_tree_has_key(tree):
 
 def test_get_keyed_obsm_data(tdata):
     data = get_keyed_obsm_data(tdata, "spatial")
+    assert isinstance(data, pd.DataFrame)
     assert data.columns.tolist() == [0, 1]
     assert data.index.tolist() == ["D", "E"]
     assert data[0].tolist() == [0, 1]

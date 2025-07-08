@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from typing import Literal, overload
 
 import numpy as np
 import pandas as pd
@@ -30,13 +31,31 @@ def _assert_distance_specified(dist, mask):
     return
 
 
+@overload
 def neighbor_distance(
     tdata: td.TreeData,
     connect_key: str | None = None,
     dist_key: str | None = None,
     method: str | Callable = "mean",
     key_added: str = "neighbor_distances",
-    copy: bool = False,
+    copy: Literal[True, False] = True,
+) -> pd.Series: ...
+@overload
+def neighbor_distance(
+    tdata: td.TreeData,
+    connect_key: str | None = None,
+    dist_key: str | None = None,
+    method: str | Callable = "mean",
+    key_added: str = "neighbor_distances",
+    copy: Literal[True, False] = False,
+) -> None: ...
+def neighbor_distance(
+    tdata: td.TreeData,
+    connect_key: str | None = None,
+    dist_key: str | None = None,
+    method: str | Callable = "mean",
+    key_added: str = "neighbor_distances",
+    copy: Literal[True, False] = False,
 ) -> None | pd.Series:
     """Aggregates distance to neighboring observations.
 
@@ -76,15 +95,17 @@ def neighbor_distance(
         raise ValueError("connect_key must be specified.")
     if dist_key is None:
         raise ValueError("dist_key must be specified.")
-    _format_keys(connect_key, "connectivities")
-    _format_keys(dist_key, "distances")
+    if connect_key not in tdata.obsp.keys():
+        _format_keys(connect_key, "connectivities")
+    if dist_key not in tdata.obsp.keys():
+        _format_keys(dist_key, "distances")
     agg_func = _get_agg_func(method)
     mask = tdata.obsp[connect_key] > 0
     dist = tdata.obsp[dist_key]
     _assert_distance_specified(dist, mask)
     # Calculate neighbor distances
     agg_dist = []
-    for i in range(dist.shape[0]):
+    for i in range(dist.shape[0]):  # type: ignore
         if isinstance(mask, sp.sparse.csr_matrix):
             indices = mask[i].indices
         else:

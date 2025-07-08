@@ -8,7 +8,7 @@ import treedata as td
 from pycea.utils import get_root, get_trees
 
 
-def _sort_tree(tree, key, reverse=False):
+def _sort_tree(tree: nx.DiGraph, key: str, reverse: bool = False) -> nx.DiGraph:
     for node in nx.dfs_postorder_nodes(tree, get_root(tree)):
         if tree.out_degree(node) > 1:
             try:
@@ -42,6 +42,6 @@ def sort(tdata: td.TreeData, key: str, reverse: bool = False, tree: str | Sequen
     Returns `None` and does not set any fields.
     """
     trees = get_trees(tdata, tree)
-    for name, tree in trees.items():
-        tdata.obst[name] = _sort_tree(tree.copy(), key, reverse)
+    for name, t in trees.items():
+        tdata.obst[name] = _sort_tree(t.copy(), key, reverse)  # type: ignore
     return None

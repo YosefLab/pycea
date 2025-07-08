@@ -5,6 +5,7 @@ from collections.abc import Mapping, Sequence
 from typing import Any, cast
 
 import networkx as nx
+import numpy as np
 import pandas as pd
 import scipy as sp
 import treedata as td
@@ -182,7 +183,7 @@ def get_keyed_obs_data(
     return data, array_keys
 
 
-def get_keyed_obsm_data(tdata: td.TreeData, key: str) -> sp.sparse.csr_matrix:
+def get_keyed_obsm_data(tdata: td.TreeData, key: str) -> sp.sparse.csr_matrix | pd.DataFrame | np.ndarray:
     """Gets observation matrix data for a given key from a tree."""
     if key == "X":
         X = tdata.X

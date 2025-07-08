@@ -5,6 +5,7 @@ from __future__ import annotations
 import random
 import warnings
 from collections.abc import Mapping, Sequence
+from typing import Any
 
 import numpy as np
 import scipy as sp
@@ -39,7 +40,7 @@ def _set_random_state(random_state):
     return
 
 
-def _format_keys(keys, suffix):
+def _format_keys(keys: str | Sequence[str] | None, suffix: str) -> Any:
     """Ensures that keys are formatted correctly"""
     if keys is None:
         pass
@@ -53,7 +54,7 @@ def _format_keys(keys, suffix):
     return keys
 
 
-def _format_as_list(obj):
+def _format_as_list(obj: Any | None) -> Sequence[Any] | None:
     """Ensures that obj is a list"""
     if obj is None:
         pass

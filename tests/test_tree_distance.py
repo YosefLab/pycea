@@ -114,7 +114,7 @@ def test_tree_distance_invalid(tdata):
     with pytest.raises(ValueError):
         tree_distance(tdata, "depth", obs=["A", "C"], sample_n=100, metric="path")
     with pytest.raises(ValueError):
-        tree_distance(tdata, "depth", metric="bad")
+        tree_distance(tdata, "depth", metric="bad")  # type: ignore
 
 
 if __name__ == "__main__":

@@ -84,14 +84,14 @@ def layout_nodes_and_branches(
 
 
 def layout_trees(
-    trees: Mapping[str, nx.DiGraph],
+    trees: Mapping[Any, nx.DiGraph],
     depth_key: str = "depth",
     polar: bool = False,
     extend_branches: bool = True,
     angled_branches: bool = False,
 ) -> tuple[
     dict[tuple[str, str], tuple[float, float]],
-    dict[tuple[str, str], tuple[list[float], list[float]]],
+    dict[tuple[Any, tuple[str, str]], tuple[list[float], list[float]]],
     list[str],
     float,
 ]:
