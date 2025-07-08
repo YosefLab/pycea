@@ -55,4 +55,4 @@ For questions and bug reports please use the [issue tracker][issue-tracker].
 [changelog]: https://pycea.readthedocs.io/latest/changelog.html
 [link-docs]: https://pycea.readthedocs.io
 [link-api]: https://pycea.readthedocs.io/latest/api.html
-[link-getting-started]: https:/pycea.readthedocs.io/en/latest/notebooks/getting-started.html
+[link-getting-started]: https://pycea.readthedocs.io/en/latest/notebooks/getting-started.html
