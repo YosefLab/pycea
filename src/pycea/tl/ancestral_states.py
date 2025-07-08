@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
-from typing import Any
+from typing import Any, Literal, overload
 
 import networkx as nx
 import numpy as np
@@ -225,6 +225,7 @@ def _ancestral_states(
         raise ValueError(f"Method {method} not recognized.")
 
 
+@overload
 def ancestral_states(
     tdata: td.TreeData,
     keys: str | Sequence[str],
@@ -234,7 +235,30 @@ def ancestral_states(
     costs: pd.DataFrame | None = None,
     keys_added: str | Sequence[str] | None = None,
     tree: str | Sequence[str] | None = None,
-    copy: bool = False,
+    copy: Literal[True, False] = True,
+) -> pd.DataFrame: ...
+@overload
+def ancestral_states(
+    tdata: td.TreeData,
+    keys: str | Sequence[str],
+    method: str | Callable = "mean",
+    missing_state: str | None = None,
+    default_state: str | None = None,
+    costs: pd.DataFrame | None = None,
+    keys_added: str | Sequence[str] | None = None,
+    tree: str | Sequence[str] | None = None,
+    copy: Literal[True, False] = False,
+) -> None: ...
+def ancestral_states(
+    tdata: td.TreeData,
+    keys: str | Sequence[str],
+    method: str | Callable = "mean",
+    missing_state: str | None = None,
+    default_state: str | None = None,
+    costs: pd.DataFrame | None = None,
+    keys_added: str | Sequence[str] | None = None,
+    tree: str | Sequence[str] | None = None,
+    copy: Literal[True, False] = False,
 ) -> pd.DataFrame | None:
     """Reconstructs ancestral states for an attribute.
 

@@ -14,7 +14,7 @@ def tdata():
         obsm={
             "spatial": np.array([[0, 0], [1, 1], [2, 2]]),
             "characters": pd.DataFrame(np.array([[0, 0], [1, 1], [0, 1]]), index=["A", "B", "C"], columns=["c1", "c2"]),
-        },
+        },  # type: ignore
         obsp={"connectivities": sp.sparse.csr_matrix(([1, 1], ([0, 0], [1, 2])), shape=(3, 3))},
     )
     yield tdata
@@ -107,11 +107,11 @@ def test_distance_invalid(tdata):
     with pytest.raises(ValueError):
         distance(tdata, "spatial", obs=["A", "B"], sample_n=100, metric="cityblock")
     with pytest.raises(ValueError):
-        distance(tdata, "spatial", metric="bad")
+        distance(tdata, "spatial", metric="bad")  # type: ignore
     with pytest.raises(KeyError):
         distance(tdata, "spatial", connect_key="bad", metric="cityblock")
     with pytest.raises(ValueError):
-        distance(tdata, "spatial", connect_key=-1, metric="cityblock")
+        distance(tdata, "spatial", connect_key=-1, metric="cityblock")  # type: ignore
 
 
 def test_compare_distance(tdata):

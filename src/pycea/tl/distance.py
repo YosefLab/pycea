@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import random
 from collections.abc import Mapping, Sequence
+from typing import Any, Literal, cast, overload
 
 import numpy as np
 import pandas as pd
@@ -22,7 +23,7 @@ from ._utils import (
 )
 
 
-def _sample_pairs(pairs, sample_n, n_obs):
+def _sample_pairs(pairs: Any, sample_n: int | None, n_obs: int) -> Any:
     """Sample pairs"""
     if sample_n is None:
         pass
@@ -41,10 +42,11 @@ def _sample_pairs(pairs, sample_n, n_obs):
     return pairs
 
 
+@overload
 def distance(
     tdata: td.TreeData,
     key: str,
-    obs: str | Sequence[str] | None = None,
+    obs: str | int | Sequence[Any] | None = None,
     metric: _MetricFn | _Metric = "euclidean",
     metric_kwds: Mapping | None = None,
     sample_n: int | None = None,
@@ -52,7 +54,34 @@ def distance(
     random_state: int | None = None,
     update: bool = True,
     key_added: str | None = None,
-    copy: bool = False,
+    copy: Literal[True, False] = True,
+) -> np.ndarray | sp.sparse.csr_matrix: ...
+@overload
+def distance(
+    tdata: td.TreeData,
+    key: str,
+    obs: str | int | Sequence[Any] | None = None,
+    metric: _MetricFn | _Metric = "euclidean",
+    metric_kwds: Mapping | None = None,
+    sample_n: int | None = None,
+    connect_key: str | None = None,
+    random_state: int | None = None,
+    update: bool = True,
+    key_added: str | None = None,
+    copy: Literal[True, False] = False,
+) -> None: ...
+def distance(
+    tdata: td.TreeData,
+    key: str,
+    obs: str | int | Sequence[Any] | None = None,
+    metric: _MetricFn | _Metric = "euclidean",
+    metric_kwds: Mapping | None = None,
+    sample_n: int | None = None,
+    connect_key: str | None = None,
+    random_state: int | None = None,
+    update: bool = True,
+    key_added: str | None = None,
+    copy: Literal[True, False] = False,
 ) -> None | np.ndarray | sp.sparse.csr_matrix:
     """Computes distances between observations.
 
@@ -104,9 +133,10 @@ def distance(
     """
     # Setup
     _set_random_state(random_state)
-    metric_fn = DistanceMetric.get_metric(metric, **(metric_kwds or {}))
+    metric_fn = DistanceMetric.get_metric(metric, **(metric_kwds or {}))  # type: ignore
     key_added = key_added or key
-    connect_key = _format_keys(connect_key, "connectivities")
+    if connect_key not in tdata.obsp.keys():
+        connect_key = _format_keys(connect_key, "connectivities")
     single_obs = False
     X = get_keyed_obsm_data(tdata, key)
     if isinstance(X, pd.DataFrame):
@@ -124,24 +154,26 @@ def distance(
     elif connect_key or sample_n or (isinstance(obs, Sequence) and isinstance(obs[0], tuple)):
         # Generate pairs
         if connect_key:
-            pairs = list(zip(*tdata.obsp[connect_key].nonzero()))
+            pairs = list(zip(*tdata.obsp[connect_key].nonzero(), strict=True))  # type: ignore
         elif obs:
-            pairs = [(tdata.obs_names.get_loc(i), tdata.obs_names.get_loc(j)) for i, j in obs]
+            pairs = [(tdata.obs_names.get_loc(i), tdata.obs_names.get_loc(j)) for i, j in obs]  # type: ignore
         else:
             pairs = None
         pairs = _sample_pairs(pairs, sample_n, tdata.n_obs)
         # Compute distances
         distances = [metric_fn.pairwise(X[i : i + 1, :], X[j : j + 1, :])[0, 0] for i, j in pairs]
-        distances = sp.sparse.csr_matrix((distances, tuple(map(list, zip(*pairs)))), shape=(tdata.n_obs, tdata.n_obs))
+        distances = sp.sparse.csr_matrix(
+            (distances, tuple(map(list, zip(*pairs, strict=False)))), shape=(tdata.n_obs, tdata.n_obs)
+        )
     # Distance given indices
     elif obs is None or (isinstance(obs, Sequence) and isinstance(obs[0], str)):
         if obs is None:
             distances = metric_fn.pairwise(X)
         else:
             idx = [tdata.obs_names.get_loc(o) for o in obs]
-            distances = metric_fn.pairwise(X[idx])
+            distances = metric_fn.pairwise(X[idx])  # type: ignore
             distances = sp.sparse.csr_matrix(
-                (distances.flatten(), (np.repeat(idx, len(idx)), np.tile(idx, len(idx)))),
+                (distances.flatten(), (np.repeat(idx, len(idx)), np.tile(idx, len(idx)))),  # type: ignore
                 shape=(tdata.n_obs, tdata.n_obs),
             )
     else:
@@ -182,7 +214,7 @@ def _determine_shared_pairs(tdata, dist_keys):
     return shared, dense
 
 
-def _get_group_indices(tdata, groupby, groups):
+def _get_group_indices(tdata, groupby, groups) -> tuple[list[np.ndarray], list[str]]:
     """Get indices for groups"""
     if groupby is not None:
         if groups is None:
@@ -207,7 +239,7 @@ def _get_pairs_for_group(idx, shared, dense, sample_n):
             pairs = [(i, j) for i in idx for j in idx]
     else:
         row, col = shared[idx, :][:, idx].nonzero()
-        pairs = list(zip(idx[row], idx[col]))
+        pairs = list(zip(idx[row], idx[col], strict=False))
         if sample_n is not None:
             if sample_n > len(pairs):
                 raise ValueError("Sample size is larger than the number of pairs.")
@@ -252,9 +284,9 @@ def compare_distance(
     """
     # Setup
     _set_random_state(random_state)
-    dist_keys = _format_as_list(dist_keys)
     groups = _format_as_list(groups)
     dist_keys = _format_keys(dist_keys, "distances")
+    dist_keys = cast(Sequence[str], _format_as_list(dist_keys))
     # Get set of shared pairs
     shared, dense = _determine_shared_pairs(tdata, dist_keys)
     # Get distances for each group

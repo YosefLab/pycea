@@ -18,7 +18,7 @@ def tdata():
             "sparse_connectivities": sp.sparse.csr_matrix(neighbors),
             "distances": distances,
             "sparse_distances": sp.sparse.csr_matrix(distances),
-        },
+        },  # type: ignore
     )
     yield tdata
 

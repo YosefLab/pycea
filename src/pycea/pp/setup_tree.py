@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from typing import Literal, overload
 
 import networkx as nx
 import pandas as pd
@@ -31,8 +32,25 @@ def _check_tree_overlap(tdata, tree_keys):
         raise ValueError("Tree keys must be a string, list of strings, or None.")
 
 
+@overload
 def add_depth(
-    tdata: td.TreeData, key_added: str = "depth", tree: str | Sequence[str] | None = None, copy: bool = False
+    tdata: td.TreeData,
+    key_added: str = "depth",
+    tree: str | Sequence[str] | None = None,
+    copy: Literal[True, False] = False,
+) -> None: ...
+@overload
+def add_depth(
+    tdata: td.TreeData,
+    key_added: str = "depth",
+    tree: str | Sequence[str] | None = None,
+    copy: Literal[True, False] = True,
+) -> pd.DataFrame: ...
+def add_depth(
+    tdata: td.TreeData,
+    key_added: str = "depth",
+    tree: str | Sequence[str] | None = None,
+    copy: Literal[True, False] = False,
 ) -> None | pd.DataFrame:
     """Adds a depth attribute to the tree.
 
@@ -61,8 +79,8 @@ def add_depth(
     tree_keys = tree
     _check_tree_overlap(tdata, tree_keys)
     trees = get_trees(tdata, tree_keys)
-    for _, tree in trees.items():
-        _add_depth(tree, key_added)
+    for _, t in trees.items():
+        _add_depth(t, key_added)
     tdata.obs[key_added] = get_keyed_leaf_data(tdata, key_added, tree_keys)[key_added]
     if copy:
         return get_keyed_node_data(tdata, key_added, tree_keys)

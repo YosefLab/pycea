@@ -3,6 +3,7 @@ from __future__ import annotations
 import heapq
 import random
 from collections.abc import Sequence
+from typing import Literal, overload
 
 import networkx as nx
 import scipy as sp
@@ -77,6 +78,7 @@ def _tree_neighbors(tree, n_neighbors, max_dist, depth_key, metric, leaves=None)
     return rows, cols, distances
 
 
+@overload
 def tree_neighbors(
     tdata: td.TreeData,
     n_neighbors: int | None = None,
@@ -88,7 +90,34 @@ def tree_neighbors(
     key_added: str = "tree",
     update: bool = True,
     tree: str | Sequence[str] | None = None,
-    copy: bool = False,
+    copy: Literal[True, False] = True,
+) -> tuple[sp.sparse.csr_matrix, sp.sparse.csr_matrix]: ...
+@overload
+def tree_neighbors(
+    tdata: td.TreeData,
+    n_neighbors: int | None = None,
+    max_dist: float | None = None,
+    depth_key: str = "depth",
+    obs: str | Sequence[str] | None = None,
+    metric: _TreeMetric = "path",
+    random_state: int | None = None,
+    key_added: str = "tree",
+    update: bool = True,
+    tree: str | Sequence[str] | None = None,
+    copy: Literal[True, False] = False,
+) -> None: ...
+def tree_neighbors(
+    tdata: td.TreeData,
+    n_neighbors: int | None = None,
+    max_dist: float | None = None,
+    depth_key: str = "depth",
+    obs: str | Sequence[str] | None = None,
+    metric: _TreeMetric = "path",
+    random_state: int | None = None,
+    key_added: str = "tree",
+    update: bool = True,
+    tree: str | Sequence[str] | None = None,
+    copy: Literal[True, False] = False,
 ) -> None | tuple[sp.sparse.csr_matrix, sp.sparse.csr_matrix]:
     """Identifies neighbors in the tree.
 
@@ -152,9 +181,9 @@ def tree_neighbors(
         leaf_to_tree = {leaf: key for key, tree in trees.items() for leaf in get_leaves(tree)}
         if obs not in leaf_to_tree:
             raise ValueError(f"Leaf {obs} not found in any tree.")
-        tree = trees[leaf_to_tree[obs]]
+        t = trees[leaf_to_tree[obs]]
         connectivities, _, distances = _tree_neighbors(
-            tree, n_neighbors or float("inf"), max_dist or float("inf"), depth_key, metric, leaves=[obs]
+            t, n_neighbors or float("inf"), max_dist or float("inf"), depth_key, metric, leaves=[obs]
         )
         tdata.obs[f"{key_added}_neighbors"] = tdata.obs_names.isin(connectivities)
     # Neighbors for some or all leaves
@@ -168,10 +197,10 @@ def tree_neighbors(
             raise ValueError("obs must be a string, a sequence of strings, or None.")
         # For each tree, identify neighbors
         rows, cols, data = [], [], []
-        for _, tree in trees.items():
-            check_tree_has_key(tree, depth_key)
+        for _, t in trees.items():
+            check_tree_has_key(t, depth_key)
             tree_rows, tree_cols, tree_data = _tree_neighbors(
-                tree, n_neighbors or float("inf"), max_dist or float("inf"), depth_key, metric
+                t, n_neighbors or float("inf"), max_dist or float("inf"), depth_key, metric
             )
             rows.extend([tdata.obs_names.get_loc(row) for row in tree_rows])
             cols.extend([tdata.obs_names.get_loc(col) for col in tree_cols])

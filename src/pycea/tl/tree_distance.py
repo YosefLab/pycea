@@ -3,6 +3,7 @@ from __future__ import annotations
 import random
 from collections import defaultdict
 from collections.abc import Sequence
+from typing import Any, Literal, overload
 
 import networkx as nx
 import numpy as np
@@ -53,7 +54,7 @@ def _all_pairs_shared_tree(trees, sample_n):
             raise ValueError("Sample size is larger than the number of pairs.")
         k = 0
         while k < sample_n:
-            tree = random.choices(tree_keys, tree_n_pairs, k=1)[0]
+            tree = random.choices(tree_keys, tree_n_pairs, k=1)[0]  # type: ignore
             i = random.choice(tree_to_leaf[tree])
             j = random.choice(tree_to_leaf[tree])
             if (i, j) not in tree_pairs[tree]:
@@ -98,19 +99,47 @@ def _convert_pair_distance_to_matrix(tdata, rows, cols, data):
     return distances, dense
 
 
+@overload
 def tree_distance(
     tdata: td.TreeData,
     depth_key: str = "depth",
-    obs: str | Sequence[str] | None = None,
+    obs: str | int | Sequence[Any] | None = None,
     metric: _TreeMetric = "path",
     sample_n: int | None = None,
     connect_key: str | None = None,
     random_state: int | None = None,
     key_added: str | None = None,
     update: bool = True,
-    tree: str | Sequence[str] | None = None,
-    copy: bool = False,
-) -> None | sp.sparse.csr_matrix:
+    tree: str | Sequence[Any] | None = None,
+    copy: Literal[True, False] = True,
+) -> sp.sparse.csr_matrix | np.ndarray: ...
+@overload
+def tree_distance(
+    tdata: td.TreeData,
+    depth_key: str = "depth",
+    obs: str | int | Sequence[Any] | None = None,
+    metric: _TreeMetric = "path",
+    sample_n: int | None = None,
+    connect_key: str | None = None,
+    random_state: int | None = None,
+    key_added: str | None = None,
+    update: bool = True,
+    tree: str | Sequence[Any] | None = None,
+    copy: Literal[True, False] = False,
+) -> None: ...
+def tree_distance(
+    tdata: td.TreeData,
+    depth_key: str = "depth",
+    obs: str | int | Sequence[Any] | None = None,
+    metric: _TreeMetric = "path",
+    sample_n: int | None = None,
+    connect_key: str | None = None,
+    random_state: int | None = None,
+    key_added: str | None = None,
+    update: bool = True,
+    tree: str | Sequence[Any] | None = None,
+    copy: Literal[True, False] = False,
+) -> None | sp.sparse.csr_matrix | np.ndarray:
     """Computes tree distances between observations.
 
     Parameters
@@ -176,7 +205,7 @@ def tree_distance(
         tree_pairs = _all_pairs_shared_tree(trees, sample_n)
     else:
         if connect_key:
-            pairs = list(zip(*tdata.obsp[connect_key].nonzero()))
+            pairs = list(zip(*tdata.obsp[connect_key].nonzero(), strict=False))  # type: ignore
             pairs = [(tdata.obs_names[i], tdata.obs_names[j]) for i, j in pairs]
         elif isinstance(obs, str):
             pairs = [(i, obs) for i in tdata.obs_names]

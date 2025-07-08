@@ -65,7 +65,7 @@ def autocorr(
     connect_key: str = "tree_connectivities",
     method: str = "moran",
     layer: str | None = None,
-    copy: Literal[True] = True,
+    copy: Literal[True, False] = True,
 ) -> pd.DataFrame: ...
 @overload
 def autocorr(
@@ -74,7 +74,7 @@ def autocorr(
     connect_key: str = "tree_connectivities",
     method: str = "moran",
     layer: str | None = None,
-    copy: Literal[False] = False,
+    copy: Literal[True, False] = False,
 ) -> None: ...
 def autocorr(
     tdata: td.TreeData,
@@ -97,8 +97,8 @@ def autocorr(
     method
         Method to calculate autocorrelation. Options are:
 
-        * 'moran' : `Moran's I autocorrelation <https://en.wikipedia.org/wiki/Moran%27s_I>`.
-        * 'geary' : `Geary's C autocorrelation <https://en.wikipedia.org/wiki/Geary%27s_C>`.
+        * 'moran' : `Moran's I autocorrelation <https://en.wikipedia.org/wiki/Moran%27s_I>`_.
+        * 'geary' : `Geary's C autocorrelation <https://en.wikipedia.org/wiki/Geary%27s_C>`_.
     layer
         Name of the TreeData object layer to use. If `None`, `tdata.X` is used.
     copy
@@ -106,7 +106,7 @@ def autocorr(
 
     Returns
     -------
-    Returns `None` if `copy=False`, else return :class:`DataFrame <pandas.DataFrame>` columns.
+    Returns `None` if `copy=False`, else returns :class:`DataFrame <pandas.DataFrame>` with columns:
 
         - `'autocorr'` - Moran's I or Geary's C statistic.
         - `'pval_norm'` - p-value under normality assumption.

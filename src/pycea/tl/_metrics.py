@@ -49,7 +49,7 @@ def _path_distance(tree, depth_key, node1, node2, lca):
         return abs(tree.nodes[node1][depth_key] + tree.nodes[node2][depth_key] - 2 * tree.nodes[lca][depth_key])
 
 
-_TreeMetricFn = Callable[[td.TreeData, str, str, str, str], np.ndarray]
+_TreeMetricFn = Callable[[td.TreeData, str, str, str, str], float]
 
 _TreeMetric = Literal["lca", "path"]
 

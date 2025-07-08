@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from typing import Any, Literal, overload
 
 import networkx as nx
 import pandas as pd
@@ -21,7 +22,7 @@ def _nodes_at_depth(tree, parent, nodes, depth, depth_key):
     return nodes
 
 
-def _clade_name_generator(dtype=int):
+def _clade_name_generator(dtype: type | str):
     """Generates clade names."""
     valid_dtypes = {"str": str, "int": int, "float": float, str: str, int: int, float: float}
     if dtype not in valid_dtypes:
@@ -40,7 +41,7 @@ def _clades(tree, depth, depth_key, clades, clade_key, name_generator, update):
     if (depth is not None) and (clades is None):
         check_tree_has_key(tree, depth_key)
         nodes = _nodes_at_depth(tree, root, [], depth, depth_key)
-        clades = dict(zip(nodes, name_generator))
+        clades = dict(zip(nodes, name_generator, strict=False))
     elif (clades is not None) and (depth is None):
         pass
     else:
@@ -62,17 +63,41 @@ def _clades(tree, depth, depth_key, clades, clade_key, name_generator, update):
     return clades
 
 
+@overload
 def clades(
     tdata: td.TreeData,
-    depth: int | float = None,
+    depth: int | float | None = None,
     depth_key: str = "depth",
-    clades: str | Sequence[str] = None,
+    clades: Mapping[Any, Any] | None = None,
     key_added: str = "clade",
     update: bool = False,
     dtype: type | str = str,
     tree: str | Sequence[str] | None = None,
-    copy: bool = False,
-) -> None | Mapping:
+    copy: Literal[True, False] = True,
+) -> pd.DataFrame: ...
+@overload
+def clades(
+    tdata: td.TreeData,
+    depth: int | float | None = None,
+    depth_key: str = "depth",
+    clades: Mapping[Any, Any] | None = None,
+    key_added: str = "clade",
+    update: bool = False,
+    dtype: type | str = str,
+    tree: str | Sequence[str] | None = None,
+    copy: Literal[True, False] = False,
+) -> None: ...
+def clades(
+    tdata: td.TreeData,
+    depth: int | float | None = None,
+    depth_key: str = "depth",
+    clades: Mapping[Any, Any] | None = None,
+    key_added: str = "clade",
+    update: bool = False,
+    dtype: type | str = str,
+    tree: str | Sequence[str] | None = None,
+    copy: Literal[True, False] = False,
+) -> None | pd.DataFrame:
     """Marks clades in a tree.
 
     Parameters
@@ -116,8 +141,8 @@ def clades(
     # Identify clades
     name_generator = _clade_name_generator(dtype=dtype)
     lcas = []
-    for key, tree in trees.items():
-        tree_lcas = _clades(tree, depth, depth_key, clades, key_added, name_generator, update)
+    for key, t in trees.items():
+        tree_lcas = _clades(t, depth, depth_key, clades, key_added, name_generator, update)
         tree_lcas = pd.DataFrame(tree_lcas.items(), columns=["node", key_added])
         tree_lcas["tree"] = key
         lcas.append(tree_lcas)
