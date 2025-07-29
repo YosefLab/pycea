@@ -14,7 +14,7 @@ HERE = Path(__file__).parent
 sys.path.insert(0, str(HERE / "extensions"))
 
 
-# -- Project information -----------------------------------------------------
+# -- Project information -----------------------------------------------------co
 
 # NOTE: If you installed your project in editable mode, this might be stale.
 #       If this is the case, reinstall it to refresh the metadata
@@ -95,7 +95,6 @@ intersphinx_mapping = {
     "anndata": ("https://anndata.readthedocs.io/en/stable/", None),
     "cycler": ("https://matplotlib.org/cycler/", None),
     "matplotlib": ("https://matplotlib.org/stable/", None),
-    "scanpy": ("https://scanpy.readthedocs.io/en/stable/", None),
     "numpy": ("https://numpy.org/doc/stable/", None),
     "networkx": ("https://networkx.org/documentation/stable/", None),
     "pandas": ("https://pandas.pydata.org/pandas-docs/stable/", None),

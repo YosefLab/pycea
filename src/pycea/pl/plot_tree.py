@@ -49,12 +49,13 @@ def branches(
     vmin: float | None = None,
     na_color: str = "lightgrey",
     na_linewidth: float = 1,
-    widths: Mapping[str, float] | tuple[float, float] = (0.1, 2),
+    linewidths: Mapping[str, float] | tuple[float, float] = (0.1, 2),
     ax: Axes | None = None,
     legend_kwargs: dict[str, Any] | None = None,
     **kwargs,
 ) -> Axes:
-    """Plot the branches of a tree.
+    """\
+    Plot the branches of a tree.
 
     Parameters
     ----------
@@ -72,28 +73,22 @@ def branches(
         Either an numeric width, or a key for an attribute of the edges to set the linewidth.
     depth_key
         The key for the depth of the nodes.
-    tree
-        The `obst` key or keys of the trees to plot. If `None`, all trees are plotted.
-    legend
-        Whether to add a legend to the plot. By default, a legend is added if there
-        are <= 20 distinct categories.
     {common_plot_args}
     na_color
         The color to use for edges with missing data.
     na_linewidth
         The linewidth to use for edges with missing data.
-    widths
-        Object determining how to draw the linewidths for different levels of the linewidth variable.
-        You can pass a dictionary mapping levels to widths, or a min, max tuple to use as a range.
+    ax
+        A matplotlib axes object. If `None`, a new figure and axes will be created.
     legend_kwargs
-        Additional keyword arguments passed to `matplotlib.pyplot.legend`.
+        Additional keyword arguments passed to :func:`matplotlib.pyplot.legend`.
     kwargs
-        Additional keyword arguments passed to `matplotlib.collections.LineCollection`.
+        Additional keyword arguments passed to :class:`matplotlib.collections.LineCollection`.
 
     Returns
     -------
     ax - The axes that the plot was drawn on.
-    """
+    """  # noqa: D205
     # Setup
     tdata._sanitize()
     tree_keys = tree
@@ -137,10 +132,10 @@ def branches(
         kwargs.update({"linewidth": linewidth})
     elif isinstance(linewidth, str):
         linewidth_data = get_keyed_edge_data(tdata, linewidth, tree_keys)[linewidth]
-        linewidths, width_legend, n_categories = _get_sizes(
-            tdata, linewidth, linewidth_data, edges, widths, na_value=na_linewidth
+        scaled_widths, width_legend, n_categories = _get_sizes(
+            tdata, linewidth, linewidth_data, edges, linewidths, na_value=na_linewidth
         )
-        kwargs.update({"linewidth": linewidths})
+        kwargs.update({"linewidth": scaled_widths})
         legends.append(width_legend)
         max_categories = max(max_categories, n_categories)
     else:
@@ -187,22 +182,23 @@ def nodes(
     color: str = "black",
     style: str = "o",
     size: float | str = 10,
-    cmap: str | mcolors.Colormap | None = None,
     tree: str | Sequence[str] | None = None,
     legend: bool | None = None,
     palette: cycler.Cycler | mcolors.ListedColormap | Sequence[str] | Mapping[Any, str] | None = None,
-    markers: Sequence[str] | Mapping[str, str] | None = None,
-    sizes: tuple[float, float] | Mapping[str, float] = (5, 50),
+    cmap: str | mcolors.Colormap | None = None,
     vmax: float | None = None,
     vmin: float | None = None,
+    markers: Sequence[str] | Mapping[str, str] | None = None,
+    sizes: tuple[float, float] | Mapping[str, float] = (5, 50),
     na_color: str = "#FFFFFF00",
     na_style: str = "none",
     na_size: float = 0,
-    legend_kwargs: dict[str, Any] | None = None,
     ax: Axes | None = None,
+    legend_kwargs: dict[str, Any] | None = None,
     **kwargs,
 ) -> Axes:
-    """Plot the nodes of a tree.
+    """\
+    Plot the nodes of a tree.
 
     Parameters
     ----------
@@ -217,11 +213,6 @@ def nodes(
         Can be numeric but will always be treated as a categorical variable.
     size
         Either an numeric size, or a key for an attribute of the nodes to set the size.
-    tree
-        The `obst` key or keys of the trees to plot. If `None`, all trees are plotted.
-    legend
-        Whether to add a legend to the plot. By default, a legend is added if there
-        are <= 20 distinct categories.
     {common_plot_args}
     markers
         Object determining how to draw the markers for different levels of the style variable.
@@ -235,15 +226,17 @@ def nodes(
         The marker to use for annotations with missing data.
     na_size
         The size to use for annotations with missing data.
+    ax
+        A matplotlib axes object. If `None`, a new figure and axes will be created.
     legend_kwargs
-        Additional keyword arguments passed to `matplotlib.pyplot.legend`.
+        Additional keyword arguments passed to :func:`matplotlib.pyplot.legend`.
     kwargs
-        Additional keyword arguments passed to `matplotlib.pyplot.scatter`.
+        Additional keyword arguments passed to :func:`matplotlib.pyplot.scatter`.
 
     Returns
     -------
     ax - The axes that the plot was drawn on.
-    """
+    """  # noqa: D205
     # Setup
     kwargs = kwargs if kwargs else {}
     if not ax:
@@ -367,10 +360,10 @@ def annotation(
     width: float = 0.05,
     gap: float = 0.03,
     label: bool | str | Sequence[str] | None = True,
-    legend: bool | None = None,
     layer: str | None = None,
     border_width: float = 0,
     tree: str | Sequence[str] | None = None,
+    legend: bool | None = None,
     cmap: str | mcolors.Colormap | None = None,
     palette: cycler.Cycler | mcolors.ListedColormap | Sequence[str] | Mapping[Any, str] | None = None,
     vmax: float | None = None,
@@ -381,7 +374,8 @@ def annotation(
     legend_kwargs: dict[str, Any] | None = None,
     **kwargs,
 ) -> Axes:
-    """Plot leaf annotations for a tree.
+    """\
+    Plot leaf annotations for a tree.
 
     Parameters
     ----------
@@ -396,29 +390,26 @@ def annotation(
     label
         Annotation labels. If `True`, the keys are used as labels.
         If a string or a sequence of strings, the strings are used as labels.
-    legend
-        Whether to add a legend to the plot. By default, a legend is added if there
-        are <= 20 distinct categories.
     layer
         Name of the TreeData object layer to use. If `None`, `tdata.X` is plotted.
     border_width
         The width of the border around the annotation bar.
-    tree
-        The `obst` key or keys of the trees to plot. If `None`, all trees are plotted.
     {common_plot_args}
     share_cmap
         If `True`, all numeric keys will share the same colormap.
     na_color
         The color to use for annotations with missing data.
+    ax
+        A matplotlib axes object. If `None`, a new figure and axes will be created.
     legend_kwargs
-        Additional keyword arguments passed to `matplotlib.pyplot.legend`.
+        Additional keyword arguments passed to :func:`matplotlib.pyplot.legend`.
     kwargs
-        Additional keyword arguments passed to `matplotlib.pyplot.pcolormesh`.
+        Additional keyword arguments passed to :func:`matplotlib.pyplot.pcolormesh`.
 
     Returns
     -------
     ax - The axes that the plot was drawn on.
-    """
+    """  # noqa: D205
     # Setup
     if tree:  # TODO: Annotate only the leaves for the given tree
         pass
@@ -557,10 +548,8 @@ _annotation = annotation
 def tree(
     tdata: td.TreeData,
     keys: str | Sequence[str] | None = None,
-    tree: str | Sequence[str] | None = None,
     nodes: str | Sequence[str] | None = None,
     polar: bool = False,
-    legend: bool | None = None,
     extend_branches: bool = False,
     angled_branches: bool = False,
     depth_key: str = "depth",
@@ -570,6 +559,8 @@ def tree(
     node_style: str = "o",
     node_size: str | float = 10,
     annotation_width: float = 0.05,
+    tree: str | Sequence[str] | None = None,
+    legend: bool | None = None,
     cmap: str | mcolors.Colormap = "viridis",
     palette: cycler.Cycler | mcolors.ListedColormap | Sequence[str] | Mapping[Any, str] | None = None,
     vmax: float | None = None,
@@ -587,15 +578,10 @@ def tree(
         The TreeData object.
     keys
         One or more `obs_keys`, `var_names`, `obsm_keys`, or `obsp_keys` annotations.
-    tree
-        The `obst` key or keys of the trees to plot. If `None`, all trees are plotted.
     nodes
         Either "all", "leaves", "internal", or a list of nodes to plot. Defaults to "internal" if node color, style, or size is set.
     polar
         Whether to plot the tree in polar coordinates.
-    legend
-        Whether to add a legend to the plot. By default, a legend is added if there
-        are <= 20 distinct categories.
     extend_branches
         Whether to extend branches so the tips are at the same depth.
     angled_branches
@@ -614,11 +600,13 @@ def tree(
         Either an numeric size, or a key for an attribute of the nodes to set the size.
     annotation_width
         The width of the annotation bar relative to the tree.
+    {common_plot_args}
     share_cmap
         If `True`, all numeric keys will share the same colormap.
-    {common_plot_args}
+    ax
+        A matplotlib axes object. If `None`, a new figure and axes will be created.
     legend_kwargs
-        Additional keyword arguments passed to `matplotlib.pyplot.legend`.
+        Additional keyword arguments passed to :func:`matplotlib.pyplot.legend`.
 
     Returns
     -------

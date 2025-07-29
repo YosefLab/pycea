@@ -17,6 +17,11 @@ def _doc_params(**kwds):
 
 
 doc_common_plot_args = """\
+tree
+    The `obst` key or keys of the trees to plot. If `None`, all trees are plotted.
+legend
+    Whether to add a legend to the plot. By default, a legend is added if there
+    are <= 20 distinct categories.
 cmap
     Color map to use for continous variables. Can be a name or a
     :class:`~matplotlib.colors.Colormap` instance (e.g. `"magma`", `"viridis"`
@@ -36,6 +41,4 @@ vmax
     The maximum value for the colormap.
 vmin
     The minimum value for the colormap.
-ax
-    A matplotlib axes object. If `None`, a new figure and axes will be created.
 """
