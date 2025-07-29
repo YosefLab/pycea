@@ -6,9 +6,13 @@ import pytest
 import treedata as td
 
 from pycea.pl._utils import (
+    ScaledNormalize,
     _get_categorical_colors,
     _get_categorical_markers,
+    _get_colors,
     _get_default_categorical_colors,
+    _get_norm,
+    _get_sizes,
     _series_to_rgb_array,
     layout_trees,
 )
@@ -183,11 +187,96 @@ def test_series_to_rgb_discrete(category_data):
 def test_series_to_rgb_numeric():
     numeric_data = pd.Series([0, 1, 2])
     colors = mcolors.ListedColormap(["red", "yellow", "blue"])
-    rgb_array = _series_to_rgb_array(numeric_data, colors, vmin=0, vmax=2)
+    norm = mcolors.Normalize(vmin=0, vmax=2)
+    rgb_array = _series_to_rgb_array(numeric_data, colors, norm=norm)
     expected = np.array([[1, 0, 0], [1, 1, 0], [0, 0, 1]])
     np.testing.assert_almost_equal(rgb_array, expected, decimal=2)
     # Test with missing data
     numeric_data = pd.Series([0, np.nan, 2])
-    rgb_array = _series_to_rgb_array(numeric_data, colors, vmin=0, vmax=2)
+    rgb_array = _series_to_rgb_array(numeric_data, colors, norm=norm)
     expected = np.array([[1, 0, 0], [0.5, 0.5, 0.5], [0, 0, 1]])
     np.testing.assert_almost_equal(rgb_array, expected, decimal=2)
+
+
+def test_get_norm_defaults_and_errors():
+    # Test Series input
+    s = pd.Series([1, 3, 5])
+    norm_s = _get_norm(data=s)
+    assert norm_s.vmin == 1
+    assert norm_s.vmax == 5
+    # Test DataFrame input
+    df = pd.DataFrame({"a": [0, 2], "b": [4, 6]})
+    norm_df = _get_norm(data=df)
+    assert norm_df.vmin == 0
+    assert norm_df.vmax == 6
+    # Missing parameters
+    with pytest.raises(ValueError):
+        _get_norm()
+
+
+def test_scaled_normalize_and_get_bins():
+    # Test scaling functionality
+    sn = ScaledNormalize(vmin=0, vmax=10, scale=(2, 8))
+    arr = sn([0, 5, 10])
+    expected = np.array([2, 5, 8])
+    np.testing.assert_allclose(arr, expected)
+    # Test bin generation
+    bins = sn.get_bins(num_bins=3)
+    assert isinstance(bins, dict)
+    # Number of bins may vary slightly; ensure at least requested number
+    assert len(bins) >= 3
+    # Ensure scale_min and scale_max are included among bin values
+    values = list(bins.values())
+    assert sn.scale_min in values
+    assert sn.scale_max in values
+
+
+def test_get_colors_numeric():
+    tdata = td.TreeData()
+    data = pd.Series([0, 1, 2], index=["a", "b", "c"])
+    indices = ["a", "b", "c", "d"]
+    colors, legend, ncat = _get_colors(tdata, "num", data, indices, cmap="viridis")
+    assert isinstance(colors, list)
+    assert len(colors) == 4
+    assert colors[-1] == "lightgrey"
+    assert ncat == 0
+    assert isinstance(legend, dict)
+
+
+def test_get_colors_categorical():
+    tdata = td.TreeData()
+    # Prepare obs for categorical reference
+    tdata.obs["cat"] = pd.Categorical(["x", "y", "z"], categories=["x", "y", "z"])
+    data = pd.Series(["x", "y", "z"], index=[0, 1, 2])
+    indices = [0, 1, 2, 3]
+    palette = {"x": "red", "y": "green", "z": "blue"}
+    colors, legend, ncat = _get_colors(tdata, "cat", data, indices, palette=palette)
+    expected = [mcolors.to_hex(c, keep_alpha=True) for c in ["red", "green", "blue"]]
+    assert colors[:3] == expected
+    assert colors[-1] == "lightgrey"
+    # Includes na_color as category
+    assert ncat == 4
+    assert isinstance(legend, dict)
+
+
+def test_get_sizes_numeric_and_categorical():
+    tdata = td.TreeData()
+    # Numeric mapping
+    num_data = pd.Series([1, 3, 5], index=[0, 1, 2])
+    indices = [0, 2, 3]
+    sizes_num, legend_num, ncat_num = _get_sizes(tdata, "sz", num_data, indices, mapping=(10, 20))
+    assert isinstance(sizes_num, list)
+    assert len(sizes_num) == 3
+    assert isinstance(sizes_num[0], float)
+    assert sizes_num[-1] == 6  # default na_value
+    assert ncat_num == 0
+    assert isinstance(legend_num, dict)
+    # Categorical mapping
+    cat_data = pd.Series(["low", "high", "med"], index=[0, 1, 2])
+    size_map = {"low": 5, "high": 10, "med": 15}
+    sizes_cat, legend_cat, ncat_cat = _get_sizes(tdata, "sz", cat_data, indices, mapping=size_map)
+    assert sizes_cat[:2] == [5, 15]
+    assert sizes_cat[-1] == 6
+    # Categories include na_value as a size category
+    assert ncat_cat == 3
+    assert isinstance(legend_cat, dict)

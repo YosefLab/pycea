@@ -25,6 +25,7 @@ classifiers = [
 dependencies = [
   "cycler",
   "matplotlib",
+  "natsort",
   "networkx",
   "numpy",
   "pandas",
