@@ -1,5 +1,6 @@
 [![Tests][badge-tests]][link-tests]
 [![Documentation][badge-docs]][link-docs]
+[![PyPI](https://img.shields.io/pypi/v/pycea-lineage.svg)](https://pypi.org/project/pycea-lineage)
 
 [badge-tests]: https://img.shields.io/github/actions/workflow/status/YosefLab/pycea/test.yaml?branch=main
 [link-tests]: https://github.com/YosefLab/pycea/actions/workflows/test.yml
@@ -23,15 +24,14 @@ Python installed, we recommend installing [Mambaforge](https://github.com/conda-
 
 There are several alternative options to install pycea:
 
-<!--
+
 1) Install the latest release of `pycea` from `PyPI <https://pypi.org/project/pycea/>`_:
 
 ```bash
-pip install pycea
+pip install pycea-lineage
 ```
--->
 
-1. Install the latest development version:
+2. Install the latest development version:
 
 ```bash
 pip install git+https://github.com/YosefLab/pycea.git@main
