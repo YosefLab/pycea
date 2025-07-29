@@ -3,7 +3,7 @@ build-backend = "hatchling.build"
 requires = [ "hatchling" ]
 
 [project]
-name = "pycea"
+name = "pycea-lineage"
 version = "0.0.1"
 description = "Scverse lineage tracing toolkit"
 readme = "README.md"
