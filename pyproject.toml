@@ -3,7 +3,7 @@ build-backend = "hatchling.build"
 requires = [ "hatchling" ]
 
 [project]
-name = "pycea"
+name = "pycea-lineage"
 version = "0.0.1"
 description = "Scverse lineage tracing toolkit"
 readme = "README.md"
@@ -62,8 +62,8 @@ optional-dependencies.test = [
 ]
 # https://docs.pypi.org/project_metadata/#project-urls
 urls.Documentation = "https://pycea.readthedocs.io/"
-urls.Homepage = "https://github.com/colganwi/pycea"
-urls.Source = "https://github.com/colganwi/pycea"
+urls.Homepage = "https://github.com/YosefLab/pycea"
+urls.Source = "https://github.com/YosefLab/pycea"
 
 [tool.hatch.envs.default]
 installer = "uv"
@@ -145,3 +145,6 @@ skip = [
   "docs/references.md",
   "docs/notebooks/example.ipynb",
 ]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pycea"]
