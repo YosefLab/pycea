@@ -61,8 +61,8 @@ optional-dependencies.test = [
 ]
 # https://docs.pypi.org/project_metadata/#project-urls
 urls.Documentation = "https://pycea.readthedocs.io/"
-urls.Homepage = "https://github.com/colganwi/pycea"
-urls.Source = "https://github.com/colganwi/pycea"
+urls.Homepage = "https://github.com/YosefLab/pycea"
+urls.Source = "https://github.com/YosefLab/pycea"
 
 [tool.hatch.envs.default]
 installer = "uv"
