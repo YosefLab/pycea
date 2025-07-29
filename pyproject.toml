@@ -145,8 +145,5 @@ skip = [
   "docs/notebooks/example.ipynb",
 ]
 
-[tool.setuptools]
-package-dir = {"" = "src"}
-
-[tool.setuptools.packages.find]
-where = ["src"]
+[tool.hatch.build.targets.wheel]
+packages = ["src/pycea"]
