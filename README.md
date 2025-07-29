@@ -25,7 +25,7 @@ Python installed, we recommend installing [Mambaforge](https://github.com/conda-
 There are several alternative options to install pycea:
 
 
-1) Install the latest release of `pycea` from `PyPI <https://pypi.org/project/pycea/>`_:
+1) Install the latest release of `pycea` from [PyPI](https://pypi.org/project/pycea-lineage):
 
 ```bash
 pip install pycea-lineage
