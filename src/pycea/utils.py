@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 import scipy as sp
 import treedata as td
+from natsort import natsorted
 
 
 def get_root(tree: nx.DiGraph):
@@ -111,17 +112,19 @@ def get_keyed_leaf_data(
 
 def _get_categories(data: pd.Series, sort: str | None) -> list[Any]:
     """Gets the categories for a given data series."""
-    if sort == "alphabetical":
+    data = data.dropna()
+    if data.dtype.name == "category" and sort is None:
+        categories = data.cat.categories.tolist()
+    elif sort == "alphabetical":
         categories = sorted(data.drop_duplicates().tolist())
     elif sort == "frequency":
         categories = data.value_counts().index.tolist()
     elif sort == "random":
         categories = data.drop_duplicates().sample(frac=1).tolist()
     elif sort is None:
-        categories = data.drop_duplicates().tolist()
+        categories = natsorted(data.drop_duplicates().tolist())
     else:
         raise ValueError(f"Unknown sort type: {sort}. Must be 'alphabetical', 'frequency', or 'random'.")
-    categories = [cat for cat in categories if pd.notna(cat)]
     return categories
 
 

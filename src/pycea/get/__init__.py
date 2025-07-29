@@ -1,1 +1,1 @@
-from .get_palette import palette
+from .palette import palette

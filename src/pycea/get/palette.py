@@ -86,7 +86,8 @@ def palette(
         A dictionary mapping values to their prior probabilities. Values with higher priors
         will be assigned less saturated colors.
     sort
-        How to sort the categories. One of `None`, `"alphabetical"`, `"frequency"`, or `"random"`. Default is `None`.
+        How to sort the categories. One of `None`, `"alphabetical"`, `"frequency"`, or `"random"`.
+        If `None`, existing categories order is used or natural sorting.
     random_state
         Random seed for sampling. Only used if `sort` is `"random"`.
 
@@ -95,6 +96,7 @@ def palette(
     palette - Color palette for the given key
     """
     # Setup
+    tdata._sanitize()
     if not isinstance(key, str):
         raise TypeError("Key must be a string.")
     if random_state is not None:

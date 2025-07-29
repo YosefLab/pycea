@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import math
 import warnings
 from collections.abc import Mapping, Sequence
 from typing import Any
@@ -10,6 +11,8 @@ from typing import Any
 import cycler
 import matplotlib as mpl
 import matplotlib.colors as mcolors
+import matplotlib.pyplot as plt
+import matplotlib.ticker as mticker
 import networkx as nx
 import numpy as np
 import pandas as pd
@@ -17,6 +20,8 @@ import treedata as td
 from scanpy.plotting import palettes
 
 from pycea.utils import check_tree_has_key, get_leaves, get_root
+
+from ._legend import _categorical_legend, _cbar_legend
 
 
 def layout_nodes_and_branches(
@@ -177,9 +182,25 @@ def _get_default_categorical_colors(length: int) -> list[str]:
 
 
 def _get_categorical_colors(
-    tdata: td.TreeData, key: str, data: Any, palette: Any | None = None, save: bool = True
+    tdata: td.TreeData, key: str, data: Any, palette: Any | None = None, save: bool = True, subset: bool = True
 ) -> dict[Any, Any]:
-    """Get categorical colors for plotting."""
+    """Get categorical colors for plotting.
+
+    Parameters
+    ----------
+    tdata
+        The TreeData object containing the data.
+    key
+        The key in `tdata.obs` to use for the categorical variable.
+    data
+        The data to use for the categorical variable.
+    palette
+        The palette to use for the categorical variable. If `None`, the default palette is used.
+    save
+        Whether to save the colors in `tdata.uns[key + "_colors"]`.
+    subset
+        Whether to subset the data to the categories present in data.
+    """
     # Check type of data
     if not isinstance(data, pd.Series):
         raise ValueError("Input data must be a pandas Series.")
@@ -189,7 +210,7 @@ def _get_categorical_colors(
     categories = data.cat.categories
     # Use default colors if no palette is provided
     if palette is None:
-        colors_list = tdata.uns.get(key + "_colors", None)
+        colors_list = tdata.uns.get(f"{key}_colors", None)
         if (colors_list is None) or (len(colors_list) < len(categories)):
             colors_list = _get_default_categorical_colors(len(categories))
     # Use provided palette
@@ -232,7 +253,10 @@ def _get_categorical_colors(
     # store colors in tdata
     if save and len(categories) <= len(palettes.default_102):
         tdata.uns[key + "_colors"] = colors_list
-    return dict(zip(categories, colors_list, strict=False))
+    colormap = dict(zip(categories, colors_list, strict=False))
+    if subset:
+        colormap = {k: v for k, v in colormap.items() if k in data.unique()}
+    return colormap
 
 
 def _get_categorical_markers(
@@ -272,11 +296,29 @@ def _get_categorical_markers(
     return dict(zip(categories, markers_list, strict=False))
 
 
+def _get_norm(
+    vmin: float | None = None,
+    vmax: float | None = None,
+    data: Any | None = None,
+) -> mcolors.Normalize:
+    """Get a normalization object for color mapping."""
+    if vmin is None:
+        if data is not None:
+            vmin = data.min().min() if isinstance(data, pd.DataFrame) else data.min()
+        else:
+            raise ValueError("vmin must be specified or data must be provided.")
+    if vmax is None:
+        if data is not None:
+            vmax = data.max().max() if isinstance(data, pd.DataFrame) else data.max()
+        else:
+            raise ValueError("vmax must be specified or data must be provided.")
+    return mcolors.Normalize(vmin=vmin, vmax=vmax)
+
+
 def _series_to_rgb_array(
     series: Any,
     colors: dict[Any, Any] | mcolors.Colormap,
-    vmin: float | None = None,
-    vmax: float | None = None,
+    norm: mcolors.Normalize | None = None,
     na_color: str = "#808080",
 ) -> np.ndarray:
     """Converts a pandas Series to an N x 3 numpy array based using a color map."""
@@ -289,13 +331,11 @@ def _series_to_rgb_array(
         rgb_array = np.array([mcolors.to_rgb(color) for color in color_series])
     elif isinstance(colors, mcolors.ListedColormap | mcolors.LinearSegmentedColormap):
         # Normalize and map values if cmap is a ListedColormap
-        if vmin is not None and vmax is not None:
-            norm = mcolors.Normalize(vmin, vmax)
-            colors.set_bad(na_color)
-            color_series = colors(norm(series))
-            rgb_array = np.array(color_series)[:, :3]
-        else:
-            raise ValueError("vmin and vmax must be specified when using a ListedColormap.")
+        if norm is None:
+            raise ValueError("Normalization must be provided when using a ListedColormap.")
+        colors.set_bad(na_color)
+        color_series = colors(norm(series))
+        rgb_array = np.array(color_series)[:, :3]
     else:
         raise ValueError("cmap must be either a dictionary or a ListedColormap.")
     return rgb_array
@@ -316,3 +356,132 @@ def _check_tree_overlap(
             raise ValueError("Cannot request multiple trees when tdata.allow_overlap is True.")
     else:
         raise ValueError("Tree keys must be a string, list of strings, or None.")
+
+
+def _get_colors(
+    tdata: td.TreeData,
+    key: str,
+    data: pd.Series,
+    indicies: Sequence[Any],
+    palette: Any | None = None,
+    cmap: str | mcolors.Colormap | None = None,
+    vmin: float | None = None,
+    vmax: float | None = None,
+    na_color: str = "lightgrey",
+    marker_type: str = "line",
+) -> tuple[list[Any], dict[str, Any], int]:
+    """Get colors for plotting."""
+    if len(data) == 0:
+        raise ValueError(f"Key {key!r} is not present in any edge.")
+    if data.dtype.kind in ["i", "f"]:  # Numeric
+        norm = _get_norm(vmin=vmin, vmax=vmax, data=data)
+        color_map = plt.get_cmap(cmap)
+        colors = [color_map(norm(data[i])) if i in data.index else na_color for i in indicies]
+        legend = _cbar_legend(key, color_map, norm)
+        n_categories = 0
+    else:  # Categorical
+        if key in tdata.obs.columns and isinstance(tdata.obs[key].dtype, pd.CategoricalDtype):
+            categories = tdata.obs[key].cat.categories
+            if set(data.unique()).issubset(categories):
+                data = pd.Series(
+                    pd.Categorical(data, categories=categories),
+                    index=data.index,
+                )
+        color_map = _get_categorical_colors(tdata, str(key), data, palette)
+        colors = [color_map[data[i]] if i in data.index else na_color for i in indicies]
+        legend = _categorical_legend(key, {k: v for k, v in color_map.items() if v in colors}, type=marker_type)
+        n_categories = len(set(colors))
+    return colors, legend, n_categories
+
+
+def _get_sizes(
+    tdata: td.TreeData,
+    key: str,
+    data: pd.Series,
+    indicies: Sequence[Any],
+    mapping: tuple[float, float] | Mapping[str, float] = (5, 80),
+    na_value: float = 6,
+    marker_type: str = "line",
+) -> tuple[list[float], dict[str, Any], int]:
+    """Get sizes for plotting."""
+    if len(data) == 0:
+        raise ValueError(f"Key {key!r} is not present in any edge.")
+    if isinstance(mapping, tuple) and data.dtype.kind in ["i", "f"]:  # Numeric
+        size_norm = ScaledNormalize(vmin=data.min(), vmax=data.max(), scale=mapping)
+        sizes = [size_norm(data.loc[i]) if i in data.index else na_value for i in indicies]
+        legend = _categorical_legend(key, size_map=size_norm.get_bins(), type=marker_type)
+        n_categories = 0
+    elif isinstance(mapping, Mapping) and data.dtype.kind not in ["i", "f"]:  # Categorical
+        sizes = [mapping[data.loc[i]] if i in data.index else na_value for i in indicies]
+        n_categories = len(set(sizes))
+        legend = _categorical_legend(key, size_map={k: v for k, v in mapping.items() if v in sizes}, type=marker_type)
+    else:
+        raise ValueError(
+            "Invalid `size` parameter values. Must be (min, max) tuple for numeric data, or a mapping for categorical data."
+        )
+    return sizes, legend, n_categories
+
+
+class ScaledNormalize(mcolors.Normalize):
+    def __init__(self, vmin=None, vmax=None, scale=(0.0, 1.0), clip=False):
+        """Scaled normalization.
+
+        Parameters
+        ----------
+        vmin
+            The minimum value for normalization.
+        vmax
+            The maximum value for normalization.
+        scale
+            A tuple defining the scale range to map normalized values to.
+        clip
+            Whether to clip values outside the range [vmin, vmax].
+        """
+        super().__init__(vmin=vmin, vmax=vmax, clip=clip)
+        self.scale_min = scale[0]
+        self.scale_max = scale[1]
+
+    def __call__(self, value, clip=None):
+        """Normalize the value and scale it to the specified range."""
+        result = super().__call__(value, clip=clip)
+        return self.scale_min + result * (self.scale_max - self.scale_min)
+
+    def get_bins(self, num_bins=6):
+        """Get pretty bin edges (as strings) mapped to normalized values."""
+        if self.vmin is None or self.vmax is None:
+            raise ValueError("vmin and vmax must be set to get bins.")
+        # 1) build an extended range
+        span = self.vmax - self.vmin
+        pad = 0.05 * span
+        lo = max(self.vmin - pad, 0)
+        hi = self.vmax + pad
+        # 2) let MaxNLocator pick “nice” tick positions
+        locator = mticker.MaxNLocator(
+            nbins=num_bins,
+            steps=[1, 2, 2.5, 5, 10],
+            prune=None,
+            integer=False,
+            min_n_ticks=1,
+        )
+        raw_bins = np.array(locator.tick_values(lo, hi))
+        # 3) decide if they’re effectively all integers
+        if np.allclose(raw_bins, raw_bins.astype(int), atol=1e-12):
+            pretty = raw_bins.astype(int)
+            labels = [str(int(b)) for b in pretty]
+        else:
+            # find the smallest positive step to set decimal precision
+            diffs = np.diff(raw_bins)
+            pos = diffs[diffs > 0]
+            if pos.size:
+                min_step = pos.min()
+                precision = max(0, -int(math.floor(math.log10(min_step))) + 1)
+            else:
+                precision = 6
+
+            pretty = np.round(raw_bins, precision)
+            labels = []
+            for b in pretty:
+                s = f"{b:.{precision}f}".rstrip("0").rstrip(".")
+                labels.append(s)
+        # 4) map the string labels to the normalized values
+        return {label: self(b) for label, b in zip(labels, pretty, strict=False)}

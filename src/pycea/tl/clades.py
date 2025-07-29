@@ -66,7 +66,7 @@ def _clades(tree, depth, depth_key, clades, clade_key, name_generator, update):
 @overload
 def clades(
     tdata: td.TreeData,
-    depth: int | float | None = None,
+    depth: float | None = None,
     depth_key: str = "depth",
     clades: Mapping[Any, Any] | None = None,
     key_added: str = "clade",
@@ -78,7 +78,7 @@ def clades(
 @overload
 def clades(
     tdata: td.TreeData,
-    depth: int | float | None = None,
+    depth: float | None = None,
     depth_key: str = "depth",
     clades: Mapping[Any, Any] | None = None,
     key_added: str = "clade",
@@ -89,7 +89,7 @@ def clades(
 ) -> None: ...
 def clades(
     tdata: td.TreeData,
-    depth: int | float | None = None,
+    depth: float | None = None,
     depth_key: str = "depth",
     clades: Mapping[Any, Any] | None = None,
     key_added: str = "clade",

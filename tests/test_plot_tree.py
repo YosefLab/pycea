@@ -22,7 +22,7 @@ def test_polar_with_clades(tdata):
     )
     pycea.pl.nodes(tdata, color="clade", palette="Set1", style="clade", ax=ax)
     pycea.pl.annotation(tdata, keys="clade", ax=ax)
-    plt.savefig(plot_path / "polar_clades.png")
+    plt.savefig(plot_path / "polar_clades.png", bbox_inches="tight")
     plt.close()
 
 
@@ -39,9 +39,18 @@ def test_angled_numeric_annotations(tdata):
     )
     pycea.pl.nodes(tdata, nodes="all", color="time", style="s", size=20)
     pycea.pl.nodes(tdata, nodes=["2"], tree="1", color="black", style="*", size=200)
-    pycea.pl.annotation(tdata, keys=["x", "y"], cmap="jet", width=0.1, gap=0.05, border_width=2)
-    pycea.pl.annotation(tdata, keys=["0", "1", "2", "3", "4", "5"], label="genes", border_width=2)
-    plt.savefig(plot_path / "angled_numeric.png")
+    pycea.pl.annotation(
+        tdata,
+        keys=["x", "y"],
+        cmap="jet",
+        width=0.1,
+        gap=0.05,
+        label=["x position", "y position"],
+        border_width=2,
+        legend=False,
+    )
+    pycea.pl.annotation(tdata, keys=["0", "1", "2", "3", "4", "5"], label="genes", border_width=2, share_cmap=True)
+    plt.savefig(plot_path / "angled_numeric.png", dpi=300, bbox_inches="tight")
     plt.close()
 
 
@@ -57,8 +66,8 @@ def test_matrix_annotation(tdata):
         ax=ax,
     )
     pycea.tl.tree_neighbors(tdata, max_dist=5, depth_key="time", update=False)
-    pycea.pl.annotation(tdata, keys="tree_connectivities", ax=ax, palette={True: "black", False: "white"})
-    plt.savefig(plot_path / "matrix_annotation.png")
+    pycea.pl.annotation(tdata, keys="tree_connectivities", ax=ax, palette={True: "black", False: "white"}, legend=False)
+    plt.savefig(plot_path / "matrix_annotation.png", bbox_inches="tight")
     plt.close()
 
 
@@ -67,6 +76,7 @@ def test_character_annotation(tdata):
     tdata.obsm["characters"].replace("-1", pd.NA, inplace=True)
     palette = {"0": "lightgray"}
     palette.update({str(i + 1): plt.cm.rainbow(i / 7) for i in range(8)})  # type: ignore
+    palette = pycea.get.palette(tdata, key="characters", custom={"0": "lightgray"}, cmap="rainbow")
     pycea.pl.tree(
         tdata,
         depth_key="time",
@@ -74,7 +84,7 @@ def test_character_annotation(tdata):
         palette=palette,
     )
     assert "characters_colors" in tdata.uns_keys()
-    plt.savefig(plot_path / "character_annotation.png")
+    plt.savefig(plot_path / "character_annotation.png", bbox_inches="tight")
     plt.close()
 
 
