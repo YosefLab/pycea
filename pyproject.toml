@@ -144,3 +144,9 @@ skip = [
   "docs/references.md",
   "docs/notebooks/example.ipynb",
 ]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
