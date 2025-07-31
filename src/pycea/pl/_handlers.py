@@ -11,36 +11,35 @@ import matplotlib.transforms as mtransforms
 from matplotlib.legend_handler import HandlerBase
 
 
-def fmt5(x: float | None, *, prepend: bool = True):
-    """
-    Format *x* as an exactly-5-character string.
-
-    • Tries fixed-point with two decimals.
-    • Falls back to scientific notation, trimming the exponent so '1e5', '-2e9', …
-    • Pads on the left (prepend=True) or right (prepend=False) with spaces.
-
-    Parameters
-    ----------
-    x
-        The number to format.
-    prepend
-        If `True`, pads on the left with spaces; if `False`, pads on the
-    """
-    # fixed-point, two decimals
-    s = f"{x:.2f}"
-    if len(s) <= 5:
-        return s.rjust(5) if prepend else s.ljust(5)
-    # scientific notation, exponent as integer → no leading zeros or '+'
-    mant, exp = f"{x:.0e}".split("e")  # e.g. '1', '+05'
-    s = f"{mant}e{int(exp)}"  # '1e5'
-    if len(s) <= 5:
-        return s.rjust(5) if prepend else s.ljust(5)
-    # last resort: keep only the first mantissa digit
-    mant = mant[0]  # '9' from '9.7'
-    s = f"{mant}e{int(exp)}"  # '9e11', '-9e11', etc.
-    # If still longer than 5, clip from the left; keep the last 5 chars
-    s = s[-5:]
-    return s.rjust(5) if prepend else s.ljust(5)
+def fmt5(x, *, prepend=True):
+    """Format a number to a 5-character string with scientific notation if necessary."""
+    # Count integer digits (ignore sign)
+    int_digits = len(str(int(abs(x))))
+    # Determine decimals: ≤2 int_digits→2; 3→1; ≥4→0
+    decimals = max(0, min(2, 4 - int_digits))
+    # Fixed-point with the chosen decimals
+    s_fixed = f"{x:.{decimals}f}"
+    # Remove trailing ".0" if no decimals
+    if decimals == 0 and "." in s_fixed:
+        s_fixed = s_fixed.split(".", 1)[0]
+    # Check if fixed-point would round a tiny non-zero to zero
+    tiny_nonzero = x != 0 and decimals > 0 and abs(x) < 10 ** (-decimals)
+    # Use fixed-point if it fits and isn't tiny non-zero
+    if not tiny_nonzero and len(s_fixed) <= 5:
+        return s_fixed.rjust(5) if prepend else s_fixed.ljust(5)
+    # Try integer-only (skip this for tiny non-zero)
+    if not tiny_nonzero:
+        s_int = str(int(x))
+        if len(s_int) <= 5:
+            return s_int.rjust(5) if prepend else s_int.ljust(5)
+    # Scientific notation, trimmed exponent
+    mant, exp = f"{x:.0e}".split("e")
+    s_sci = f"{mant}e{int(exp)}"
+    if len(s_sci) <= 5:
+        return s_sci.rjust(5) if prepend else s_sci.ljust(5)
+    # Last-ditch: single-digit mantissa
+    s_sci2 = f"{mant[0]}e{int(exp)}"[-5:]
+    return s_sci2.rjust(5) if prepend else s_sci2.ljust(5)
 
 
 class HandlerColorbar(HandlerBase):

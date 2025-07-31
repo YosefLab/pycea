@@ -11,7 +11,7 @@ import pandas as pd
 import scipy as sp
 import treedata as td
 
-from pycea.utils import check_tree_has_key, get_leaves, get_root, get_trees
+from pycea.utils import check_tree_has_key, get_obs_to_tree_map, get_root, get_tree_to_obs_map, get_trees
 
 from ._metrics import _get_tree_metric, _TreeMetric
 from ._utils import (
@@ -37,26 +37,24 @@ def _tree_distance(tree, depth_key, metric, pairs=None):
     return rows, cols, data
 
 
-def _all_pairs_shared_tree(trees, sample_n):
+def _all_pairs_shared_tree(tdata, tree_keys, sample_n):
     """Get all pairs of observations that share a tree."""
+    tree_to_obs = get_tree_to_obs_map(tdata, tree_keys)
     if sample_n is None:
-        tree_pairs = {}
-        for key, tree in trees.items():
-            leaves = get_leaves(tree)
-            tree_pairs[key] = [(i, j) for i in leaves for j in leaves]
+        tree_pairs = {key: [(i, j) for i in nodes for j in nodes] for key, nodes in tree_to_obs.items()}
     else:
-        tree_to_leaf = {key: get_leaves(tree) for key, tree in trees.items()}
-        tree_keys = list(tree_to_leaf.keys())
-        tree_n_pairs = np.array([len(leaves) ** 2 for leaves in tree_to_leaf.values()])
+        tree_n_pairs = np.array([len(nodes) ** 2 for nodes in tree_to_obs.values()])
         tree_pairs = defaultdict(set)
         n_pairs = 0
         if sample_n > tree_n_pairs.sum():
             raise ValueError("Sample size is larger than the number of pairs.")
         k = 0
         while k < sample_n:
+            print(tree_to_obs)
+            tree_keys = list(tree_to_obs.keys())
             tree = random.choices(tree_keys, tree_n_pairs, k=1)[0]  # type: ignore
-            i = random.choice(tree_to_leaf[tree])
-            j = random.choice(tree_to_leaf[tree])
+            i = random.choice(tree_to_obs[tree])
+            j = random.choice(tree_to_obs[tree])
             if (i, j) not in tree_pairs[tree]:
                 tree_pairs[tree].add((i, j))
                 n_pairs += 1
@@ -65,14 +63,14 @@ def _all_pairs_shared_tree(trees, sample_n):
     return tree_pairs
 
 
-def _assign_pairs_to_trees(pairs, trees):
+def _assign_pairs_to_trees(pairs, tdata, tree_keys):
     """Assign pairs to trees."""
-    leaf_to_tree = {leaf: key for key, tree in trees.items() for leaf in get_leaves(tree)}
-    has_tree = set(leaf_to_tree.keys())
+    obs_to_tree = get_obs_to_tree_map(tdata, tree_keys)
+    has_tree = set(obs_to_tree.keys())
     tree_pairs = defaultdict(list)
     for i, j in pairs:
-        if i in has_tree and j in has_tree and leaf_to_tree[i] == leaf_to_tree[j]:
-            tree_pairs[leaf_to_tree[i]].append((i, j))
+        if i in has_tree and j in has_tree and obs_to_tree[i] == obs_to_tree[j]:
+            tree_pairs[obs_to_tree[i]].append((i, j))
     return tree_pairs
 
 
@@ -202,7 +200,7 @@ def tree_distance(
         _check_previous_params(tdata, {"metric": metric}, key_added, ["neighbors", "distances"])
     # Get set of pairs for each tree
     if not obs and not connect_key:
-        tree_pairs = _all_pairs_shared_tree(trees, sample_n)
+        tree_pairs = _all_pairs_shared_tree(tdata, tree_keys, sample_n)
     else:
         if connect_key:
             pairs = list(zip(*tdata.obsp[connect_key].nonzero(), strict=False))  # type: ignore
@@ -218,7 +216,7 @@ def tree_distance(
             raise ValueError("Invalid type for parameter `obs`.")
         if sample_n:
             pairs = random.sample(pairs, sample_n)
-        tree_pairs = _assign_pairs_to_trees(pairs, trees)
+        tree_pairs = _assign_pairs_to_trees(pairs, tdata, tree_keys)
         tree_pairs = _sample_pairs(tree_pairs, sample_n)
     # Compute distances for each tree
     rows, cols, data = [], [], []

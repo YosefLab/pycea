@@ -80,7 +80,7 @@ def layout_nodes_and_branches(
         for parent, child in branch_coords:
             lats, lons = branch_coords[(parent, child)]
             angle = abs(lons[0] - lons[1])
-            if angle > min_angle:
+            if (angle > min_angle) & (not angled_branches):
                 # interpolate points
                 inter_lons = np.linspace(lons[0], lons[1], int(np.ceil(angle / min_angle)))
                 inter_lats = [lats[0]] * len(inter_lons)
@@ -297,22 +297,28 @@ def _get_categorical_markers(
 
 
 def _get_norm(
-    vmin: float | None = None,
-    vmax: float | None = None,
+    vmin: float | str | None = None,
+    vmax: float | str | None = None,
     data: Any | None = None,
 ) -> mcolors.Normalize:
     """Get a normalization object for color mapping."""
-    if vmin is None:
-        if data is not None:
-            vmin = data.min().min() if isinstance(data, pd.DataFrame) else data.min()
-        else:
-            raise ValueError("vmin must be specified or data must be provided.")
-    if vmax is None:
-        if data is not None:
-            vmax = data.max().max() if isinstance(data, pd.DataFrame) else data.max()
-        else:
-            raise ValueError("vmax must be specified or data must be provided.")
-    return mcolors.Normalize(vmin=vmin, vmax=vmax)
+    if isinstance(vmin, float | int):
+        vmin_ = vmin
+    elif vmin is None and data is not None:
+        vmin_ = data.min().min() if isinstance(data, pd.DataFrame) else data.min()
+    elif isinstance(vmin, str) and data is not None and vmin.startswith("p"):
+        vmin_ = float(np.percentile(data, float(vmin[1:])))
+    else:
+        raise ValueError("vmin must be specified or data must be provided.")
+    if isinstance(vmax, float | int):
+        vmax_ = vmax
+    elif vmax is None and data is not None:
+        vmax_ = data.max().max() if isinstance(data, pd.DataFrame) else data.max()
+    elif isinstance(vmax, str) and data is not None and vmax.startswith("p"):
+        vmax_ = float(np.percentile(data, float(vmax[1:])))
+    else:
+        raise ValueError("vmax must be specified or data must be provided.")
+    return mcolors.Normalize(vmin=vmin_, vmax=vmax_)
 
 
 def _series_to_rgb_array(
@@ -365,8 +371,8 @@ def _get_colors(
     indicies: Sequence[Any],
     palette: Any | None = None,
     cmap: str | mcolors.Colormap | None = None,
-    vmin: float | None = None,
-    vmax: float | None = None,
+    vmin: float | str | None = None,
+    vmax: float | str | None = None,
     na_color: str = "lightgrey",
     marker_type: str = "line",
 ) -> tuple[list[Any], dict[str, Any], int]:
@@ -388,9 +394,9 @@ def _get_colors(
                     index=data.index,
                 )
         color_map = _get_categorical_colors(tdata, str(key), data, palette)
-        colors = [color_map[data[i]] if i in data.index else na_color for i in indicies]
+        colors = [color_map[data[i]] if (i in data.index and pd.notna(data.at[i])) else na_color for i in indicies]
         legend = _categorical_legend(key, {k: v for k, v in color_map.items() if v in colors}, type=marker_type)
-        n_categories = len(set(colors))
+        n_categories = len(data.unique())
     return colors, legend, n_categories
 
 
@@ -408,11 +414,11 @@ def _get_sizes(
         raise ValueError(f"Key {key!r} is not present in any edge.")
     if isinstance(mapping, tuple) and data.dtype.kind in ["i", "f"]:  # Numeric
         size_norm = ScaledNormalize(vmin=data.min(), vmax=data.max(), scale=mapping)
-        sizes = [size_norm(data.loc[i]) if i in data.index else na_value for i in indicies]
+        sizes = [size_norm(data.loc[i]) if (i in data.index and pd.notna(data.at[i])) else na_value for i in indicies]
         legend = _categorical_legend(key, size_map=size_norm.get_bins(), type=marker_type)
         n_categories = 0
     elif isinstance(mapping, Mapping) and data.dtype.kind not in ["i", "f"]:  # Categorical
-        sizes = [mapping[data.loc[i]] if i in data.index else na_value for i in indicies]
+        sizes = [mapping[data.loc[i]] if (i in data.index and pd.notna(data.at[i])) else na_value for i in indicies]
         n_categories = len(set(sizes))
         legend = _categorical_legend(key, size_map={k: v for k, v in mapping.items() if v in sizes}, type=marker_type)
     else:

@@ -101,7 +101,7 @@ def palette(
         raise TypeError("Key must be a string.")
     if random_state is not None:
         np.random.seed(random_state)
-    data, is_array = get_keyed_obs_data(tdata, [key], sort=sort)
+    data, is_array, is_square = get_keyed_obs_data(tdata, [key], sort=sort)
     if is_array:
         key = data.columns[0]
     if len(data.select_dtypes(exclude="category").columns) > 0:

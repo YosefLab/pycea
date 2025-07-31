@@ -127,7 +127,7 @@ def autocorr(
     else:
         if isinstance(keys, str):
             keys = [keys]
-        data, _ = get_keyed_obs_data(tdata, keys, layer=layer)
+        data, _, _ = get_keyed_obs_data(tdata, keys, layer=layer)
         keys = list(data.columns)
     method_names = {"moran": "moranI", "geary": "gearyC"}
     # Calculate autocorrelation

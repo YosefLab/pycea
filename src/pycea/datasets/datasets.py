@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
+import networkx as nx
 import requests
-import treedata as td  # type: ignore
+import treedata as td
+
+from pycea.utils import get_leaves
 
 if TYPE_CHECKING:
     from os import PathLike
@@ -16,6 +19,7 @@ ZENODO_DOI = "15750529"  # Needs to be updated if the dataset is changed
 def _load_dataset(
     name: str, cache_dir: PathLike | str, backup_url: str | None = None, force_download: bool = False
 ) -> td.TreeData:
+    """Load a dataset from the cache or download it if not present."""
     cache_dir = Path(cache_dir).expanduser()
     cache_dir.mkdir(parents=True, exist_ok=True)
     filename = cache_dir / name
@@ -31,7 +35,17 @@ def _load_dataset(
     return td.read_h5td(filename)
 
 
-def packer19(cache_dir: PathLike | str = DATASET_DIR) -> td.TreeData:
+def _prune_tree(tree: nx.DiGraph, nodes: set[str]) -> nx.DiGraph:
+    """Prune a tree to keep only the specified nodes and their ancestors."""
+    tree = nx.DiGraph(tree.copy())
+    keep = set(nodes)
+    for n in nodes:
+        keep |= nx.ancestors(tree, n)
+    tree.remove_nodes_from(set(tree.nodes) - keep)
+    return tree
+
+
+def packer19(cache_dir: PathLike | str = DATASET_DIR, tree: Literal["full", "observed"] = "full") -> td.TreeData:
     """C elegans lineage tree with cell state and position :cite:p:`Packer_2019`.
 
     In this study, single-cell RNA sequencing (scRNA-seq) was performed on C. elegans
@@ -46,6 +60,9 @@ def packer19(cache_dir: PathLike | str = DATASET_DIR) -> td.TreeData:
     ----------
     cache_dir
         The directory where the datasets are cached. Default is `~/.treedata/datasets`.
+    tree
+        The tree to load. If "full", the full lineage tree is used. If "observed", the tree is pruned to only include
+        lineages that are resolved by Packer et al. 2019 at the 400 minute time point.
 
     Returns
     -------
@@ -57,6 +74,10 @@ def packer19(cache_dir: PathLike | str = DATASET_DIR) -> td.TreeData:
         cache_dir=cache_dir,
         backup_url=f"https://zenodo.org/records/{ZENODO_DOI}/files/packer19.h5td?download=1",
     )
+    if tree == "observed":
+        tdata.obst["tree"] = _prune_tree(
+            tdata.obst["tree"], set(tdata.obs.query("~dies").index) & set(get_leaves(tdata.obst["tree"]))
+        )
     return tdata
 
 

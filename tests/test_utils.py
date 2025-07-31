@@ -97,34 +97,39 @@ def test_get_keyed_leaf_data(tdata):
 
 
 def test_get_keyed_obs_data_valid_keys(tdata):
-    data, is_array = get_keyed_obs_data(tdata, "value")
+    data, is_array, is_square = get_keyed_obs_data(tdata, "value")
     assert not is_array
+    assert not is_square
     assert data["value"].tolist() == ["1", "2"]
     # Automatically converts object columns to category
     assert data["value"].dtype == "category"
     assert tdata.obs["value"].dtype == "category"
     # Gets gene expression data
-    data, is_array = get_keyed_obs_data(tdata, "1", layer="scaled")
+    data, is_array, is_square = get_keyed_obs_data(tdata, "1", layer="scaled")
     assert not is_array
+    assert not is_square
     assert data["1"].tolist() == [2, 4]
 
 
 def test_get_keyed_obs_data_array(tdata):
     # spatial obsm array
-    data, is_array = get_keyed_obs_data(tdata, ["spatial"])
+    data, is_array, is_square = get_keyed_obs_data(tdata, ["spatial"])
     assert data.columns.tolist() == [0, 1]
     assert data[0].tolist() == [0, 1]
     assert is_array
+    assert not is_square
     assert isinstance(data, pd.DataFrame)
     assert data.shape[1] == 2
     # dense obsp array
-    data, is_array = get_keyed_obs_data(tdata, ["dense"])
+    data, is_array, is_square = get_keyed_obs_data(tdata, ["dense"])
     assert is_array
+    assert is_square
     assert isinstance(data, pd.DataFrame)
     assert data.shape[1] == 2
     # sparse obsp array
-    data, is_array = get_keyed_obs_data(tdata, ["sparse"])
+    data, is_array, is_square = get_keyed_obs_data(tdata, ["sparse"])
     assert is_array
+    assert is_square
     assert isinstance(data, pd.DataFrame)
     assert data.shape[1] == 2
 

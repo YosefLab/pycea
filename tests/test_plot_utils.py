@@ -204,6 +204,10 @@ def test_get_norm_defaults_and_errors():
     norm_s = _get_norm(data=s)
     assert norm_s.vmin == 1
     assert norm_s.vmax == 5
+    # Test percentile input
+    norm_p = _get_norm(data=s, vmin="p10", vmax="p90")
+    assert norm_p.vmin == 1.4
+    assert norm_p.vmax == 4.6
     # Test DataFrame input
     df = pd.DataFrame({"a": [0, 2], "b": [4, 6]})
     norm_df = _get_norm(data=df)
@@ -254,8 +258,7 @@ def test_get_colors_categorical():
     expected = [mcolors.to_hex(c, keep_alpha=True) for c in ["red", "green", "blue"]]
     assert colors[:3] == expected
     assert colors[-1] == "lightgrey"
-    # Includes na_color as category
-    assert ncat == 4
+    assert ncat == 3
     assert isinstance(legend, dict)
 
 
