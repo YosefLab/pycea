@@ -310,7 +310,7 @@ def ancestral_states(
     _check_tree_overlap(tdata, tree_keys)
     trees = get_trees(tdata, tree_keys)
     for _, t in trees.items():
-        data, is_array = get_keyed_obs_data(tdata, keys)
+        data, is_array, is_square = get_keyed_obs_data(tdata, keys)
         dtypes = {dtype.kind for dtype in data.dtypes}
         # Check data type
         if dtypes.intersection({"f"}):
@@ -337,4 +337,5 @@ def ancestral_states(
                 nx.set_node_attributes(t, data[key].to_dict(), key_added)
                 _ancestral_states(t, key_added, method, costs, missing_state, default_state)
     if copy:
+        return get_keyed_node_data(tdata, keys_added, tree_keys)
         return get_keyed_node_data(tdata, keys_added, tree_keys)

@@ -209,7 +209,7 @@ def _render_legends(
         if column_max_width == 0.0:
             column_max_width = width
         # 5) if it overflows vertically, start new column
-        if height > y_offset:
+        if (height > y_offset) & (y_offset != 1.0):
             legend.remove()
             x_offset += column_max_width + spacing
             y_offset = 1.0

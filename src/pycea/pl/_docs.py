@@ -19,9 +19,6 @@ def _doc_params(**kwds):
 doc_common_plot_args = """\
 tree
     The `obst` key or keys of the trees to plot. If `None`, all trees are plotted.
-legend
-    Whether to add a legend to the plot. By default, a legend is added if there
-    are <= 20 distinct categories.
 cmap
     Color map to use for continous variables. Can be a name or a
     :class:`~matplotlib.colors.Colormap` instance (e.g. `"magma`", `"viridis"`
@@ -38,7 +35,7 @@ palette
     variable already has colors stored in `tdata.uns["{var}_colors"]`.
     If provided, values of `tdata.uns["{var}_colors"]` will be set.
 vmax
-    The maximum value for the colormap.
+    The maximum value for the colormap. Use `'p99'` to set the maximum to the 99th percentile of the data.
 vmin
-    The minimum value for the colormap.
+    The minimum value for the colormap. Use `'p1'` to set the minimum to the 1st percentile of the data.
 """

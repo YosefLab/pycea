@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import warnings
 from collections.abc import Mapping, Sequence
-from typing import Any, cast
+from typing import Any, Literal, cast
 
 import cycler
 import matplotlib as mpl
@@ -41,15 +41,16 @@ def branches(
     color: str = "black",
     linewidth: float | str = 0.5,
     depth_key: str = "depth",
-    tree: str | Sequence[str] | None = None,
     legend: bool | None = None,
+    tree: str | Sequence[str] | None = None,
     cmap: str | mcolors.Colormap = "viridis",
     palette: cycler.Cycler | mcolors.ListedColormap | Sequence[str] | Mapping[Any, str] | None = None,
-    vmax: float | None = None,
-    vmin: float | None = None,
+    vmax: float | str | None = None,
+    vmin: float | str | None = None,
     na_color: str = "lightgrey",
     na_linewidth: float = 1,
     linewidths: Mapping[str, float] | tuple[float, float] = (0.1, 2),
+    slot: Literal["obst", "obsp"] | None = None,
     ax: Axes | None = None,
     legend_kwargs: dict[str, Any] | None = None,
     **kwargs,
@@ -73,11 +74,17 @@ def branches(
         Either an numeric width, or a key for an attribute of the edges to set the linewidth.
     depth_key
         The key for the depth of the nodes.
+    legend
+        Whether to add a legend to the plot. By default, a legend is added if there
+        are <= 20 distinct categories.
     {common_plot_args}
     na_color
         The color to use for edges with missing data.
     na_linewidth
         The linewidth to use for edges with missing data.
+    slot
+        Slot in TreeData object containing `color` and `linewidth` attributes.
+        If `None`, searches `obst` when `alignment='leaves'`, searches `obst` and `obsp` otherwise.
     ax
         A matplotlib axes object. If `None`, a new figure and axes will be created.
     legend_kwargs
@@ -118,7 +125,7 @@ def branches(
     if mcolors.is_color_like(color):
         kwargs.update({"color": color})
     elif isinstance(color, str):
-        color_data = get_keyed_edge_data(tdata, color, tree_keys)[color]
+        color_data = get_keyed_edge_data(tdata, color, tree_keys, slot=slot)[color]
         colors, color_legend, n_categories = _get_colors(
             tdata, color, color_data, edges, palette, cmap, vmin, vmax, na_color
         )
@@ -131,7 +138,7 @@ def branches(
     if isinstance(linewidth, float | int):
         kwargs.update({"linewidth": linewidth})
     elif isinstance(linewidth, str):
-        linewidth_data = get_keyed_edge_data(tdata, linewidth, tree_keys)[linewidth]
+        linewidth_data = get_keyed_edge_data(tdata, linewidth, tree_keys, slot=slot)[linewidth]
         scaled_widths, width_legend, n_categories = _get_sizes(
             tdata, linewidth, linewidth_data, edges, linewidths, na_value=na_linewidth
         )
@@ -165,7 +172,7 @@ def branches(
     }
     # Add legends
     if legend is True or (legend is None and len(legends) > 0):
-        _render_legends(ax, legends, anchor_x=1.02, spacing=0.02, shared_kwargs=legend_kwargs)
+        _render_legends(ax, legends, anchor_x=1.01, spacing=0.02, shared_kwargs=legend_kwargs)
     return ax
 
 
@@ -182,17 +189,18 @@ def nodes(
     color: str = "black",
     style: str = "o",
     size: float | str = 10,
-    tree: str | Sequence[str] | None = None,
     legend: bool | None = None,
+    tree: str | Sequence[str] | None = None,
     palette: cycler.Cycler | mcolors.ListedColormap | Sequence[str] | Mapping[Any, str] | None = None,
     cmap: str | mcolors.Colormap | None = None,
-    vmax: float | None = None,
-    vmin: float | None = None,
+    vmax: float | str | None = None,
+    vmin: float | str | None = None,
     markers: Sequence[str] | Mapping[str, str] | None = None,
     sizes: tuple[float, float] | Mapping[str, float] = (5, 50),
     na_color: str = "#FFFFFF00",
     na_style: str = "none",
     na_size: float = 0,
+    slot: Literal["obst", "obs", "X"] | None = None,
     ax: Axes | None = None,
     legend_kwargs: dict[str, Any] | None = None,
     **kwargs,
@@ -213,6 +221,9 @@ def nodes(
         Can be numeric but will always be treated as a categorical variable.
     size
         Either an numeric size, or a key for an attribute of the nodes to set the size.
+    legend
+        Whether to add a legend to the plot. By default, a legend is added if there
+        are <= 20 distinct categories.
     {common_plot_args}
     markers
         Object determining how to draw the markers for different levels of the style variable.
@@ -228,6 +239,9 @@ def nodes(
         The size to use for annotations with missing data.
     ax
         A matplotlib axes object. If `None`, a new figure and axes will be created.
+    slot
+        Slot in TreeData object containing `color`, `style`, and `size` attributes.
+        If `None`, searches `obst` when `alignment='leaves'`, searches `obs` and `X` otherwise.
     legend_kwargs
         Additional keyword arguments passed to :func:`matplotlib.pyplot.legend`.
     kwargs
@@ -291,7 +305,7 @@ def nodes(
     if mcolors.is_color_like(color):
         kwargs.update({"color": color})
     elif isinstance(color, str):
-        color_data = get_keyed_node_data(tdata, color, tree_keys)[color]
+        color_data = get_keyed_node_data(tdata, color, tree_keys, slot=slot)[color]
         colors, color_legend, n_categories = _get_colors(
             tdata, color, color_data, plot_nodes, palette, cmap, vmin, vmax, na_color, marker_type="marker"
         )
@@ -304,7 +318,7 @@ def nodes(
     if isinstance(size, float | int):
         kwargs.update({"s": size})
     elif isinstance(size, str):
-        size_data = get_keyed_node_data(tdata, size, tree_keys)[size]
+        size_data = get_keyed_node_data(tdata, size, tree_keys, slot=slot)[size]
         marker_sizes, size_legend, n_categories = _get_sizes(
             tdata, size, size_data, plot_nodes, sizes, na_value=na_size, marker_type="marker"
         )
@@ -343,7 +357,7 @@ def nodes(
         ax.scatter(**kwargs)
     # Add legends
     if legend is True or (legend is None and max_categories <= 20):
-        _render_legends(ax, legends, anchor_x=1.02, spacing=0.02, shared_kwargs=legend_kwargs)
+        _render_legends(ax, legends, anchor_x=1.01, spacing=0.02, shared_kwargs=legend_kwargs)
     return ax
 
 
@@ -362,14 +376,15 @@ def annotation(
     label: bool | str | Sequence[str] | None = True,
     layer: str | None = None,
     border_width: float = 0,
-    tree: str | Sequence[str] | None = None,
     legend: bool | None = None,
+    tree: str | Sequence[str] | None = None,
     cmap: str | mcolors.Colormap | None = None,
     palette: cycler.Cycler | mcolors.ListedColormap | Sequence[str] | Mapping[Any, str] | None = None,
-    vmax: float | None = None,
-    vmin: float | None = None,
+    vmax: float | str | None = None,
+    vmin: float | str | None = None,
     share_cmap: bool = False,
     na_color: str = "white",
+    slot: Literal["obs", "obsm", "obsp", "X"] | None = None,
     ax: Axes | None = None,
     legend_kwargs: dict[str, Any] | None = None,
     **kwargs,
@@ -394,11 +409,16 @@ def annotation(
         Name of the TreeData object layer to use. If `None`, `tdata.X` is plotted.
     border_width
         The width of the border around the annotation bar.
+    legend
+        Whether to add a legend to the plot. By default, a legend is added if there
+        are <= 20 distinct categories.
     {common_plot_args}
     share_cmap
         If `True`, all numeric keys will share the same colormap.
     na_color
         The color to use for annotations with missing data.
+    slot
+        Slot in TreeData object containing `keys`. If `None`, searches `obs`, `X`, `obsm`, and `obsp` in that order.
     ax
         A matplotlib axes object. If `None`, a new figure and axes will be created.
     legend_kwargs
@@ -427,7 +447,10 @@ def annotation(
     color_map = plt.get_cmap(cmap)
     leaves = attrs["leaves"]
     # Get data
-    data, is_array = get_keyed_obs_data(tdata, keys, layer=layer)
+    data, is_array, is_square = get_keyed_obs_data(tdata, keys, layer=layer, slot=slot)
+    data = data.reindex(leaves, axis=0)
+    if is_square:
+        data = data.reindex(leaves, axis=1)
     numeric_data = data.select_dtypes(exclude="category")
     if vmin is not None and vmax is not None:
         share_cmap = True
@@ -460,9 +483,9 @@ def annotation(
     max_categories = 0
     if is_array:  # single cmap for all columns
         label = labels[0] if labels is not None else keys[0]
-        if data.shape[0] == data.shape[1]:  # square matrix
+        if is_square:
             data = data.loc[leaves, list(reversed(leaves))]
-            end_lat = start_lat + attrs["depth"] + 2 * np.pi
+            end_lat = start_lat + attrs["depth"] * 2 * np.pi * width / 0.05
             lats = np.linspace(start_lat, end_lat, data.shape[1] + 1)
         if data.loc[:, data.columns[0]].dtype == "category":  # all columns are categorical with same categories
             max_categories = len(data.loc[:, data.columns[0]].cat.categories)
@@ -533,7 +556,7 @@ def annotation(
                     xlabel.set_rotation(90)
     # Add legends
     if legend is True or (legend is None and max_categories <= 20):
-        _render_legends(ax, legends, anchor_x=1.02, spacing=0.02, shared_kwargs=legend_kwargs)
+        _render_legends(ax, legends, anchor_x=1.01, spacing=0.02, shared_kwargs=legend_kwargs)
     ax._attrs.update({"offset": end_lat})  # type: ignore
     return ax
 
@@ -555,16 +578,19 @@ def tree(
     depth_key: str = "depth",
     branch_color: str = "black",
     branch_linewidth: float | str = 0.5,
+    branch_legend: bool | None = None,
     node_color: str = "black",
     node_style: str = "o",
     node_size: str | float = 10,
+    node_legend: bool | None = None,
     annotation_width: float = 0.05,
+    annotation_legend: bool | None = None,
     tree: str | Sequence[str] | None = None,
     legend: bool | None = None,
     cmap: str | mcolors.Colormap = "viridis",
     palette: cycler.Cycler | mcolors.ListedColormap | Sequence[str] | Mapping[Any, str] | None = None,
-    vmax: float | None = None,
-    vmin: float | None = None,
+    vmax: float | str | None = None,
+    vmin: float | str | None = None,
     share_cmap: bool = False,
     ax: Axes | None = None,
     legend_kwargs: dict[str, Any] | None = None,
@@ -592,14 +618,23 @@ def tree(
         Either a color name, or a key for an attribute of the edges to color by.
     branch_linewidth
         Either an numeric width, or a key for an attribute of the edges to set the linewidth.
+    branch_legend
+        Whether to show a legend for the branches. By default, a legend is added if there
+        are <= 20 distinct categories.
     node_color
         Either a color name, or a key for an attribute of the nodes to color by.
     node_style
         Either a marker name, or a key for an attribute of the nodes to set the marker.
     node_size
         Either an numeric size, or a key for an attribute of the nodes to set the size.
+    node_legend
+        Whether to show a legend for the nodes. By default, a legend is added if there
+        are <= 20 distinct categories.
     annotation_width
         The width of the annotation bar relative to the tree.
+    annotation_legend
+        Whether to show a legend for the annotations. By default, a legend is added if there
+        are <= 20 distinct categories.
     {common_plot_args}
     share_cmap
         If `True`, all numeric keys will share the same colormap.
@@ -626,6 +661,8 @@ def tree(
         palette=palette,
         vmax=vmax,
         vmin=vmin,
+        legend=branch_legend,
+        legend_kwargs=legend_kwargs,
         ax=ax,
     )
     # Plot nodes
@@ -643,6 +680,8 @@ def tree(
             palette=palette,
             vmax=vmax,
             vmin=vmin,
+            legend=node_legend,
+            legend_kwargs=legend_kwargs,
             ax=ax,
         )
     # Plot annotations
@@ -650,7 +689,7 @@ def tree(
         ax = _annotation(
             tdata,
             keys=keys,
-            legend=legend,
+            legend=annotation_legend,
             width=annotation_width,
             cmap=cmap,
             palette=palette,

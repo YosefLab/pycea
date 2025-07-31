@@ -22,6 +22,20 @@ def tdata():
     yield tdata
 
 
+@pytest.fixture
+def nodes_tdata():
+    tree1 = nx.DiGraph([("A", "B"), ("A", "C"), ("C", "D"), ("C", "E")])
+    nx.set_node_attributes(tree1, {"A": 0, "B": 3, "C": 2, "D": 3, "E": 3}, "depth")
+    tree2 = nx.DiGraph([("F", "G"), ("F", "H")])
+    nx.set_node_attributes(tree2, {"F": 0, "G": 1, "H": 1}, "depth")
+    tdata = td.TreeData(
+        obs=pd.DataFrame(index=["A", "B", "C", "D", "E", "G", "H"]),
+        obst={"tree1": tree1, "tree2": tree2, "empty": nx.DiGraph()},
+        alignment="subset",
+    )
+    yield tdata
+
+
 def test_sparse_tree_distance(tdata):
     dist = tree_distance(tdata, "depth", metric="path", copy=True)
     assert isinstance(dist, sp.sparse.csr_matrix)
@@ -37,6 +51,23 @@ def test_sparse_tree_distance(tdata):
     assert tdata.obsp["lca_distances"][0, 1] == 0
     assert tdata.obsp["lca_distances"][0, 2] == 0
     assert tdata.obsp["lca_distances"][1, 2] == 1
+
+
+def test_nodes_tree_distance(nodes_tdata):
+    dist = tree_distance(nodes_tdata, "depth", metric="path", copy=True)
+    assert isinstance(dist, sp.sparse.csr_matrix)
+    assert dist.shape == (7, 7)
+    assert dist[0, 1] == 3
+    assert dist[0, 2] == 2
+    assert "tree_distances" in nodes_tdata.uns.keys()
+    assert nodes_tdata.uns["tree_distances"]["params"]["metric"] == "path"
+    tree_distance(nodes_tdata, "depth", metric="lca", key_added="lca")
+    assert isinstance(nodes_tdata.obsp["lca_distances"], sp.sparse.csr_matrix)
+    assert isinstance(nodes_tdata.obsp["lca_connectivities"], sp.sparse.csr_matrix)
+    assert nodes_tdata.obsp["lca_distances"].shape == (7, 7)
+    assert nodes_tdata.obsp["lca_distances"][0, 1] == 0
+    assert nodes_tdata.obsp["lca_distances"][0, 2] == 0
+    assert nodes_tdata.obsp["lca_distances"][3, 4] == 2
 
 
 def test_pairwise_tree_distance(tdata):
