@@ -11,15 +11,33 @@ from pycea.utils import get_root, get_trees
 def _sort_tree(tree: nx.DiGraph, key: str, reverse: bool = False) -> nx.DiGraph:
     for node in nx.dfs_postorder_nodes(tree, get_root(tree)):
         if tree.out_degree(node) > 1:
+            # Store edge metadata before removing edges so we can reattach
+            # edges with their attributes intact.  Using ``tree.successors``
+            # directly returns an iterator which will be exhausted after
+            # calling ``sorted`` so we first materialize the list of
+            # children.
+            children = list(tree.successors(node))
             try:
-                sorted_children = sorted(tree.successors(node), key=lambda x: tree.nodes[x][key], reverse=reverse)
+                sorted_children = sorted(
+                    children, key=lambda x: tree.nodes[x][key], reverse=reverse
+                )
             except KeyError as err:
                 raise KeyError(
-                    f"Node {next(tree.successors(node))} does not have a {key} attribute.",
+                    f"Node {next(iter(children))} does not have a {key} attribute.",
                     "You may need to call `ancestral_states` to infer internal node values",
                 ) from err
-            tree.remove_edges_from([(node, child) for child in tree.successors(node)])
-            tree.add_edges_from([(node, child) for child in sorted_children])
+
+            # Capture edge attributes prior to removal
+            edge_data = {
+                child: tree.get_edge_data(node, child, default={}) for child in children
+            }
+
+            # Remove existing edges and re-add them in the sorted order with
+            # their associated metadata.
+            tree.remove_edges_from((node, child) for child in children)
+            tree.add_edges_from(
+                (node, child, edge_data[child]) for child in sorted_children
+            )
     return tree
 
 
