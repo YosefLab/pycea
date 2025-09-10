@@ -32,10 +32,19 @@ def _maybe_drop_tree_index(df: pd.DataFrame, n_trees: int) -> pd.DataFrame:
 
 
 def edge_df(tdata: td.TreeData, tree: str | Sequence[str] | None = None) -> pd.DataFrame:
-    """Return edge-level metadata as a :class:`~pandas.DataFrame`.
+    """
+    Return tree edge attributes as :class:`~pandas.DataFrame`.
 
-    When multiple trees are selected, the returned DataFrame has a
-    ``("tree", "edge")`` index. Otherwise the index is simply ``"edge"``.
+    Parameters
+    ----------
+    tdata
+        The ``treedata.TreeData`` object.
+    tree
+        The `obst` key or keys of the trees.
+
+    Returns
+    -------
+    edge_df - DataFrame of edge attributes.
     """
     trees = get_trees(tdata, tree)
     keys = _infer_edge_keys(trees)
@@ -44,10 +53,19 @@ def edge_df(tdata: td.TreeData, tree: str | Sequence[str] | None = None) -> pd.D
 
 
 def node_df(tdata: td.TreeData, tree: str | Sequence[str] | None = None) -> pd.DataFrame:
-    """Return node-level metadata as a :class:`~pandas.DataFrame`.
+    """
+    Return tree node attributes as :class:`~pandas.DataFrame`.
 
-    When multiple trees are selected, the returned DataFrame has a
-    ``("tree", "node")`` index. Otherwise the index is simply ``"node"``.
+    Parameters
+    ----------
+    tdata
+        The ``treedata.TreeData`` object.
+    tree
+        The `obst` key or keys of the trees.
+
+    Returns
+    -------
+    node_df - DataFrame of node attributes.
     """
     trees = get_trees(tdata, tree)
     keys = _infer_node_keys(trees)
