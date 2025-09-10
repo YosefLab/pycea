@@ -56,6 +56,10 @@
 .. autosummary::
     :toctree: generated
 
+    get.leaves
+    get.root
+    get.node_df
+    get.edge_df
     get.palette
 ```
 

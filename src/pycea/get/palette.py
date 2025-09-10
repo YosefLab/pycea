@@ -70,7 +70,7 @@ def palette(
     random_state: int | None = None,
 ) -> dict[Any, Any]:
     """
-    Returns a color palette for a given key.
+    Get color palette for a given key.
 
     Parameters
     ----------
