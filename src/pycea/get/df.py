@@ -33,7 +33,7 @@ def _maybe_drop_tree_index(df: pd.DataFrame, n_trees: int) -> pd.DataFrame:
 
 def edge_df(tdata: td.TreeData, tree: str | Sequence[str] | None = None) -> pd.DataFrame:
     """
-    Return tree edge attributes as :class:`~pandas.DataFrame`.
+    Get tree edge attributes as :class:`~pandas.DataFrame`.
 
     Parameters
     ----------
@@ -54,7 +54,7 @@ def edge_df(tdata: td.TreeData, tree: str | Sequence[str] | None = None) -> pd.D
 
 def node_df(tdata: td.TreeData, tree: str | Sequence[str] | None = None) -> pd.DataFrame:
     """
-    Return tree node attributes as :class:`~pandas.DataFrame`.
+    Get tree node attributes as :class:`~pandas.DataFrame`.
 
     Parameters
     ----------
