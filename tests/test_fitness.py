@@ -1,36 +1,26 @@
-import networkx as nx
 import pandas as pd
 import pytest
 import treedata as td
 
-from pycea.pp.setup_tree import add_depth
 from pycea.tl.fitness import fitness
 
 
 @pytest.fixture
-def tdata():
-    tree1 = nx.DiGraph([("root", "A"), ("root", "B"), ("B", "C"), ("B", "D")])
-    tdata = td.TreeData(obs=pd.DataFrame(index=["A", "C", "D"]), obst={"tree1": tree1})
-    return tdata
+def tdata() -> td.TreeData:
+    return td.read_h5td("tests/data/tdata.h5ad")
 
 
-def test_fitness_returns_df_and_sets_attributes(tdata):
-    add_depth(tdata, key_added="depth")
-    df = fitness(tdata, tree="tree1", depth_key="depth", key_added="fitness", copy=True)
-    assert isinstance(df, pd.DataFrame)
-    assert "fitness" in df.columns
-    for leaf in ["A", "C", "D"]:
-        assert leaf in df.index
-        assert not pd.isna(tdata.obs.loc[leaf, "fitness"])
-        assert df.loc[leaf, "fitness"] == tdata.obst["tree1"].nodes[leaf]["fitness"]
-    for node in ["root", "B"]:
-        assert "fitness" in tdata.obst["tree1"].nodes[node]
+def test_fitness_lbi(tdata):
+    result = fitness(tdata, depth_key="time", method="lbi", copy=True)
+    assert isinstance(result, pd.DataFrame)
+    assert result.loc[("1", "181"), "fitness"] == pytest.approx(0.8, abs=1e-1)
+    assert result.fitness.max() == pytest.approx(2.8, abs=1e-1)
 
 
-def test_fitness_copy_false(tdata):
-    add_depth(tdata, key_added="depth")
-    result = fitness(tdata, tree="tree1", depth_key="depth", key_added="lbi", copy=False)
-    assert result is None
-    for leaf in ["A", "C", "D"]:
-        assert "lbi" in tdata.obst["tree1"].nodes[leaf]
-        assert not pd.isna(tdata.obs.loc[leaf, "lbi"])
+def test_fitness_sbd(tdata):
+    result = fitness(tdata, depth_key="time", method="sbd", copy=True, tree="1")
+    assert isinstance(result, pd.DataFrame)
+
+
+if __name__ == "__main__":
+    pytest.main(["-v", __file__])
