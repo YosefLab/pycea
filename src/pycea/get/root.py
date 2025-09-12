@@ -10,7 +10,7 @@ from pycea.utils import get_trees
 
 def root(tdata: td.TreeData, tree: str | Sequence[str] | None = None) -> str | Mapping[str, str | None]:
     """
-    Get the root of tree.
+    Get the root of a tree.
 
     Parameters
     ----------

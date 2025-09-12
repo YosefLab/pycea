@@ -189,6 +189,8 @@ def _render_legends(
     fig = ax.figure
     fig.canvas.draw()  # make sure transforms are current
 
+    if not hasattr(ax, "_attrs"):
+        ax._attrs = {}  # type: ignore
     x_offset = ax._attrs.get("x_offset", anchor_x)  # type: ignore
     y_offset = ax._attrs.get("y_offset", 1.0)  # type: ignore
     column_max_width = ax._attrs.get("column_max_width", 0.0)  # type: ignore

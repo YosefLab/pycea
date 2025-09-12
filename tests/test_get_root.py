@@ -1,4 +1,5 @@
 import networkx as nx
+import pytest
 import treedata as td
 
 from pycea.get import root
@@ -26,3 +27,7 @@ def test_root_multiple_trees():
     res_subset = root(tdata, ["t1", "t2"])
     assert res_subset == {"t1": "A", "t2": "F"}
     assert root(tdata, "t1") == "A"
+
+
+if __name__ == "__main__":
+    pytest.main(["-v", __file__])
