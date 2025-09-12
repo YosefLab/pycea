@@ -42,7 +42,7 @@ def test_node_df_single_tree():
     df = node_df(tdata)
     assert set(df.columns) == {"depth", "label", "value"}
     assert df.index.names == ["node"]
-    assert df.loc["B", "depth"].item() == 1
+    assert df.loc["B", "depth"] == 1
 
 
 def test_node_df_multiple_trees_and_tree_param():

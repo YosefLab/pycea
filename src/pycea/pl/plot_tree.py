@@ -171,7 +171,7 @@ def branches(
         "tree_keys": list(trees.keys()),
     }
     # Add legends
-    if legend is True or (legend is None and len(legends) > 0):
+    if legend is True or (legend is None and legends and max_categories <= 20):
         _render_legends(ax, legends, anchor_x=1.01, spacing=0.02, shared_kwargs=legend_kwargs)
     return ax
 
@@ -578,15 +578,12 @@ def tree(
     depth_key: str = "depth",
     branch_color: str = "black",
     branch_linewidth: float | str = 0.5,
-    branch_legend: bool | None = None,
     node_color: str = "black",
     node_style: str = "o",
     node_size: str | float = 10,
-    node_legend: bool | None = None,
     annotation_width: float = 0.05,
-    annotation_legend: bool | None = None,
     tree: str | Sequence[str] | None = None,
-    legend: bool | None = None,
+    legend: bool | Mapping[str, bool] | None = None,
     cmap: str | mcolors.Colormap = "viridis",
     palette: cycler.Cycler | mcolors.ListedColormap | Sequence[str] | Mapping[Any, str] | None = None,
     vmax: float | str | None = None,
@@ -618,23 +615,18 @@ def tree(
         Either a color name, or a key for an attribute of the edges to color by.
     branch_linewidth
         Either an numeric width, or a key for an attribute of the edges to set the linewidth.
-    branch_legend
-        Whether to show a legend for the branches. By default, a legend is added if there
-        are <= 20 distinct categories.
     node_color
         Either a color name, or a key for an attribute of the nodes to color by.
     node_style
         Either a marker name, or a key for an attribute of the nodes to set the marker.
     node_size
         Either an numeric size, or a key for an attribute of the nodes to set the size.
-    node_legend
-        Whether to show a legend for the nodes. By default, a legend is added if there
-        are <= 20 distinct categories.
+    legend
+        Whether to show a legend. By default, a legend is added if there
+        are <= 20 distinct categories. Can also be a dictionary with keys "branch", "node", and "annotation"
+        to control the legend for each component separately.
     annotation_width
         The width of the annotation bar relative to the tree.
-    annotation_legend
-        Whether to show a legend for the annotations. By default, a legend is added if there
-        are <= 20 distinct categories.
     {common_plot_args}
     share_cmap
         If `True`, all numeric keys will share the same colormap.
@@ -647,6 +639,10 @@ def tree(
     -------
     ax - The axes that the plot was drawn on.
     """  # noqa: D205
+    # Setup
+    branch_legend = legend.get("branch", None) if isinstance(legend, Mapping) else legend
+    node_legend = legend.get("node", None) if isinstance(legend, Mapping) else legend
+    annotation_legend = legend.get("annotation", None) if isinstance(legend, Mapping) else legend
     # Plot branches
     ax = _branches(
         tdata,

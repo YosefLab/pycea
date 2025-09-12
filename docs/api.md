@@ -30,6 +30,7 @@
     tl.sort
     tl.tree_distance
     tl.tree_neighbors
+    tl.n_extant
 ```
 
 ## Plotting
@@ -45,6 +46,7 @@
     pl.branches
     pl.nodes
     pl.annotation
+    pl.n_extant
 ```
 
 ## Getting elements

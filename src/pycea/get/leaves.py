@@ -10,7 +10,7 @@ from pycea.utils import get_trees
 
 def leaves(tdata: td.TreeData, tree: str | Sequence[str] | None = None) -> list[str] | Mapping[str, list[str]]:
     """
-    Get the leaves of tree.
+    Get the leaves of a tree.
 
     Parameters
     ----------

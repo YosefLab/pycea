@@ -71,8 +71,7 @@ def get_keyed_edge_data(
             data.append(edge_data)
         data = pd.concat(data)
         data = data.set_index(["tree", "edge"])
-        if not data.empty:
-            return data
+        return data
     if slot == "obsp" or slot is None:
         data = []
         mat, _, _ = get_keyed_obs_data(tdata, keys, slot=slot)
