@@ -485,6 +485,7 @@ def fitness(
         Additional keyword arguments passed to the selected method. For example:
 
         - `gamma` (float, default=0.2): Dimensionless diffusion constant (for SBD).
+        - `attach_posteriors` (bool, default=False): If True, attach posterior distributions to nodes (for SBD).
         - `tau` (float, default=None): Time scale (for LBI).
     sample_n
         Number of leaf pairs to use for time-scale estimation.
