@@ -341,7 +341,7 @@ def _infer_fitness_sbd(
 
     def sorted_successors(u):
         succ = list(G.successors(u))
-        succ.sort(key=lambda x: (time[x], repr(x)))
+        succ.sort(key=lambda x: (time[x], str(x)))
         return succ
 
     topo, seen = [], set()
@@ -738,4 +738,5 @@ def fitness(
     tdata.obs[key_added] = tdata.obs.index.map(leaf_to_clade[key_added])
     if copy:
         return get_keyed_node_data(tdata, key_added, tree_keys)
+    return None
     return None

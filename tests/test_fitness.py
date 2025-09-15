@@ -20,6 +20,8 @@ def test_fitness_lbi(tdata):
 def test_fitness_sbd(tdata):
     result = fitness(tdata, depth_key="time", method="sbd", copy=True, tree="1")
     assert isinstance(result, pd.DataFrame)
+    assert result.loc[("1", "181"), "fitness"] == pytest.approx(1.97, abs=1e-1)
+    assert result.fitness.max() == pytest.approx(2.18, abs=1e-1)
 
 
 if __name__ == "__main__":
