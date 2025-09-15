@@ -1,14 +1,13 @@
 from __future__ import annotations
 
+import itertools
 import math
-from collections import defaultdict
 from typing import Literal, overload
 
 import networkx as nx
 import numpy as np
 import pandas as pd
 import treedata as td
-from scipy.integrate import odeint
 from scipy.interpolate import interp1d
 
 from pycea.utils import check_tree_has_key, get_keyed_leaf_data, get_keyed_node_data, get_trees
@@ -19,9 +18,7 @@ non_negativity_cutoff = 1e-20
 
 
 def integrate_rk4(df, f0, T, dt, args):
-    """
-    Self made fixed time step rk4 integration
-    """
+    """Self made fixed time step rk4 integration."""
     sol = np.zeros([len(T)] + list(f0.shape))
     sol[0] = f0
     f = f0.copy()
@@ -41,17 +38,20 @@ def integrate_rk4(df, f0, T, dt, args):
 
 
 class survival_gen_func:
-    """
-    solves for the generating function of the copy number distribution of lineages
-    in the traveling fitness wave. These generating functions are used to calculate
-    lineage propagators conditional on not having sampled other branches.
+    """Generate functions for the lineage copy number distribution.
+
+    Solves the generating function in the traveling fitness wave. These
+    generating functions are used to calculate lineage propagators conditional
+    on not having sampled other branches.
     """
 
     def __init__(self, fitness_grid=None):
-        """
-        Instantiates the class
-        arguments:
-            fitness_grid    discretization used for the solution of the ODEs
+        """Instantiate the class.
+
+        Parameters
+        ----------
+        fitness_grid
+            Discretization used for the solution of the ODEs.
         """
         if fitness_grid is None:
             self.fitness_grid = np.linspace(-5, 8, 101)
@@ -67,13 +67,17 @@ class survival_gen_func:
         self.phi_solutions = {}
 
     def integrate_phi(self, D, eps, T, save_sol=True, dt=None):
-        """
-        Solve the equation for the generating function
-        arguments:
-        D   -- dimensionless diffusion constant. this is connected with the popsize
-               via v = (24 D^2 log N)**(1/3)
-        eps -- initial condition for the generating function
-        T   -- grid of times on which the generating function is to be evaluated
+        """Solve the equation for the generating function.
+
+        Parameters
+        ----------
+        D
+            Dimensionless diffusion constant. This is connected with the
+            population size via ``v = (24 D^2 log N)**(1/3)``.
+        eps
+            Initial condition for the generating function.
+        T
+            Grid of times on which the generating function is to be evaluated.
         """
         phi0 = np.ones(self.L) * eps
         # if dt is not provided, use a heuristic that decreases with increasing diffusion constant
@@ -88,9 +92,7 @@ class survival_gen_func:
         return sol
 
     def dphi(self, phi, t, D):
-        """
-        Time derivative of the generating function
-        """
+        """Time derivative of the generating function."""
         dp = np.zeros_like(phi)
         dp[1:-1] = (
             D * (phi[:-2] + phi[2:] - 2 * phi[1:-1]) * self.dxsqinv
@@ -112,114 +114,70 @@ class survival_gen_func:
         )
         return dp
 
-    def integrate_prop_odeint(self, D, eps, x, t1, t2):
-        """
-        Integrate the lineage propagator, accounting for non branching. THIS USES THE SCIPY ODE INTEGRATOR
-        parameters:
-        D   --  dimensionless diffusion constant
-        eps --  initial condition for the generating function, corresponding to the sampling probability
-        x   --  fitness at the "closer to the present" end of the branch
-        t1  --  time closer to the present
-        t2  --  times after which to evaluate the propagator, either a float or iterable of floats
-        """
-        if not np.iterable(t2):  # if only one value is provided, produce a list with this value
-            t2 = [t2]
-        else:  # otherwise, cast to list. This is necessary to concatenate with with t1
-            t2 = list(t2)
-
-        if np.iterable(x):
-            xdim = len(x)
-        else:
-            xdim = 1
-            x = [x]
-
-        # allocate array for solution: dimensions: #time points, #late fitness values, #fitness grid points
-        sol = np.zeros((len(t2) + 1, len(x), self.L))
-        # loop over late fitness values
-        for ii, x_val in enumerate(x):
-            # find index in fitness grid
-            xi = np.argmin(x_val > self.fitness_grid)
-            # init as delta function, normized
-            prop0 = np.zeros(self.L)
-            prop0[xi] = self.dxinv
-            # propagate backwards and save in correct row
-            sol[:, ii, :] = odeint(
-                self.dprop_backward,
-                prop0,
-                [t1] + t2,
-                args=((D, eps),),
-                rtol=0.001,
-                atol=1e-5,
-                h0=1e-2,
-                hmin=1e-4,
-                printmessg=False,
-            )
-
-        return np.maximum(non_negativity_cutoff, sol)
-
     def integrate_prop(self, D, eps, x, t1, t2, dt=None):
-        """
-        Integrate the lineage propagator, accounting for non branching. THIS USES THE SELF-MADE RK4.
-        this is usually superior odeint, since we are integrating a system of ODEs with very different
-        convergence criteria along the vector
-        parameters:
-        D   --  dimensionless diffusion constant
-        eps --  initial condition for the generating function, corresponding to the sampling probability
-        x   --  fitness at the "closer to the present" end of the branch
-        t1  --  time closer to the present
-        t2  --  times after which to evaluate the propagator, either a float or iterable of floats
+        """Integrate the lineage propagator using RK4.
+
+        Parameters
+        ----------
+        D
+            Dimensionless diffusion constant.
+        eps
+            Initial condition for the generating function, corresponding to the sampling probability.
+        x
+            Fitness at the "closer to the present" end of the branch.
+        t1
+            Time closer to the present.
+        t2
+            Times after which to evaluate the propagator, either a float or iterable of floats.
+
+        Returns
+        -------
+        np.ndarray - Propagator values.
         """
         if not np.iterable(t2):
             t2 = [t2]
         else:
             t2 = list(t2)
 
-        if np.iterable(x):
-            xdim = len(x)
-        else:
-            xdim = 1
+        if not np.iterable(x):
             x = [x]
-        # allocate array for solution: dimensions: #time points, #late fitness values, #fitness grid points
         if dt is None:
             dt = min(0.05, 0.01 / D)
 
         sol = np.zeros((len(t2) + 1, self.L, len(x)))
-        # loop over late fitness values
         prop0 = np.zeros((self.L, len(x)))
         for ii, x_val in enumerate(x):
-            # find index in fitness grid
             xi = np.argmin(x_val > self.fitness_grid)
-            # init as delta function, normalized
             prop0[xi, ii] = self.dxinv
 
-        # solve the entire matrix simultaneously.
         sol[:, :, :] = integrate_rk4(self.dprop_backward, prop0, [t1] + t2, dt, args=((D, eps),))
         return np.maximum(non_negativity_cutoff, sol.swapaxes(1, 2))
 
     def dprop_backward(self, prop, t, params):
-        """
-        Time derivative of the propagator.
-        arguments:
-            prop    value of the propagator
-            t       time to evaluate the generating function
-            params  parameters used to calculate the generating function (D,eps)
+        """Time derivative of the propagator.
+
+        Parameters
+        ----------
+        prop
+            Value of the propagator.
+        t
+            Time to evaluate the generating function.
+        params
+            Parameters used to calculate the generating function ``(D, eps)``.
         """
         dp = np.zeros_like(prop)
         D = params[0]
-        if params in self.phi_solutions:  # evaluate the generating function at the this time
-            if t > self.phi_solutions[params].x[-1]:
-                print("t larger than interpolation range! t=", t, ">", self.phi_solutions[params].x[-1])
-            # evaluate at t if 1e-6<t<T[-2], boundaries otherwise
-            tmp_phi = self.phi_solutions[params](min(max(1e-6, t), self.phi_solutions[params].x[-2]))
-            # if propagator is 2 dimensional, repeat the generating function along the missing axis
-            if len(prop.shape) == 2:
-                tmp_phi = tmp_phi.repeat(prop.shape[1]).reshape([-1, prop.shape[1]])
-                fitness_grid = self.fitness_grid.repeat(prop.shape[1]).reshape([-1, prop.shape[1]])
-            else:
-                fitness_grid = self.fitness_grid
+        if params not in self.phi_solutions:
+            raise ValueError("parameters not in phi_solutions")
+
+        # evaluate at t if 1e-6 < t < T[-2], boundaries otherwise
+        tmp_phi = self.phi_solutions[params](min(max(1e-6, t), self.phi_solutions[params].x[-2]))
+        # if propagator is 2 dimensional, repeat the generating function along the missing axis
+        if len(prop.shape) == 2:
+            tmp_phi = tmp_phi.repeat(prop.shape[1]).reshape([-1, prop.shape[1]])
+            fitness_grid = self.fitness_grid.repeat(prop.shape[1]).reshape([-1, prop.shape[1]])
         else:
-            print("solve_survival.dprop_backwards: parameters not in phi_solutions")
-            return None
+            fitness_grid = self.fitness_grid
         dp[1:-1] = (
             D * (prop[:-2] + prop[2:] - 2 * prop[1:-1]) * self.dxsqinv
             + (fitness_grid[1:-1] - 2 * tmp_phi[1:-1]) * prop[1:-1]
@@ -236,75 +194,6 @@ class survival_gen_func:
             - (prop[-1] - prop[-2]) * self.dxinv
         )
         return dp
-
-
-if __name__ == "__main__":
-    import matplotlib.pyplot as plt
-    from matplotlib import cm
-
-    mysol = survival_gen_func(np.linspace(-4, 8, 61))
-
-    # calculate the generating function for different values of D and eps
-    # the result is saved in mysol
-    t_initial = 0.0
-    for D in [0.2, 0.5]:
-        plt.figure()
-        plt.title("D=" + str(D))
-        for eps, ls in zip([0.0001, 0.01, 1.0], ["-", "--", "-."], strict=False):
-            sol = mysol.integrate_phi(D, eps, np.linspace(0, 20, 40))
-            plt.plot(mysol.fitness_grid, mysol.phi_solutions[(D, eps)].y.T, ls=ls)
-
-        plt.yscale("log")
-        plt.xlabel("fitness")
-
-    # use the precomputed generating functions to calculate the lineage propagators
-    import time
-
-    tstart = time.time()
-    x_array = mysol.fitness_grid[5:-5]
-    t_array = np.linspace(0.01, 7, 18)
-    eps = 0.0001
-    for D in [0.2]:  # , 0.5, 1.0]:
-        sol_bwd = mysol.integrate_prop(D, eps, x_array, t_initial, t_initial + t_array)
-
-        plt.figure()
-        plt.suptitle("propagator D=" + str(D))
-        for ti, t in enumerate(t_array[::2]):
-            plt.subplot(3, 3, ti + 1)
-            plt.title("t=" + str(np.round(t, 2)))
-            plt.imshow(np.log(sol_bwd[2 * ti, :, :].T), interpolation="nearest")
-
-        # plot mean offspring fitness as a function of time for difference ancestor fitness
-        plt.figure()
-        plt.title("Child fitness D=" + str(D) + " omega=" + str(eps))
-        for yi in range(10, 50, 5):
-            child_means = np.array([np.sum(sol_bwd[i, :, yi] * x_array) for i in range(sol_bwd.shape[0])])
-            child_means /= np.sum(sol_bwd[:, :, yi], axis=1)
-            child_std = np.array(
-                [np.sum(sol_bwd[i, :, yi] * (x_array - child_means[i]) ** 2) for i in range(sol_bwd.shape[0])]
-            )
-            child_std /= np.sum(sol_bwd[:, :, yi], axis=1)
-            child_std = np.sqrt(child_std)
-            plt.plot(t_array, child_means[1:], ls="-", c=cm.jet(yi / 50.0), lw=2)
-            plt.plot(t_array, child_std[1:], ls="--", c=cm.jet(yi / 50.0), lw=2)
-        plt.xlabel("time to ancestor, child at t=" + str(t_initial))
-        plt.ylabel("child mean fitness/std")
-
-        # plot mean offspring fitness as a function of time for difference ancestor fitness
-        plt.figure()
-        plt.title("Ancestor fitness D=" + str(D) + " omega=" + str(eps))
-        tmp_gauss = np.exp(-0 * mysol.fitness_grid**2 / 2)
-        for xi in range(10, 45, 5):
-            plt.plot(
-                t_array,
-                [
-                    np.sum(sol_bwd[i, xi, :] * mysol.fitness_grid * tmp_gauss) / np.sum(sol_bwd[i, xi, :] * tmp_gauss)
-                    for i in range(1, sol_bwd.shape[0])
-                ],
-            )
-        plt.xlabel("time to ancestor, child at t=" + str(t_initial))
-        plt.ylabel("ancestor fitness")
-    print(np.round(time.time() - tstart, 3), "seconds")
 
 
 def _infer_fitness_sbd(
@@ -324,6 +213,44 @@ def _infer_fitness_sbd(
     rng_seed: int = 0,
     num_pairs: int = 200,
 ) -> dict:
+    """
+    Infer node fitness using survival branching dynamics.
+
+    Parameters
+    ----------
+    G
+        Tree as a directed graph.
+    D
+        Dimensionless diffusion constant.
+    samp_frac
+        Sampling fraction.
+    depth_key
+        Node attribute storing depth.
+    fit_grid
+        Optional fitness grid for ODE solver.
+    eps_branch_length
+        Minimum branch length to avoid zero.
+    time_scale
+        Optional time-scale override.
+    fitness_attr
+        Attribute name to store inferred fitness.
+    attach_posteriors
+        If True, attach posterior distributions to nodes.
+    boundary_layer
+        Number of grid points ignored at each boundary.
+    wave_velocity
+        Fitness wave velocity.
+    zscore
+        Whether to z-score leaf fitness values.
+    rng_seed
+        Seed for random sampling of leaf pairs.
+    num_pairs
+        Maximum number of leaf pairs for time-scale estimation.
+
+    Returns
+    -------
+    dict - mapping of leaf node to inferred fitness.
+    """
     if len(G) == 0:
         return {}
 
@@ -336,61 +263,36 @@ def _infer_fitness_sbd(
         raise ValueError(f"Tree must have exactly one root (found {len(roots)})")
     root = roots[0]
 
-    # ---- deterministic traversal & children order ----
-    time = {n: float(G.nodes[n][depth_key]) for n in G.nodes}
+    time = {n: float(G.nodes[n][depth_key]) for n in G}
 
-    def sorted_successors(u):
-        succ = list(G.successors(u))
-        succ.sort(key=lambda x: (time[x], str(x)))
-        return succ
+    def sort_key(n):
+        return (time[n], str(n))
 
-    topo, seen = [], set()
-    stack = [root]
-    while stack:
-        u = stack.pop()
-        if u in seen:
-            continue
-        seen.add(u)
-        topo.append(u)
-        succ = sorted_successors(u)
-        for v in reversed(succ):
-            stack.append(v)
+    children = {u: sorted(G.successors(u), key=sort_key) for u in G}
+    parent = {v: next(G.predecessors(v)) for v in G if G.in_degree(v) > 0}
+    parent[root] = root
 
-    parent = {}
-    children = {n: [] for n in G.nodes}
+    topo = list(nx.dfs_preorder_nodes(G, root, sort_neighbors=lambda nbrs: sorted(nbrs, key=sort_key)))
+
     b = {root: 0.0}
-    for u in topo:
-        for v in sorted_successors(u):
-            parent[v] = u
-            children[u].append(v)
-            # directed difference (no abs)
-            b[v] = max(0.0, time[v] - time[u])
+    for v in G:
+        if v == root:
+            continue
+        p = parent[v]
+        b[v] = max(0.0, time[v] - time[p])
 
-    leaves = [n for n in G.nodes if len(children[n]) == 0]
+    leaves = [n for n in G if not children[n]]
     if not leaves:
         return {}
 
-    # ---- patristic depth from root ----
     depth = {root: 0.0}
     for u in topo:
         for v in children[u]:
             depth[v] = depth[u] + b[v]
 
-    # ---- mean leaf depth per subtree & time-to-present ----
-    def postorder_nodes():
-        out, st = [], [(root, 0)]
-        while st:
-            n, state = st.pop()
-            if state == 0:
-                st.append((n, 1))
-                for c in children[n]:
-                    st.append((c, 0))
-            else:
-                out.append(n)
-        return out
-
+    postorder = list(nx.dfs_postorder_nodes(G, root, sort_neighbors=lambda nbrs: sorted(nbrs, key=sort_key)))
     leaf_counts, mean_leaf_depth = {}, {}
-    for n in postorder_nodes():
+    for n in postorder:
         if not children[n]:
             leaf_counts[n] = 1
             mean_leaf_depth[n] = depth[n]
@@ -400,23 +302,10 @@ def _infer_fitness_sbd(
             leaf_counts[n] = s_count
             mean_leaf_depth[n] = s_depth / s_count
 
-    time_to_present = {n: mean_leaf_depth[n] - depth[n] for n in G.nodes}
+    time_to_present = {n: mean_leaf_depth[n] - depth[n] for n in G}
 
-    # ---- LCA helper ----
     def lca(u, v):
-        anc = set()
-        a = u
-        while True:
-            anc.add(a)
-            if a == root or a not in parent:
-                break
-            a = parent[a]
-        bnode = v
-        while bnode not in anc:
-            if bnode == root or bnode not in parent:
-                return root
-            bnode = parent[bnode]
-        return bnode
+        return nx.lowest_common_ancestor(G, u, v, default=root)
 
     # ---- seeded, sampled time_scale estimate (no replacement) ----
     def estimate_time_scale_sampled() -> float:
@@ -577,7 +466,26 @@ def _infer_fitness_lbi(
     fitness_attr: str = "fitness",
     zscore: bool = False,
 ) -> dict:
-    """Compute Local Branching Index for all nodes and set attribute."""
+    """
+    Compute Local Branching Index for all nodes and set attribute.
+
+    Parameters
+    ----------
+    G
+        Tree as a directed graph.
+    depth_key
+        Node attribute storing depth.
+    tau
+        Characteristic time scale. If ``None`` it is estimated from the tree.
+    fitness_attr
+        Attribute name to store inferred fitness.
+    zscore
+        Whether to z-score leaf fitness values.
+
+    Returns
+    -------
+    dict - mapping from node to inferred fitness.
+    """
     if len(G) == 0:
         return {}
     for n in G.nodes:
@@ -587,59 +495,41 @@ def _infer_fitness_lbi(
     if len(roots) != 1:
         raise ValueError(f"Tree must have exactly one root (found {len(roots)}).")
     root = roots[0]
-    parent: dict = {}
-    children: defaultdict = defaultdict(list)
-    try:
-        order = list(nx.topological_sort(G))
-    except nx.NetworkXUnfeasible as e:  # pragma: no cover - networkx errors
-        raise ValueError("Graph must be a DAG (a rooted tree/DAG).") from e
-    if order[0] != root:
-        order = list(nx.bfs_tree(G, root).nodes())
-    time = {n: float(G.nodes[n][depth_key]) for n in G.nodes}
+
+    time = {n: float(G.nodes[n][depth_key]) for n in G}
+    children = {u: list(G.successors(u)) for u in G}
+    parent = {v: next(G.predecessors(v)) for v in G if G.in_degree(v) > 0}
+    parent[root] = root
+
+    order = list(nx.dfs_preorder_nodes(G, root))
+    post = list(nx.dfs_postorder_nodes(G, root))
+
     b = {root: 0.0}
-    for u in order:
-        for v in G.successors(u):
-            parent[v] = u
-            children[u].append(v)
-            b[v] = abs(time[v] - time[u])
+    for v in G:
+        if v == root:
+            continue
+        p = parent[v]
+        b[v] = abs(time[v] - time[p])
+
     depth = {root: 0.0}
     for u in order:
         for v in children[u]:
             depth[v] = depth[u] + b[v]
-    leaves = [n for n in G.nodes if G.out_degree(n) == 0]
+
+    leaves = [n for n in G if G.out_degree(n) == 0]
     if not leaves:
         return {}
 
-    def lca(u, v):
-        seen = set()
-        a = u
-        while True:
-            seen.add(a)
-            if a == root:
-                break
-            a = parent.get(a)
-            if a is None:
-                break
-        bnode = v
-        while bnode not in seen:
-            bnode = parent.get(bnode)
-            if bnode is None:
-                return root
-        return bnode
-
     def mean_pairwise_patristic(nodes):
-        m, s = 0, 0.0
-        L = len(nodes)
-        if L < 2:
+        if len(nodes) < 2:
             return 0.0
-        for i in range(L):
-            for j in range(i + 1, L):
-                u, v = nodes[i], nodes[j]
-                a = lca(u, v)
-                dist = (depth[u] - depth[a]) + (depth[v] - depth[a])
-                s += dist
-                m += 1
-        return s / m
+        dsum, m = 0.0, 0
+        for u, v in itertools.combinations(nodes, 2):
+            a = nx.lowest_common_ancestor(G, u, v, default=root)
+            dist = (depth[u] - depth[a]) + (depth[v] - depth[a])
+            dsum += dist
+            m += 1
+        return dsum / m
 
     if tau is None:
         mean_pair = mean_pairwise_patristic(leaves)
@@ -647,7 +537,6 @@ def _infer_fitness_lbi(
     if tau <= 0:
         raise ValueError("tau must be > 0")
 
-    post = list(reversed(order))
     m_up: dict = {}
     for i in post:
         sum_child_up = sum(m_up[c] for c in children[i]) if children[i] else 0.0
@@ -706,24 +595,26 @@ def fitness(
     copy: Literal[True, False] = False,
 ) -> pd.DataFrame | None:
     """
-    Infer node fitness using Local Branching Index.
+    Infer node fitness using SBD or Local Branching Index.
 
     Parameters
     ----------
     tdata
         TreeData object.
     tree
-        Key identifying the tree in `tdata.obst`.
+        Key identifying the tree in ``tdata.obst``. If ``None`` use all trees.
     depth_key
         Node attribute storing depth.
     key_added
         Attribute name to store inferred fitness.
+    method
+        Either ``"sbd"`` or ``"lbi"``.
     copy
-        If True, return a DataFrame with node fitness.
+        If ``True``, return a DataFrame with node fitness.
 
     Returns
     -------
-    node_df - DataFrame of node fitness if `copy` is True, otherwise `None`.
+    node_df - DataFrame of node fitness if ``copy`` is True, otherwise ``None``
     """
     tree_keys = tree
     _check_tree_overlap(tdata, tree_keys)
@@ -731,12 +622,11 @@ def fitness(
     for t in trees.values():
         check_tree_has_key(t, depth_key)
         if method == "sbd":
-            scores = _infer_fitness_sbd(t, depth_key=depth_key, fitness_attr=key_added)
+            _infer_fitness_sbd(t, depth_key=depth_key, fitness_attr=key_added)
         elif method == "lbi":
-            scores = _infer_fitness_lbi(t, depth_key=depth_key, fitness_attr=key_added)
+            _infer_fitness_lbi(t, depth_key=depth_key, fitness_attr=key_added)
     leaf_to_clade = get_keyed_leaf_data(tdata, key_added, tree_keys)
     tdata.obs[key_added] = tdata.obs.index.map(leaf_to_clade[key_added])
     if copy:
         return get_keyed_node_data(tdata, key_added, tree_keys)
-    return None
     return None
