@@ -306,6 +306,8 @@ def nodes(
         kwargs.update({"color": color})
     elif isinstance(color, str):
         color_data = get_keyed_node_data(tdata, color, tree_keys, slot=slot)[color]
+        if len(color_data) == 0:
+            raise ValueError(f"Key {color!r} is not present in any node.")
         colors, color_legend, n_categories = _get_colors(
             tdata, color, color_data, plot_nodes, palette, cmap, vmin, vmax, na_color, marker_type="marker"
         )
@@ -319,6 +321,8 @@ def nodes(
         kwargs.update({"s": size})
     elif isinstance(size, str):
         size_data = get_keyed_node_data(tdata, size, tree_keys, slot=slot)[size]
+        if len(size_data) == 0:
+            raise ValueError(f"Key {size!r} is not present in any node.")
         marker_sizes, size_legend, n_categories = _get_sizes(
             tdata, size, size_data, plot_nodes, sizes, na_value=na_size, marker_type="marker"
         )
