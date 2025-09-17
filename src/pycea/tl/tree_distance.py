@@ -50,7 +50,6 @@ def _all_pairs_shared_tree(tdata, tree_keys, sample_n):
             raise ValueError("Sample size is larger than the number of pairs.")
         k = 0
         while k < sample_n:
-            print(tree_to_obs)
             tree_keys = list(tree_to_obs.keys())
             tree = random.choices(tree_keys, tree_n_pairs, k=1)[0]  # type: ignore
             i = random.choice(tree_to_obs[tree])

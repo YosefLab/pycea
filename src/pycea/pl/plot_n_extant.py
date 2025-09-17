@@ -23,6 +23,7 @@ def n_extant(
     n_extant_key: str | None = None,
     stat: Literal["count", "proportion", "percent"] = "count",
     order: Sequence[str] | None = None,
+    palette: dict[str, str] | None = None,
     na_color: str | None = "lightgray",
     legend: bool | None = None,
     ax: Axes | None = None,
@@ -49,6 +50,15 @@ def n_extant(
         Statistic to compute for the ribbons: 'count', 'fraction', or 'percent'.
     order
         Order of group categories in the stack.
+    palette
+        Colors to use for plotting categorical annotation groups.
+        The palette can be a valid :class:`~matplotlib.colors.ListedColormap` name
+        (`'Set2'`, `'tab20'`, …), a :class:`~cycler.Cycler` object, a dict mapping
+        categories to colors, or a sequence of colors. Colors must be valid to
+        matplotlib. (see :func:`~matplotlib.colors.is_color_like`).
+        If `None`, `mpl.rcParams["axes.prop_cycle"]` is used unless the categorical
+        variable already has colors stored in `tdata.uns["{var}_colors"]`.
+        If provided, values of `tdata.uns["{var}_colors"]` will be set.
     na_color
         The color to use for annotations with missing data.
     legend
@@ -87,6 +97,7 @@ def n_extant(
     if isinstance(color, Sequence) and not isinstance(color, str):
         df["_group"] = df[list(color)].astype(str).agg("_".join, axis=1)
         legend_title = "_".join(color)
+        df["_group"] = df["_group"].astype("category")
     elif color is not None:
         df["_group"] = df[color]
         legend_title = str(color)
@@ -115,7 +126,12 @@ def n_extant(
     ax = cast(Axes, ax)
 
     color_key = legend_title
-    color_map = _get_categorical_colors(tdata, color_key, df["_group"])
+    color_map = _get_categorical_colors(
+        tdata,
+        color_key,
+        palette=palette,
+        data=df["_group"].cat.remove_categories("NA") if df["_group"].dtype.name == "category" else df["_group"],
+    )
     if (na_color is not None) and ("NA" in df["_group"].values):
         color_map["NA"] = na_color
     legends: list[dict[str, Any]] = []

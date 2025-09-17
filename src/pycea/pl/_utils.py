@@ -62,7 +62,7 @@ def layout_nodes_and_branches(
             children = list(tree.successors(node))
             min_lon = min(node_coords[child][1] for child in children)
             max_lon = max(node_coords[child][1] for child in children)
-            node_coords[node] = (tree.nodes[node].get(depth_key), (min_lon + max_lon) / 2)
+            node_coords[node] = (tree.nodes[node].get(depth_key), (min_lon + max_lon) / 2)  # type: ignore
     # Get branch coordinates
     branch_coords = {}
     for parent, child in tree.edges():
@@ -390,7 +390,7 @@ def _get_colors(
             categories = tdata.obs[key].cat.categories
             if set(data.unique()).issubset(categories):
                 data = pd.Series(
-                    pd.Categorical(data, categories=categories),
+                    pd.Categorical(data, categories=categories, ordered=True),
                     index=data.index,
                 )
         color_map = _get_categorical_colors(tdata, str(key), data, palette)

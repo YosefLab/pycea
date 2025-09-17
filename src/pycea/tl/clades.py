@@ -9,7 +9,7 @@ import treedata as td
 
 from pycea.utils import check_tree_has_key, get_keyed_leaf_data, get_root, get_trees
 
-from ._utils import _check_tree_overlap
+from ._utils import _check_tree_overlap, _remove_attribute
 
 
 def _nodes_at_depth(tree, parent, nodes, depth, depth_key):
@@ -46,10 +46,6 @@ def _clades(tree, depth, depth_key, clades, clade_key, name_generator, update):
         pass
     else:
         raise ValueError("Must specify either clades or depth.")
-    if not update:
-        for node in tree.nodes:
-            if clade_key in tree.nodes[node]:
-                del tree.nodes[node][clade_key]
     for node, clade in clades.items():
         # Leaf
         if tree.out_degree(node) == 0:
@@ -142,6 +138,8 @@ def clades(
     name_generator = _clade_name_generator(dtype=dtype)
     lcas = []
     for key, t in trees.items():
+        if not update:
+            _remove_attribute(t, key_added)
         tree_lcas = _clades(t, depth, depth_key, clades, key_added, name_generator, update)
         tree_lcas = pd.DataFrame(tree_lcas.items(), columns=["node", key_added])
         tree_lcas["tree"] = key
@@ -150,4 +148,5 @@ def clades(
     leaf_to_clade = get_keyed_leaf_data(tdata, key_added, tree_keys)
     tdata.obs[key_added] = tdata.obs.index.map(leaf_to_clade[key_added])
     if copy:
+        return pd.concat(lcas)
         return pd.concat(lcas)

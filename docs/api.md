@@ -31,6 +31,7 @@
     tl.tree_distance
     tl.tree_neighbors
     tl.n_extant
+    tl.fitness
 ```
 
 ## Plotting

@@ -160,10 +160,11 @@ def n_extant(
         extant = extant.dropna(subset=groupby_names)
     for col in groupby_names:
         if col in tdata.obs.columns and tdata.obs[col].dtype.name == "category":
-            extant[col] = pd.Categorical(extant[col], categories=tdata.obs[col].cat.categories)
+            extant[col] = pd.Categorical(extant[col], categories=tdata.obs[col].cat.categories, ordered=True)
 
     # Store and return
     tdata.uns[key_added] = extant
     if copy:
         return extant
+    return None
     return None

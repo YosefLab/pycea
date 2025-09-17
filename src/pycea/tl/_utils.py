@@ -110,3 +110,15 @@ def _check_tree_overlap(tdata, tree_keys):
             raise ValueError("Cannot request multiple trees when tdata.allow_overlap is True.")
     else:
         raise ValueError("Tree keys must be a string, list of strings, or None.")
+
+
+def _remove_attribute(tree, key, nodes=True, edges=True):
+    """Remove node attribute from tree if it exists"""
+    if nodes:
+        for node in tree.nodes:
+            if key in tree.nodes[node]:
+                del tree.nodes[node][key]
+    if edges:
+        for u, v in tree.edges:
+            if key in tree.edges[u, v]:
+                del tree.edges[u, v][key]
