@@ -42,6 +42,19 @@ def _sample_pairs(pairs: Any, sample_n: int | None, n_obs: int) -> Any:
     return pairs
 
 
+def _pairwise_with_nans(X, metric_fn):
+    """Compute pairwise distances with NaNs"""
+    n = X.shape[0]
+    distances = np.full((n, n), np.nan)
+    # rows without any NaN
+    clean_idx = np.where(~np.isnan(X).any(axis=1))[0]
+    if clean_idx.size == 0:
+        return distances  # all rows have NaNs
+    D = metric_fn.pairwise(X[clean_idx], X[clean_idx])
+    distances[np.ix_(clean_idx, clean_idx)] = D
+    return distances
+
+
 @overload
 def distance(
     tdata: td.TreeData,
@@ -168,7 +181,7 @@ def distance(
     # Distance given indices
     elif obs is None or (isinstance(obs, Sequence) and isinstance(obs[0], str)):
         if obs is None:
-            distances = metric_fn.pairwise(X)
+            distances = _pairwise_with_nans(X, metric_fn) if np.isnan(X).any() else metric_fn.pairwise(X)
         else:
             idx = [tdata.obs_names.get_loc(o) for o in obs]
             distances = metric_fn.pairwise(X[idx])  # type: ignore

@@ -226,7 +226,7 @@ def get_keyed_obs_data(
     if array_keys and data.iloc[:, 0].dtype.kind in ["b", "O", "S"]:
         long_data = data.values.ravel()
         categories = _get_categories(pd.Series(long_data), sort)
-        categorical_type = pd.CategoricalDtype(categories=categories)
+        categorical_type = pd.CategoricalDtype(categories=categories, ordered=True)
         data = data.apply(lambda col: col.astype(categorical_type))
     return data, array_keys, is_square
 

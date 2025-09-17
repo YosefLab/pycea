@@ -390,7 +390,7 @@ def _get_colors(
             categories = tdata.obs[key].cat.categories
             if set(data.unique()).issubset(categories):
                 data = pd.Series(
-                    pd.Categorical(data, categories=categories),
+                    pd.Categorical(data, categories=categories, ordered=True),
                     index=data.index,
                 )
         color_map = _get_categorical_colors(tdata, str(key), data, palette)
