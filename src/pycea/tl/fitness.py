@@ -455,16 +455,17 @@ def fitness(
     This function implements two algorithms proposed by :cite:p:`Neher_2014` for estimating
     relative fitness from the tree topology and branch lengths:
 
-    - ``method="sbd"``: Selection-Biased Diffusion (SBD), a message-passing
-    algorithm that propagates information up and down the tree to infer
-    posterior distributions of fitness at each node. This corresponds to the
-    probabilistic framework described by Neher et al. (2014) and yields
-    posterior mean fitness values for the tree's nodes.
+    * ``method="sbd"``
+        Selection-Biased Diffusion (SBD), a message-passing algorithm that propagates
+        information up and down the tree to infer posterior distributions of fitness
+        at each node. This corresponds to the probabilistic framework described by
+        Neher et al. (2014) and yields posterior mean fitness values for the tree's
+        nodes.
 
-    - ``method="lbi"``: Local Branching Index (LBI), a heuristic that measures
-    node fitness based on the density of branching in its local neighborhood.
-    Higher LBI values correspond to nodes with more prolific descendant
-    lineages.
+    * ``method="lbi"``
+        Local Branching Index (LBI), a heuristic that measures node fitness based on
+        the density of branching in its local neighborhood. Higher LBI values
+        correspond to nodes with more prolific descendant lineages.
 
     Parameters
     ----------
@@ -523,4 +524,5 @@ def fitness(
     tdata.obs[key_added] = tdata.obs.index.map(leaf_fitness[key_added])
     if copy:
         return get_keyed_node_data(tdata, key_added, tree_keys)
+    return None
     return None
