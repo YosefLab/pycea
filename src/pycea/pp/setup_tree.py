@@ -7,7 +7,7 @@ import networkx as nx
 import pandas as pd
 import treedata as td
 
-from pycea.utils import get_keyed_leaf_data, get_keyed_node_data, get_root, get_trees
+from pycea.utils import _check_tree_overlap, get_keyed_leaf_data, get_keyed_node_data, get_root, get_trees
 
 
 def _add_depth(tree, depth_key):
@@ -15,21 +15,6 @@ def _add_depth(tree, depth_key):
     root = get_root(tree)
     depths = nx.single_source_shortest_path_length(tree, root)
     nx.set_node_attributes(tree, depths, depth_key)
-
-
-def _check_tree_overlap(tdata, tree_keys):
-    """Check single tree is requested when allow_overlap is True"""
-    if tree_keys is None:
-        tree_keys = tdata.obst.keys()
-        if tdata.allow_overlap and len(tree_keys) > 1:
-            raise ValueError("Must specify a tree when tdata.allow_overlap is True.")
-    elif isinstance(tree_keys, str):
-        pass
-    elif isinstance(tree_keys, Sequence):
-        if tdata.allow_overlap:
-            raise ValueError("Cannot request multiple trees when tdata.allow_overlap is True.")
-    else:
-        raise ValueError("Tree keys must be a string, list of strings, or None.")
 
 
 @overload

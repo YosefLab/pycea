@@ -14,12 +14,11 @@ import treedata as td
 from matplotlib.axes import Axes
 from matplotlib.collections import LineCollection
 
-from pycea.utils import get_keyed_edge_data, get_keyed_node_data, get_keyed_obs_data, get_trees
+from pycea.utils import _check_tree_overlap, get_keyed_edge_data, get_keyed_node_data, get_keyed_obs_data, get_trees
 
 from ._docs import _doc_params, doc_common_plot_args
 from ._legend import _categorical_legend, _cbar_legend, _render_legends
 from ._utils import (
-    _check_tree_overlap,
     _get_categorical_colors,
     _get_categorical_markers,
     _get_colors,

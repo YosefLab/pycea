@@ -26,6 +26,19 @@ def tdata():
     yield tdata
 
 
+@pytest.fixture
+def nodes_tdata():
+    tree = nx.DiGraph([("root", "B"), ("root", "C"), ("C", "D"), ("C", "E")])
+    spatial = np.array([[np.nan, np.nan], [0, 1], [1, 1], [2, 1], [4, 4]])
+    nodes_tdata = td.TreeData(
+        obs=pd.DataFrame(index=["root", "B", "C", "D", "E"]),
+        obst={"tree": tree},
+        obsm={"spatial": spatial},  # type: ignore
+        alignment="nodes",
+    )
+    yield nodes_tdata
+
+
 def test_ancestral_states(tdata):
     # Mean
     states = ancestral_states(tdata, "value", method="mean", copy=True)
@@ -98,6 +111,13 @@ def test_ancestral_states_sankoff(tdata):
     )
     states = ancestral_states(tdata, "characters", method="sankoff", missing_state="-1", costs=costs, copy=True)
     assert tdata.obst["tree1"].nodes["root"]["characters"] == ["2", "1"]
+
+
+def test_ancestral_states_nodes_tdata(nodes_tdata):
+    states = ancestral_states(nodes_tdata, "spatial", method="mean", copy=True)
+    print(nodes_tdata.obst["tree"].nodes["root"]["spatial"])
+    print(states)
+    assert states.loc[("tree", "root"), "spatial"] == [2.0, 2.0]
 
 
 def test_ancestral_states_invalid(tdata):

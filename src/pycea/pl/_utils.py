@@ -347,23 +347,6 @@ def _series_to_rgb_array(
     return rgb_array
 
 
-def _check_tree_overlap(
-    tdata: td.TreeData,
-    tree_keys: str | Sequence[str] | None = None,
-) -> None:
-    """Check single tree is requested when allow_overlap is True"""
-    if tree_keys is None:
-        if tdata.allow_overlap and len(tdata.obst.keys()) > 1:
-            raise ValueError("Must specify a tree when tdata.allow_overlap is True.")
-    elif isinstance(tree_keys, str):
-        pass
-    elif isinstance(tree_keys, Sequence):
-        if tdata.allow_overlap:
-            raise ValueError("Cannot request multiple trees when tdata.allow_overlap is True.")
-    else:
-        raise ValueError("Tree keys must be a string, list of strings, or None.")
-
-
 def _get_colors(
     tdata: td.TreeData,
     key: str,

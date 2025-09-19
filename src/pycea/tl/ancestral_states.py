@@ -8,9 +8,7 @@ import numpy as np
 import pandas as pd
 import treedata as td
 
-from pycea.utils import get_keyed_node_data, get_keyed_obs_data, get_root, get_trees
-
-from ._utils import _check_tree_overlap
+from pycea.utils import _check_tree_overlap, get_keyed_node_data, get_keyed_obs_data, get_root, get_trees
 
 
 def _most_common(arr: np.ndarray) -> Any:
@@ -337,5 +335,5 @@ def ancestral_states(
                 nx.set_node_attributes(t, data[key].to_dict(), key_added)
                 _ancestral_states(t, key_added, method, costs, missing_state, default_state)
     if copy:
-        return get_keyed_node_data(tdata, keys_added, tree_keys)
+        return get_keyed_node_data(tdata, keys_added, tree_keys, slot="obst")
         return get_keyed_node_data(tdata, keys_added, tree_keys)

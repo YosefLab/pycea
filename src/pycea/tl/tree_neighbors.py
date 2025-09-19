@@ -9,13 +9,12 @@ import networkx as nx
 import scipy as sp
 import treedata as td
 
-from pycea.utils import check_tree_has_key, get_leaves, get_trees
+from pycea.utils import _check_tree_overlap, check_tree_has_key, get_leaves, get_trees
 
 from ._metrics import _get_tree_metric, _TreeMetric
 from ._utils import (
     _assert_param_xor,
     _check_previous_params,
-    _check_tree_overlap,
     _csr_data_mask,
     _set_distances_and_connectivities,
     _set_random_state,

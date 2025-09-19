@@ -10,10 +10,18 @@ import pandas as pd
 import treedata as td
 from scipy.interpolate import interp1d
 
-from pycea.utils import check_tree_has_key, get_keyed_leaf_data, get_keyed_node_data, get_leaves, get_root, get_trees
+from pycea.utils import (
+    _check_tree_overlap,
+    check_tree_has_key,
+    get_keyed_leaf_data,
+    get_keyed_node_data,
+    get_leaves,
+    get_root,
+    get_trees,
+)
 
 from ._metrics import _path_distance
-from ._utils import _check_tree_overlap, _set_random_state
+from ._utils import _set_random_state
 from .tree_distance import _tree_distance
 
 non_negativity_cutoff = 1e-20
