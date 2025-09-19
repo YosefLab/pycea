@@ -290,3 +290,20 @@ def get_obs_to_tree_map(tdata: td.TreeData, tree_keys: set[str] | Sequence[str] 
         if obs in node_to_tree:
             obs_to_tree[obs] = list(node_to_tree[obs] & tree_keys)[0]
     return obs_to_tree
+
+
+def _check_tree_overlap(
+    tdata: td.TreeData,
+    tree_keys: str | Sequence[str] | None = None,
+) -> None:
+    """Check single tree is requested when allow_overlap is True"""
+    if tree_keys is None:
+        if tdata.has_overlap:
+            raise ValueError("Must specify a tree when tdata.has_overlap is True.")
+    elif isinstance(tree_keys, str):
+        pass
+    elif isinstance(tree_keys, Sequence):
+        if tdata.has_overlap:
+            raise ValueError("Cannot request multiple trees when tdata.has_overlap is True.")
+    else:
+        raise ValueError("Tree keys must be a string, list of strings, or None.")

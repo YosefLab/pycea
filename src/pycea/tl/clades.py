@@ -7,9 +7,16 @@ import networkx as nx
 import pandas as pd
 import treedata as td
 
-from pycea.utils import check_tree_has_key, get_keyed_leaf_data, get_root, get_trees
+from pycea.utils import (
+    _check_tree_overlap,
+    check_tree_has_key,
+    get_keyed_leaf_data,
+    get_keyed_node_data,
+    get_root,
+    get_trees,
+)
 
-from ._utils import _check_tree_overlap, _remove_attribute
+from ._utils import _remove_attribute
 
 
 def _nodes_at_depth(tree, parent, nodes, depth, depth_key):
@@ -145,8 +152,12 @@ def clades(
         tree_lcas["tree"] = key
         lcas.append(tree_lcas)
     # Update TreeData and return
-    leaf_to_clade = get_keyed_leaf_data(tdata, key_added, tree_keys)
-    tdata.obs[key_added] = tdata.obs.index.map(leaf_to_clade[key_added])
+    if tdata.alignment == "leaves":
+        node_to_clade = get_keyed_leaf_data(tdata, key_added, tree_keys)
+    else:
+        node_to_clade = get_keyed_node_data(tdata, key_added, tree_keys, slot="obst")
+        node_to_clade.index = node_to_clade.index.droplevel(0)
+    tdata.obs[key_added] = tdata.obs.index.map(node_to_clade[key_added])
     if copy:
         return pd.concat(lcas)
         return pd.concat(lcas)

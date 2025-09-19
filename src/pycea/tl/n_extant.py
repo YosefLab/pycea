@@ -7,9 +7,7 @@ import numpy as np
 import pandas as pd
 import treedata as td
 
-from pycea.utils import check_tree_has_key, get_keyed_node_data, get_root, get_trees
-
-from ._utils import _check_tree_overlap
+from pycea.utils import _check_tree_overlap, check_tree_has_key, get_keyed_node_data, get_root, get_trees
 
 
 @overload

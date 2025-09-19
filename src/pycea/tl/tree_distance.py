@@ -11,12 +11,18 @@ import pandas as pd
 import scipy as sp
 import treedata as td
 
-from pycea.utils import check_tree_has_key, get_obs_to_tree_map, get_root, get_tree_to_obs_map, get_trees
+from pycea.utils import (
+    _check_tree_overlap,
+    check_tree_has_key,
+    get_obs_to_tree_map,
+    get_root,
+    get_tree_to_obs_map,
+    get_trees,
+)
 
 from ._metrics import _get_tree_metric, _TreeMetric
 from ._utils import (
     _check_previous_params,
-    _check_tree_overlap,
     _csr_data_mask,
     _format_keys,
     _set_distances_and_connectivities,

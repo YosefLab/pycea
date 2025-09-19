@@ -97,21 +97,6 @@ def _assert_param_xor(params):
     return None
 
 
-def _check_tree_overlap(tdata, tree_keys):
-    """Check single tree is requested when allow_overlap is True"""
-    if tree_keys is None:
-        tree_keys = tdata.obst.keys()
-        if tdata.allow_overlap and len(tree_keys) > 1:
-            raise ValueError("Must specify a tree when tdata.allow_overlap is True.")
-    elif isinstance(tree_keys, str):
-        pass
-    elif isinstance(tree_keys, Sequence):
-        if tdata.allow_overlap:
-            raise ValueError("Cannot request multiple trees when tdata.allow_overlap is True.")
-    else:
-        raise ValueError("Tree keys must be a string, list of strings, or None.")
-
-
 def _remove_attribute(tree, key, nodes=True, edges=True):
     """Remove node attribute from tree if it exists"""
     if nodes:

@@ -1,4 +1,5 @@
 import networkx as nx
+import numpy as np
 import pandas as pd
 import pytest
 import treedata as td
@@ -18,6 +19,12 @@ def tree():
 def tdata(tree):
     tdata = td.TreeData(obs=pd.DataFrame(index=["B", "D", "E"]), obst={"tree": tree, "empty": nx.DiGraph()})
     yield tdata
+
+
+@pytest.fixture
+def nodes_tdata(tree):
+    nodes_tdata = td.TreeData(obs=pd.DataFrame(index=["A", "B", "C", "D", "E"]), obst={"tree": tree}, alignment="nodes")
+    yield nodes_tdata
 
 
 def test_nodes_at_depth(tree):
@@ -75,6 +82,11 @@ def test_clades_multiple_trees():
     clades(tdata, clades={"root": "0"}, tree="tree1", key_added="test")
     assert tdata.obs.loc["A", "test"] == "0"
     assert pd.isna(tdata.obs.loc["B", "test"])
+
+
+def test_clades_nodes_tdata(nodes_tdata):
+    clades(nodes_tdata, depth=1)
+    assert nodes_tdata.obs["clade"].tolist() == [np.nan, "0", "1", "1", "1"]
 
 
 def test_clades_dtype(tdata):
