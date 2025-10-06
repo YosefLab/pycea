@@ -14,11 +14,11 @@ HERE = Path(__file__).parent
 sys.path.insert(0, str(HERE / "extensions"))
 
 
-# -- Project information -----------------------------------------------------
+# -- Project information -----------------------------------------------------co
 
 # NOTE: If you installed your project in editable mode, this might be stale.
 #       If this is the case, reinstall it to refresh the metadata
-info = metadata("pycea")
+info = metadata("pycea-lineage")
 project_name = info["Name"]
 author = info["Author"]
 copyright = f"{datetime.now():%Y}, {author}."
@@ -92,10 +92,17 @@ source_suffix = {
 }
 
 intersphinx_mapping = {
-    "python": ("https://docs.python.org/3", None),
     "anndata": ("https://anndata.readthedocs.io/en/stable/", None),
-    "scanpy": ("https://scanpy.readthedocs.io/en/stable/", None),
+    "cycler": ("https://matplotlib.org/cycler/", None),
+    "matplotlib": ("https://matplotlib.org/stable/", None),
     "numpy": ("https://numpy.org/doc/stable/", None),
+    "networkx": ("https://networkx.org/documentation/stable/", None),
+    "pandas": ("https://pandas.pydata.org/pandas-docs/stable/", None),
+    "python": ("https://docs.python.org/3", None),
+    "scanpy": ("https://scanpy.readthedocs.io/en/stable/", None),
+    "scipy": ("https://docs.scipy.org/doc/scipy/reference/", None),
+    "squidpy": ("https://squidpy.readthedocs.io/en/stable/", None),
+    "treedata": ("https://treedata.readthedocs.io/en/stable/", None),
 }
 
 # List of patterns, relative to source directory, that match files and
@@ -121,6 +128,8 @@ html_theme_options = {
     "path_to_docs": "docs/",
     "navigation_with_keys": False,
 }
+
+html_logo = "_static/img/pycea_logo.svg"
 
 pygments_style = "default"
 

@@ -3,8 +3,8 @@ build-backend = "hatchling.build"
 requires = [ "hatchling" ]
 
 [project]
-name = "pycea"
-version = "0.0.1"
+name = "pycea-lineage"
+version = "0.1.0"
 description = "Scverse lineage tracing toolkit"
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -23,9 +23,18 @@ classifiers = [
   "Programming Language :: Python :: 3.13",
 ]
 dependencies = [
-  "anndata",
-  # for debug logging (referenced from the issue template)
-  "session-info2",
+  "cycler",
+  "matplotlib",
+  "natsort",
+  "networkx",
+  "numpy",
+  "pandas",
+  "requests",
+  "scanpy>=1.10",
+  "scikit-learn",
+  "scipy",
+  "session-info",
+  "treedata>=0.2.2",
 ]
 optional-dependencies.dev = [
   "pre-commit",
@@ -54,8 +63,8 @@ optional-dependencies.test = [
 ]
 # https://docs.pypi.org/project_metadata/#project-urls
 urls.Documentation = "https://pycea.readthedocs.io/"
-urls.Homepage = "https://github.com/colganwi/pycea"
-urls.Source = "https://github.com/colganwi/pycea"
+urls.Homepage = "https://github.com/YosefLab/pycea"
+urls.Source = "https://github.com/YosefLab/pycea"
 
 [tool.hatch.envs.default]
 installer = "uv"
@@ -86,6 +95,9 @@ features = [ "dev", "test" ]
 matrix.deps.env-vars = [
   { key = "UV_PRERELEASE", value = "allow", if = [ "pre" ] },
 ]
+
+[tool.hatch.build.targets.wheel]
+packages = [ "src/pycea" ]
 
 [tool.ruff]
 line-length = 120
@@ -132,6 +144,9 @@ testpaths = [ "tests" ]
 xfail_strict = true
 addopts = [
   "--import-mode=importlib", # allow using test files with same name
+]
+markers = [
+  "internet: tests which rely on internet resources (enable with `--internet-tests`)",
 ]
 
 [tool.coverage.run]

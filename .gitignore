@@ -2,16 +2,22 @@
 .DS_Store
 *~
 buck-out/
+.ipynb_checkpoints/
 
 # Compiled files
 .venv/
 __pycache__/
-.*cache/
+.mypy_cache/
+.ruff_cache/
 
 # Distribution / packaging
+/build/
 /dist/
+/*.egg-info/
 
 # Tests and coverage
+/.pytest_cache/
+/.cache/
 /data/
 /node_modules/
 /.coverage*
@@ -19,3 +25,22 @@ __pycache__/
 # docs
 /docs/generated/
 /docs/_build/
+
+# IDEs
+/.idea/
+/.vscode/
+
+# Plots
+/tests/plots/*.png
+
+# Node modules
+node_modules/
+
+# Environment
+environment.yml
+
+# Datasets
+/datasets/
+
+# Development
+/dev/
