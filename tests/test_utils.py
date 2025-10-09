@@ -43,6 +43,17 @@ def tdata(tree):
     yield tdata
 
 
+@pytest.fixture
+def nodes_tdata(tree):
+    tdata = td.TreeData(
+        obs=pd.DataFrame({"value": ["1", "2", "3", "4", "5"]}, index=["A", "B", "C", "D", "E"]),
+        obst={"tree": tree},
+        obsp={"dense": np.eye(5)},  # type: ignore
+        alignment="nodes",
+    )
+    yield tdata
+
+
 def test_get_root(tree):
     # Test with an empty graph
     assert get_root(nx.DiGraph()) is None
@@ -132,6 +143,13 @@ def test_get_keyed_obs_data_array(tdata):
     assert is_square
     assert isinstance(data, pd.DataFrame)
     assert data.shape[1] == 2
+
+
+def test_keyed_data_nodes_alignment(nodes_tdata):
+    data = get_keyed_node_data(nodes_tdata, ["value"])
+    assert data["value"].tolist() == ["1", "2", "3", "4", "5"]
+    data = get_keyed_edge_data(nodes_tdata, ["dense"], slot="obsp")
+    assert data.shape[0] == 4
 
 
 def test_get_keyed_obs_data_invalid_keys(tdata):
