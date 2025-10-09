@@ -1,6 +1,7 @@
 [![Tests][badge-tests]][link-tests]
 [![Documentation][badge-docs]][link-docs]
 [![PyPI](https://img.shields.io/pypi/v/pycea-lineage.svg)](https://pypi.org/project/pycea-lineage)
+[![codecov](https://codecov.io/gh/YosefLab/pycea/graph/badge.svg?token=nBiipyN9oe)](https://codecov.io/gh/YosefLab/pycea)
 
 [badge-tests]: https://img.shields.io/github/actions/workflow/status/YosefLab/pycea/test.yaml?branch=main
 [link-tests]: https://github.com/YosefLab/pycea/actions/workflows/test.yml
