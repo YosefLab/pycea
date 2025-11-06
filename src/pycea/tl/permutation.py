@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
-from typing import Any, Literal, overload
+from typing import Literal, overload, Union
 from math import comb
 
 import networkx as nx
@@ -9,12 +9,13 @@ import numpy as np
 import pandas as pd
 import treedata as td
 
-from pycea.utils import _check_tree_overlap, get_keyed_node_data, get_keyed_obs_data, get_root, get_trees
+from pycea.utils import _check_tree_overlap, get_keyed_node_data, get_keyed_obs_data, get_trees
 
 def _run_permutations(
     data: pd.DataFrame,
     n_permutations: int,
-    method: Callable[[pd.DataFrame], float],
+    reduction_fn: Callable[[np.ndarray], Union[np.ndarray, float]],
+    difference_fn: Callable[[Union[np.ndarray, float], Union[np.ndarray, float]], float],
     n_right: int,
     n_left: int
 ) -> np.ndarray:
@@ -28,8 +29,10 @@ def _run_permutations(
         Full dataset to split each permutation.
     n_permutations : int
         Number of permutations to run.
-    method : Callable[[pd.DataFrame], float]
-        Function that maps a DataFrame to a single numeric value.
+    reduction_fn
+        Callable function that can reduce the data from all the leaves of a given split to a vector or scalar.
+    difference_fn
+        Callable function that takes to outputs from reduction_fn (one from each side of a node) and returns a scalar.
     n_right : int
         Size of the "right" group in each permutation.
     n_left : int
@@ -54,10 +57,10 @@ def _run_permutations(
 
         left_df = data.iloc[left_idx]
         right_df = data.iloc[right_idx]
-        left_stat = method(left_df)
-        right_stat = method(right_df)
+        left_stat = reduction_fn(left_df.to_numpy())
+        right_stat = reduction_fn(right_df.to_numpy())
 
-        permutation_vals[i] = left_stat - right_stat
+        permutation_vals[i] = difference_fn(left_stat, right_stat)
 
     return permutation_vals
 
@@ -73,12 +76,15 @@ def _get_leaves_from_node(
     leaves = [d for d in descendants if tree.out_degree(d) == 0]
     return leaves
 
+def difference(a: float, b: float) -> float:
+    return a - b
 
 @overload
 def split_permutation_test(
     tdata: td.TreeData,
     keys: str | Sequence[str],
-    method: Callable[[pd.DataFrame], float],
+    reduction_fn: Callable[[np.ndarray], np.ndarray],
+    difference_fn: Callable[[np.ndarray, np.ndarray], float],
     permutation_test: Literal[True, False] = True,
     n_permutations: int = 1000,
     min_required_permutations: int = 40,
@@ -90,7 +96,8 @@ def split_permutation_test(
 def split_permutation_test(
     tdata: td.TreeData,
     keys: str | Sequence[str],
-    method: Callable[[pd.DataFrame], float],
+    reduction_fn: Callable[[np.ndarray], np.ndarray],
+    difference_fn: Callable[[np.ndarray, np.ndarray], float],
     permutation_test: Literal[True, False] = True,
     n_permutations: int = 1000,
     min_required_permutations: int = 40,
@@ -101,7 +108,8 @@ def split_permutation_test(
 def split_permutation_test(
     tdata: td.TreeData,
     keys: str | Sequence[str],
-    method: Callable[[pd.DataFrame], float],
+    reduction_fn: Callable[[np.ndarray], Union[np.ndarray, float]] = np.mean,
+    difference_fn: Callable[[Union[np.ndarray, float], Union[np.ndarray, float]], float] = difference,
     permutation_test: Literal[True, False] = True,
     n_permutations: int = 1000,
     min_required_permutations: int = 40,
@@ -116,9 +124,9 @@ def split_permutation_test(
     For each requested observation key, the function traverses every tree in ``tdata``
     (or only those specified via ``tree``). At each split node (a node with at least
     two children), the leaves under the left child and the leaves under the right child
-    are identified. The user-supplied ``method`` is applied separately to the data
-    for the left and right leaf sets, producing two scalars. The **split statistic**
-    is defined as ``left_stat - right_stat``.
+    are identified. The user-supplied ``reduction_fn`` is applied separately to the data
+    for the left and right leaf sets, producing two vectors or scalars. The **split statistic**
+    is defined as ``difference_fn(left_stat, right_stat)``. `.
 
     If ``permutation_test`` is enabled and there are enough distinct labelings to
     justify resampling, a two-sided permutation test is performed by repeatedly
@@ -159,9 +167,12 @@ def split_permutation_test(
         TreeData object.
     keys
         One or more `obs_keys`, `var_names`, `obsm_keys`, or `obsp_keys` to reconstruct.
-    method
-        Function that maps the side-specific data (left or right) to a scalar
-        statistic. Examples include ``np.mean``, ``np.median``, or custom callables.
+    reduction_fn
+        Callable function that can reduce the data from all the leaves of a given split to a vector or scalar. Defaults
+        to np.mean.
+    difference_fn
+        Callable function that takes to outputs from reduction_fn (one from each side of a node) and returns a scalar.
+        Defaults to left_stat - right_stat.
     permutation_test
         Whether to perform a permutation test to obtain a two-sided p-value for the
         split statistic at each split node (subject to size constraints below).
@@ -220,14 +231,13 @@ def split_permutation_test(
 
                 left_data = data[key].loc[left_leaves]
                 right_data = data[key].loc[right_leaves]
-                lr_data = pd.concat([left_data, right_data])
 
                 n_right = len(right_leaves)
                 n_left = len(left_leaves)
 
-                left_stat = method(left_data)
-                right_stat = method(right_data)
-                split_stat = left_stat - right_stat
+                left_stat = reduction_fn(left_data.to_numpy())
+                right_stat = reduction_fn(right_data.to_numpy())
+                split_stat = difference_fn(left_stat, right_stat)
                 nx.set_edge_attributes(t, {
                     (parent, left_child): {key_added: left_stat},
                     (parent, right_child): {key_added: right_stat},
@@ -236,10 +246,13 @@ def split_permutation_test(
                 permutations_to_do = min(comb(n_left + n_right, n_left), n_permutations)
 
                 if permutation_test and permutations_to_do > min_required_permutations:
+                    lr_data = pd.concat([left_data, right_data])
+
                     permutation_stats = _run_permutations(
                         lr_data,
                         permutations_to_do,
-                        method,
+                        reduction_fn,
+                        difference_fn,
                         n_right,
                         n_left
                     )
