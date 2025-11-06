@@ -307,3 +307,16 @@ def _check_tree_overlap(
             raise ValueError("Cannot request multiple trees when tdata.has_overlap is True.")
     else:
         raise ValueError("Tree keys must be a string, list of strings, or None.")
+
+def get_leaves_from_node(
+    tree: nx.DiGraph,
+    node: str
+):
+    """Get the leaves of a tree starting from a given node."""
+    descendants = nx.descendants(tree, node)
+    if tree.out_degree(node) == 0:
+        descendants.add(node)
+
+    leaves = [d for d in descendants if tree.out_degree(d) == 0]
+    return leaves
+

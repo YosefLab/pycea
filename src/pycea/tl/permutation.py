@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 import treedata as td
 
-from pycea.utils import _check_tree_overlap, get_keyed_node_data, get_keyed_obs_data, get_trees
+from pycea.utils import _check_tree_overlap, get_keyed_node_data, get_keyed_obs_data, get_trees, get_leaves_from_node
 
 def _run_permutations(
     data: pd.DataFrame,
@@ -64,18 +64,6 @@ def _run_permutations(
 
     return permutation_vals
 
-def _get_leaves_from_node(
-    tree: nx.DiGraph,
-    node: str
-):
-    """Get the leaves of a tree starting from a given node."""
-    descendants = nx.descendants(tree, node)
-    if tree.out_degree(node) == 0:
-        descendants.add(node)
-
-    leaves = [d for d in descendants if tree.out_degree(d) == 0]
-    return leaves
-
 def difference(a: float, b: float) -> float:
     return a - b
 
@@ -111,8 +99,8 @@ def split_permutation_test(
     reduction_fn: Callable[[np.ndarray], Union[np.ndarray, float]] = np.mean,
     difference_fn: Callable[[Union[np.ndarray, float], Union[np.ndarray, float]], float] = difference,
     permutation_test: Literal[True, False] = True,
-    n_permutations: int = 1000,
-    min_required_permutations: int = 40,
+    n_permutations: int = 500,
+    min_required_permutations: int = 50,
     keys_added: str | Sequence[str] | None = None,
     tree: str | Sequence[str] | None = None,
     copy: Literal[True, False] = False
@@ -208,12 +196,16 @@ def split_permutation_test(
         keys_added = [keys_added]
     if len(keys) != len(keys_added):
         raise ValueError("Length of keys must match length of keys_added.")
+    if n_permutations < min_required_permutations:
+        raise ValueError("n_permutations must at least be min_required_permutations.")
     tree_keys = tree
     _check_tree_overlap(tdata, tree_keys)
     trees = get_trees(tdata, tree_keys)
 
     for key, key_added in zip(keys, keys_added):
         data, is_array, is_square = get_keyed_obs_data(tdata, key)
+        if not(is_array or is_square):
+            data = data[key]
         for _, t in trees.items():
             for parent in nx.topological_sort(t):
                 children = list(t.successors(parent))
@@ -226,14 +218,20 @@ def split_permutation_test(
                 left_child = children[0]
                 right_child = children[1]
 
-                left_leaves = _get_leaves_from_node(t, left_child)
-                right_leaves = _get_leaves_from_node(t, right_child)
+                left_leaves = get_leaves_from_node(t, left_child)
+                right_leaves = get_leaves_from_node(t, right_child)
 
-                left_data = data[key].loc[left_leaves]
-                right_data = data[key].loc[right_leaves]
+                left_leaves_in_data = [x for x in left_leaves if x in data.index]
+                right_leaves_in_data = [x for x in right_leaves if x in data.index]
 
-                n_right = len(right_leaves)
-                n_left = len(left_leaves)
+                if len(left_leaves_in_data) > 0 and len(right_leaves_in_data) > 0:
+                    left_data = data.loc[left_leaves_in_data]
+                    right_data = data.loc[right_leaves_in_data]
+                else:
+                    continue
+
+                n_right = len(right_leaves_in_data)
+                n_left = len(left_leaves_in_data)
 
                 left_stat = reduction_fn(left_data.to_numpy())
                 right_stat = reduction_fn(right_data.to_numpy())
