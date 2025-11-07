@@ -10,6 +10,7 @@ import pandas as pd
 import treedata as td
 
 from pycea.utils import _check_tree_overlap, get_keyed_obs_data, get_trees, get_leaves_from_node
+from scipy.stats import ttest_ind
 from sklearn.metrics import DistanceMetric
 from collections.abc import Mapping
 from ._metrics import _Metric, _MetricFn, MeanDiffMetric
@@ -70,42 +71,45 @@ def _run_permutations(
     return permutation_vals
 
 @overload
-def split_permutation_test(
+def split_test(
     tdata: td.TreeData,
     keys: str | Sequence[str],
     aggregate: _AggregatorFn | _Aggregator = 'mean',
     metric: _MetricFn | _Metric | Literal["mean_difference"] = "mean_difference",
     metric_kwds: Mapping | None = None,
-    permutation_test: Literal[True, False] = True,
-    n_permutations: int = 500,
-    min_required_permutations: int = 50,
+    test: Literal["permutation", "t-test", "None"] = "permutation",
+    n_permutations: int = 100,
+    equal_var: Literal[True, False] = True,
+    min_group_leaves: int = 10,
     keys_added: str | Sequence[str] | None = None,
     tree: str | Sequence[str] | None = None,
     copy: Literal[True, False] = True
 ) -> pd.DataFrame: ...
 @overload
-def split_permutation_test(
+def split_test(
     tdata: td.TreeData,
     keys: str | Sequence[str],
     aggregate: _AggregatorFn | _Aggregator = 'mean',
     metric: _MetricFn | _Metric | Literal["mean_difference"] = "mean_difference",
     metric_kwds: Mapping | None = None,
-    permutation_test: Literal[True, False] = True,
-    n_permutations: int = 500,
-    min_required_permutations: int = 50,
+    test: Literal["permutation", "t-test", "None"] = "permutation",
+    n_permutations: int = 100,
+    equal_var: Literal[True, False] = True,
+    min_group_leaves: int = 10,
     keys_added: str | Sequence[str] | None = None,
     tree: str | Sequence[str] | None = None,
     copy: Literal[True, False] = False
 ) -> None: ...
-def split_permutation_test(
+def split_test(
     tdata: td.TreeData,
     keys: str | Sequence[str],
     aggregate: _AggregatorFn | _Aggregator = 'mean',
     metric: _MetricFn | _Metric | Literal["mean_difference"] = "mean_difference",
     metric_kwds: Mapping | None = None,
-    permutation_test: Literal[True, False] = True,
-    n_permutations: int = 500,
-    min_required_permutations: int = 50,
+    test: Literal["permutation", "t-test", "None"] = "permutation",
+    n_permutations: int = 100,
+    equal_var: Literal[True, False] = True,
+    min_group_leaves: int = 10,
     keys_added: str | Sequence[str] | None = None,
     tree: str | Sequence[str] | None = None,
     copy: Literal[True, False] = True
@@ -129,8 +133,9 @@ def split_permutation_test(
     separately to the data for group_1 and group_2 (each producing a vector or scalar),
     and the **split statistic** is computed as ``metric.pairwise(group_1_stat, group_2_stat)``.
 
-    If ``permutation_test`` is enabled and there are enough distinct labelings to
-    justify resampling, a two-sided permutation test is performed by repeatedly
+    If test="permutation" is set and there are enough distinct leaves in each group to
+    justify resampling (based on the setting of min_group_leaves),
+    a two-sided permutation test is performed by repeatedly
     shuffling the pooled rows (group_1 + group_2) and recomputing the metric.
     The number of permutations executed is the minimum of the user-requested
     ``n_permutations`` and the **theoretical maximum** number of distinct labelings,
@@ -138,6 +143,10 @@ def split_permutation_test(
     +1 smoothing:
 
         p = ( #{ |perm_stat| >= |observed| } + 1 ) / ( permutations_performed + 1 )
+
+    If test="t-test" is set and there are enough distinct leaves in each group, then a two-sided
+    t-test is performed for each split. Note that for small numbers of leaves the p-value of this
+    t-test can be unreliable.
 
     Results are written back to the tree(s):
 
@@ -160,21 +169,23 @@ def split_permutation_test(
         One or more `obs_keys`, `var_names`, `obsm_keys`, or `obsp_keys` to reconstruct.
     aggregate
         Callable function that can reduce the data from all the leaves of a given split to a vector or scalar. Defaults
-        to np.mean(,axis = 0).
+        to np.mean(,axis = 0). Only used for test="permutation".
     metric
-        A metric to compare the children from both sides of the tree. Can be a known metric or a callable.
+        A metric to compare the children from both sides of the tree. Can be a known metric or a callable. Only used
+        for test="permutation".
     metric_kwds
         Options for the metric.
-    permutation_test
-        Whether to perform a permutation test to obtain a two-sided p-value for the
-        split statistic at each split node (subject to size constraints below).
+    test
+        Type of test to perform to compare the two groups. "t-test" can only be used for scalar quantities.
+    equal_var
+        Boolean indicating if the variance in the two groups should be assumed to be equal. Only used for
+        test="t-test".
     n_permutations
         Upper bound on the number of permutations to run. The actually executed
         number is ``min(n_permutations, comb(n_left + n_right, n_left))`` per split.
-    min_required_permutations
-        Minimum number of **distinct** permutations required to run the test. If
-        ``comb(n_left + n_right, n_left) <= min_required_permutations``, the test
-        is skipped for that split.
+    min_group_leaves
+        Minimum number of leaves required in each group to perform a statistical test. The t-test may be particularly
+        unreliable with small sample sizes.
     keys_added
         Attribute keys of `tdata.obst[tree].nodes` where split statistics will be stored. If `None`, `keys` are used.
     tree
@@ -200,8 +211,6 @@ def split_permutation_test(
         keys_added = [keys_added]
     if len(keys) != len(keys_added):
         raise ValueError("Length of keys must match length of keys_added.")
-    if n_permutations < min_required_permutations:
-        raise ValueError("n_permutations must at least be min_required_permutations.")
     tree_keys = tree
     _check_tree_overlap(tdata, tree_keys)
     trees = get_trees(tdata, tree_keys)
@@ -228,6 +237,8 @@ def split_permutation_test(
         tree_list = []
 
         data, is_array, is_square = get_keyed_obs_data(tdata, key)
+        if is_array or is_square and test == "t-test":
+            raise ValueError("t-test cannot be performed for vector valued keys.")
         data = data.dropna()
         index_set = set(data.index)
         if not(is_array or is_square):
@@ -290,24 +301,33 @@ def split_permutation_test(
                         if copy and first_key:
                             group2_list.append(", ".join([x for x in children if x != child]))
 
-                    # don't perform more than theoretical maximum number of permutations
-                    permutations_to_do = min(comb(n_left + n_right, n_left), n_permutations)
+                    if test != "None":
+                        if n_right >= min_group_leaves and n_left >= min_group_leaves:
+                            if test == "permutation":
+                                lr_data = pd.concat([left_data, right_data])
 
-                    if permutation_test:
-                        if permutations_to_do > min_required_permutations:
-                            lr_data = pd.concat([left_data, right_data])
+                                # don't perform more than theoretical maximum number of permutations
+                                permutations_to_do = min(comb(n_left + n_right, n_left), n_permutations)
 
-                            permutation_stats = _run_permutations(
-                                lr_data,
-                                permutations_to_do,
-                                aggregate_fn,
-                                metric_fn,
-                                n_right,
-                                n_left
-                            )
+                                permutation_stats = _run_permutations(
+                                    lr_data,
+                                    permutations_to_do,
+                                    aggregate_fn,
+                                    metric_fn,
+                                    n_right,
+                                    n_left
+                                )
 
-                            two_sided_pval = (np.sum(np.abs(permutation_stats) >= abs(split_stat)) + 1) / (
-                                    permutations_to_do + 1)
+                                two_sided_pval = (np.sum(np.abs(permutation_stats) >= abs(split_stat)) + 1) / (
+                                        permutations_to_do + 1)
+
+                            elif test == "t-test":
+                                _, two_sided_pval = ttest_ind(
+                                    left_data.to_numpy(),
+                                    right_data.to_numpy(),
+                                    axis=None,
+                                    equal_var=equal_var
+                                )
 
                             nx.set_edge_attributes(t, {
                                 (parent, child): {f"{key_added}_pvalue": two_sided_pval}
@@ -352,7 +372,7 @@ def split_permutation_test(
                     }
                 )
 
-            if permutation_test:
+            if test != "None":
                 df_dict[key_added][f'{key_added}_pvalue'] = pvalue_list
 
         first_key = False

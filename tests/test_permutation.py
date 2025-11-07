@@ -6,7 +6,7 @@ import random
 
 import treedata as td
 
-from pycea.tl import split_permutation_test
+from pycea.tl import split_test
 from pycea.utils import get_leaves, get_leaves_from_node
 
 # -------------------------
@@ -87,12 +87,12 @@ def test_split_permutation_root_extreme_signal(deep_balanced_tdata):
 
     # Run with a modest number of permutations to keep the test fast
     n_perms = 100
-    states = split_permutation_test(
+    states = split_test(
         deep_balanced_tdata,
         keys="x",
         aggregate="mean",
         metric="mean_difference",
-        permutation_test=True,
+        test="permutation",
         n_permutations=n_perms,
         tree="balanced",
         copy=True,
@@ -122,14 +122,13 @@ def test_split_permutation_root_null_case(deep_balanced_tdata):
     deep_balanced_tdata.obs = pd.DataFrame({"x": 1}, index=leaves)
 
     # Run
-    states = split_permutation_test(
+    states = split_test(
         deep_balanced_tdata,
         keys="x",
         aggregate="mean",
         metric="mean_difference",
-        permutation_test=True,
+        test="permutation",
         n_permutations=10,  # any value; distribution is degenerate
-        min_required_permutations=5,
         tree="balanced",
         copy=True,
     )
@@ -159,14 +158,13 @@ def test_nonbinary_positive_control_one_vs_rest_small_p():
     obs = _obs_for_three_way(G, left_val=1.0, middle_val=1.0, right_val=0.0)
 
     tdata = td.TreeData(obs=obs, obst={"tri": G})
-    states = split_permutation_test(
+    states = split_test(
         tdata,
         keys="x",
         aggregate="mean",
         metric="mean_difference",
-        permutation_test=True,
+        test="permutation",
         n_permutations=100,
-        min_required_permutations=50,
         tree="tri",
         copy=True,
     )
@@ -191,14 +189,13 @@ def test_nonbinary_negative_control_middle_vs_rest_p_near_one():
     obs = _obs_for_three_way(G, left_val=1.0, middle_val=0.5, right_val=0.0)
 
     tdata = td.TreeData(obs=obs, obst={"tri": G})
-    states = split_permutation_test(
+    states = split_test(
         tdata,
         keys="x",
         aggregate="mean",
         metric="mean_difference",
-        permutation_test=True,
+        test="permutation",
         n_permutations=100,
-        min_required_permutations=50,
         tree="tri",
         copy=True,
     )

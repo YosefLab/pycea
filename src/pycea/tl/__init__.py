@@ -8,4 +8,4 @@ from .neighbor_distance import neighbor_distance
 from .sort import sort
 from .tree_distance import tree_distance
 from .tree_neighbors import tree_neighbors
-from .permutation import split_permutation_test
+from .permutation import split_test
