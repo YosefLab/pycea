@@ -177,7 +177,7 @@ def get_keyed_obs_data(
     array_keys = False
     is_square = False
     for key in keys:
-        if key in tdata.obs_keys() and (slot is None or slot == "obs"):
+        if key in tdata.obs.keys() and (slot is None or slot == "obs"):
             if tdata.obs[key].dtype.kind in ["b", "O", "S"]:
                 categories = _get_categories(tdata.obs[key], sort)
                 tdata.obs[key] = pd.Categorical(tdata.obs[key], categories=categories, ordered=True)
