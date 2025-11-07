@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
-from typing import Literal, overload, Union
+from collections.abc import Sequence
+from typing import Literal, overload
 from math import comb
 
 import networkx as nx
@@ -9,13 +9,18 @@ import numpy as np
 import pandas as pd
 import treedata as td
 
-from pycea.utils import _check_tree_overlap, get_keyed_node_data, get_keyed_obs_data, get_trees, get_leaves_from_node
+from pycea.utils import _check_tree_overlap, get_keyed_obs_data, get_trees, get_leaves_from_node
+from sklearn.metrics import DistanceMetric
+from collections.abc import Mapping
+from ._metrics import _Metric, _MetricFn, MeanDiffMetric
+from ._aggregators import _Aggregator, _AggregatorFn, Aggregator
+
 
 def _run_permutations(
     data: pd.DataFrame,
     n_permutations: int,
-    reduction_fn: Callable[[np.ndarray], Union[np.ndarray, float]],
-    difference_fn: Callable[[Union[np.ndarray, float], Union[np.ndarray, float]], float],
+    aggregate_fn: _AggregatorFn,
+    metric_fn: _MetricFn,
     n_right: int,
     n_left: int
 ) -> np.ndarray:
@@ -29,10 +34,10 @@ def _run_permutations(
         Full dataset to split each permutation.
     n_permutations : int
         Number of permutations to run.
-    reduction_fn
+    aggregate
         Callable function that can reduce the data from all the leaves of a given split to a vector or scalar.
-    difference_fn
-        Callable function that takes to outputs from reduction_fn (one from each side of a node) and returns a scalar.
+    metric
+        Callable function that takes to outputs from aggregate (one from each side of a node) and returns a scalar.
     n_right : int
         Size of the "right" group in each permutation.
     n_left : int
@@ -57,25 +62,23 @@ def _run_permutations(
 
         left_df = data.iloc[left_idx]
         right_df = data.iloc[right_idx]
-        left_stat = reduction_fn(left_df.to_numpy())
-        right_stat = reduction_fn(right_df.to_numpy())
+        left_stat = aggregate_fn(left_df.to_numpy())
+        right_stat = aggregate_fn(right_df.to_numpy())
 
-        permutation_vals[i] = difference_fn(left_stat, right_stat)
+        permutation_vals[i] = float(metric_fn.pairwise(left_stat.reshape(1, -1), right_stat.reshape(1, -1)))
 
     return permutation_vals
-
-def difference(a: float, b: float) -> float:
-    return a - b
 
 @overload
 def split_permutation_test(
     tdata: td.TreeData,
     keys: str | Sequence[str],
-    reduction_fn: Callable[[np.ndarray], np.ndarray],
-    difference_fn: Callable[[np.ndarray, np.ndarray], float],
+    aggregate: _AggregatorFn | _Aggregator = 'mean',
+    metric: _MetricFn | _Metric | Literal["mean_difference"] = "mean_difference",
+    metric_kwds: Mapping | None = None,
     permutation_test: Literal[True, False] = True,
-    n_permutations: int = 1000,
-    min_required_permutations: int = 40,
+    n_permutations: int = 500,
+    min_required_permutations: int = 50,
     keys_added: str | Sequence[str] | None = None,
     tree: str | Sequence[str] | None = None,
     copy: Literal[True, False] = True
@@ -84,11 +87,12 @@ def split_permutation_test(
 def split_permutation_test(
     tdata: td.TreeData,
     keys: str | Sequence[str],
-    reduction_fn: Callable[[np.ndarray], np.ndarray],
-    difference_fn: Callable[[np.ndarray, np.ndarray], float],
+    aggregate: _AggregatorFn | _Aggregator = 'mean',
+    metric: _MetricFn | _Metric | Literal["mean_difference"] = "mean_difference",
+    metric_kwds: Mapping | None = None,
     permutation_test: Literal[True, False] = True,
-    n_permutations: int = 1000,
-    min_required_permutations: int = 40,
+    n_permutations: int = 500,
+    min_required_permutations: int = 50,
     keys_added: str | Sequence[str] | None = None,
     tree: str | Sequence[str] | None = None,
     copy: Literal[True, False] = False
@@ -96,58 +100,57 @@ def split_permutation_test(
 def split_permutation_test(
     tdata: td.TreeData,
     keys: str | Sequence[str],
-    reduction_fn: Callable[[np.ndarray], Union[np.ndarray, float]] = np.mean,
-    difference_fn: Callable[[Union[np.ndarray, float], Union[np.ndarray, float]], float] = difference,
+    aggregate: _AggregatorFn | _Aggregator = 'mean',
+    metric: _MetricFn | _Metric | Literal["mean_difference"] = "mean_difference",
+    metric_kwds: Mapping | None = None,
     permutation_test: Literal[True, False] = True,
     n_permutations: int = 500,
     min_required_permutations: int = 50,
     keys_added: str | Sequence[str] | None = None,
     tree: str | Sequence[str] | None = None,
-    copy: Literal[True, False] = False
+    copy: Literal[True, False] = True
 ) -> pd.DataFrame | None:
     """
     Compute a split statistic across every internal split of each tree and (optionally)
     a two-sided permutation p-value.
 
     For each requested observation key, the function traverses every tree in ``tdata``
-    (or only those specified via ``tree``). At each split node (a node with at least
-    two children), the leaves under the left child and the leaves under the right child
-    are identified. The user-supplied ``reduction_fn`` is applied separately to the data
-    for the left and right leaf sets, producing two vectors or scalars. The **split statistic**
-    is defined as ``difference_fn(left_stat, right_stat)``. `.
+    (or only those specified via ``tree``). At each internal node (a node with two or
+    more children), **group_1 vs. group_2** comparisons are performed as follows:
+
+      • **Binary splits (two children):**
+        The first child is compared directly against the second child.
+
+      • **Non-binary splits (three or more children):**
+        A one-vs-rest scheme is used, where each child is compared individually
+        against the pooled set of all other children at that node.
+
+    For each comparison, the user-supplied ``aggregate`` function is applied
+    separately to the data for group_1 and group_2 (each producing a vector or scalar),
+    and the **split statistic** is computed as ``metric.pairwise(group_1_stat, group_2_stat)``.
 
     If ``permutation_test`` is enabled and there are enough distinct labelings to
     justify resampling, a two-sided permutation test is performed by repeatedly
-    shuffling the pooled rows (left+right) and recomputing the difference. The
-    number of permutations executed is the minimum of the user-requested
-    ``n_permutations`` and the **theoretical maximum** distinct labelings,
-    ``comb(n_left + n_right, n_left)``. The p-value is computed with a standard
+    shuffling the pooled rows (group_1 + group_2) and recomputing the metric.
+    The number of permutations executed is the minimum of the user-requested
+    ``n_permutations`` and the **theoretical maximum** number of distinct labelings,
+    ``comb(n_left + n_right, n_left)``. The p-value is computed with standard
     +1 smoothing:
 
         p = ( #{ |perm_stat| >= |observed| } + 1 ) / ( permutations_performed + 1 )
 
     Results are written back to the tree(s):
 
-    - On **edges**: the per-branch statistic for each child edge is stored under
-      ``{key_added}`` for that edge:
-        - ``(parent -> left_child)[key_added] = left_stat``
-        - ``(parent -> right_child)[key_added] = right_stat``
+      - **Edges:** The per-branch aggregate value for each child edge is stored under
+        ``{key_added}_value``.
+      - **Edges (with permutation test):** Each edge also stores a permutation p-value
+        under ``{key_added}_pvalue``.
+      - **Nodes:** When ``copy=True``, a summary DataFrame is returned containing all
+        comparisons performed at each internal node.
 
-    - On **nodes** (parent split node): when the permutation test runs, the node
-      receives:
-        - ``f"{key_added}_split"`` -> the observed split statistic
-        - ``f"{key_added}_pval"``  -> the two-sided permutation p-value
-
-    When ``copy=True``, a DataFrame of the node-level results is returned with
-    columns for each ``key_added`` suffixed by ``"_split"`` and ``"_pval"``; otherwise
-    the function returns ``None`` after mutating the graphs in-place.
-
-    Notes
-    -----
-    - **Method signature.** ``method`` must accept a pandas object containing only
-      the rows for one side of the split (typically a ``pd.Series`` or single-column
-      ``pd.DataFrame``) and return a single ``float``. It should be invariant to
-      row order because permutations will reshuffle rows.
+    When ``copy=True``, the function returns a :class:`pandas.DataFrame` summarizing
+    the group_1 vs. group_2 comparisons for each split; otherwise, the trees are
+    modified in-place and the function returns ``None``.
 
     Parameters
     ----------
@@ -155,12 +158,13 @@ def split_permutation_test(
         TreeData object.
     keys
         One or more `obs_keys`, `var_names`, `obsm_keys`, or `obsp_keys` to reconstruct.
-    reduction_fn
+    aggregate
         Callable function that can reduce the data from all the leaves of a given split to a vector or scalar. Defaults
-        to np.mean.
-    difference_fn
-        Callable function that takes to outputs from reduction_fn (one from each side of a node) and returns a scalar.
-        Defaults to left_stat - right_stat.
+        to np.mean(,axis = 0).
+    metric
+        A metric to compare the children from both sides of the tree. Can be a known metric or a callable.
+    metric_kwds
+        Options for the metric.
     permutation_test
         Whether to perform a permutation test to obtain a two-sided p-value for the
         split statistic at each split node (subject to size constraints below).
@@ -202,11 +206,33 @@ def split_permutation_test(
     _check_tree_overlap(tdata, tree_keys)
     trees = get_trees(tdata, tree_keys)
 
+    if metric == "mean_difference":
+        metric_fn = MeanDiffMetric()
+    else:
+        metric_fn = DistanceMetric.get_metric(metric, **(metric_kwds or {}))
+
+    aggregate_fn = Aggregator.get_aggregator(aggregate)
+    df_dict = {}
+
+    first_key = True
+
     for key, key_added in zip(keys, keys_added):
+
+        # lists for dataframe if copy = True
+        parent_list = []
+        group1_list = []
+        group2_list = []
+        group1_value_list = []
+        group2_value_list = []
+        pvalue_list = []
+        tree_list = []
+
         data, is_array, is_square = get_keyed_obs_data(tdata, key)
+        data = data.dropna()
+        index_set = set(data.index)
         if not(is_array or is_square):
             data = data[key]
-        for _, t in trees.items():
+        for tree_id, t in trees.items():
             for parent in nx.topological_sort(t):
                 children = list(t.successors(parent))
 
@@ -214,57 +240,124 @@ def split_permutation_test(
                 if len(children) < 2:
                     continue
 
-                # for each child, find all leaves
-                left_child = children[0]
-                right_child = children[1]
+                # get leaves that are in the data
+                leaves_dict = {
+                    child: [u for u in get_leaves_from_node(t, child) if u in index_set]
+                    for child in children
+                }
+                for child, left_leaves in leaves_dict.items():
+                    # All other leaves except those from the current child
+                    right_leaves = [leaf for other_child, leaves in leaves_dict.items()
+                                    if other_child != child
+                                    for leaf in leaves]
 
-                left_leaves = get_leaves_from_node(t, left_child)
-                right_leaves = get_leaves_from_node(t, right_child)
+                    if len(left_leaves) > 0 and len(right_leaves) > 0:
+                        left_data = data.loc[left_leaves]
+                        right_data = data.loc[right_leaves]
+                    else:
+                        continue
 
-                left_leaves_in_data = [x for x in left_leaves if x in data.index]
-                right_leaves_in_data = [x for x in right_leaves if x in data.index]
+                    if copy and first_key:
+                        tree_list.append(tree_id)
+                        parent_list.append(parent)
 
-                if len(left_leaves_in_data) > 0 and len(right_leaves_in_data) > 0:
-                    left_data = data.loc[left_leaves_in_data]
-                    right_data = data.loc[right_leaves_in_data]
-                else:
-                    continue
+                    n_right = len(right_leaves)
+                    n_left = len(left_leaves)
 
-                n_right = len(right_leaves_in_data)
-                n_left = len(left_leaves_in_data)
+                    left_stat = aggregate_fn(left_data.to_numpy())
+                    right_stat = aggregate_fn(right_data.to_numpy())
+                    split_stat = float(metric_fn.pairwise(left_stat.reshape(1, -1), right_stat.reshape(1, -1)))
 
-                left_stat = reduction_fn(left_data.to_numpy())
-                right_stat = reduction_fn(right_data.to_numpy())
-                split_stat = difference_fn(left_stat, right_stat)
-                nx.set_edge_attributes(t, {
-                    (parent, left_child): {key_added: left_stat},
-                    (parent, right_child): {key_added: right_stat},
-                })
-                # don't perform more than theoretical maximum number of permutations
-                permutations_to_do = min(comb(n_left + n_right, n_left), n_permutations)
-
-                if permutation_test and permutations_to_do > min_required_permutations:
-                    lr_data = pd.concat([left_data, right_data])
-
-                    permutation_stats = _run_permutations(
-                        lr_data,
-                        permutations_to_do,
-                        reduction_fn,
-                        difference_fn,
-                        n_right,
-                        n_left
-                    )
-
-                    two_sided_pval = (np.sum(np.abs(permutation_stats) >= abs(split_stat)) + 1) / (permutations_to_do + 1)
-                    nx.set_node_attributes(t, {
-                        parent: {
-                            f"{key_added}_split" : split_stat,
-                            f"{key_added}_pval": two_sided_pval
-                        },
+                    nx.set_edge_attributes(t, {
+                        (parent, child): {f"{key_added}_value": left_stat}
                     })
 
+                    if copy:
+                        group1_value_list.append(left_stat)
+                        group2_value_list.append(right_stat)
+                        if first_key:
+                            group1_list.append(child)
+
+                    if len(children) == 2:
+                        # handle special case in which there are exactly two children
+                        nx.set_edge_attributes(t, {
+                            (parent, children[1]): {f"{key_added}_value": right_stat}
+                        })
+
+                        if copy and first_key:
+                            group2_list.append(children[1])
+                    else:
+                        if copy and first_key:
+                            group2_list.append(", ".join([x for x in children if x != child]))
+
+                    # don't perform more than theoretical maximum number of permutations
+                    permutations_to_do = min(comb(n_left + n_right, n_left), n_permutations)
+
+                    if permutation_test:
+                        if permutations_to_do > min_required_permutations:
+                            lr_data = pd.concat([left_data, right_data])
+
+                            permutation_stats = _run_permutations(
+                                lr_data,
+                                permutations_to_do,
+                                aggregate_fn,
+                                metric_fn,
+                                n_right,
+                                n_left
+                            )
+
+                            two_sided_pval = (np.sum(np.abs(permutation_stats) >= abs(split_stat)) + 1) / (
+                                    permutations_to_do + 1)
+
+                            nx.set_edge_attributes(t, {
+                                (parent, child): {f"{key_added}_pvalue": two_sided_pval}
+                            })
+
+                            if len(children) == 2:
+                                # handle special case in which there are exactly two children
+                                nx.set_edge_attributes(t, {
+                                    (parent, children[1]): {f"{key_added}_pvalue": two_sided_pval}
+                                })
+
+                            if copy:
+                                pvalue_list.append(two_sided_pval)
+
+                        else:
+                            if copy:
+                                pvalue_list.append(np.nan)
+
+                    if len(children) == 2:
+                        # only need to do one test if there are two children
+                        break
+
+        if copy:
+            if first_key:
+                # write off everything for the first key
+                df_dict[key_added] = pd.DataFrame(
+                    {
+                        'tree': tree_list,
+                        'parent': parent_list,
+                        'group1': group1_list,
+                        'group2': group2_list,
+                        f'group1_{key_added}_value': group1_value_list,
+                        f'group2_{key_added}_value': group2_value_list
+                    }
+                )
+            else:
+                # only write off values after the first key
+                df_dict[key_added] = pd.DataFrame(
+                    {
+                        f'group1_{key_added}_value': group1_value_list,
+                        f'group2_{key_added}_value': group2_value_list
+                    }
+                )
+
+            if permutation_test:
+                df_dict[key_added][f'{key_added}_pvalue'] = pvalue_list
+
+        first_key = False
+
     if copy:
-        # get _pval and _split for each node
-        return get_keyed_node_data(
-            tdata, [suffix for x in keys_added for suffix in (f"{x}_split", f"{x}_pval")], tree_keys
-        )
+        # get _value and _pvalue for each node
+        combined_df = pd.concat(df_dict.values(), axis=1)
+        return combined_df
