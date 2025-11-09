@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 import treedata as td
 
-from pycea.utils import _check_tree_overlap, get_keyed_obs_data, get_trees, get_leaves_from_node
+from pycea.utils import _check_tree_overlap, get_keyed_obs_data, get_trees, _get_descendant_leaves
 from scipy.stats import ttest_ind
 from sklearn.metrics import DistanceMetric
 from collections.abc import Mapping
@@ -77,9 +77,10 @@ def split_test(
     aggregate: _AggregatorFn | _Aggregator = 'mean',
     metric: _MetricFn | _Metric | Literal["mean_difference"] = "mean_difference",
     metric_kwds: Mapping | None = None,
-    test: Literal["permutation", "t-test", "None"] = "permutation",
+    test: Literal["permutation", "t-test"] | None = "permutation",
     n_permutations: int = 100,
-    equal_var: Literal[True, False] = True,
+    random_seed: int = 42,
+    equal_var: bool = True,
     min_group_leaves: int = 10,
     keys_added: str | Sequence[str] | None = None,
     tree: str | Sequence[str] | None = None,
@@ -92,9 +93,10 @@ def split_test(
     aggregate: _AggregatorFn | _Aggregator = 'mean',
     metric: _MetricFn | _Metric | Literal["mean_difference"] = "mean_difference",
     metric_kwds: Mapping | None = None,
-    test: Literal["permutation", "t-test", "None"] = "permutation",
+    test: Literal["permutation", "t-test"] | None = "permutation",
     n_permutations: int = 100,
-    equal_var: Literal[True, False] = True,
+    random_seed: int = 42,
+    equal_var: bool = True,
     min_group_leaves: int = 10,
     keys_added: str | Sequence[str] | None = None,
     tree: str | Sequence[str] | None = None,
@@ -106,13 +108,14 @@ def split_test(
     aggregate: _AggregatorFn | _Aggregator = 'mean',
     metric: _MetricFn | _Metric | Literal["mean_difference"] = "mean_difference",
     metric_kwds: Mapping | None = None,
-    test: Literal["permutation", "t-test", "None"] = "permutation",
+    test: Literal["permutation", "t-test"] | None = "permutation",
     n_permutations: int = 100,
-    equal_var: Literal[True, False] = True,
+    random_seed: int = 42,
+    equal_var: bool = True,
     min_group_leaves: int = 10,
     keys_added: str | Sequence[str] | None = None,
     tree: str | Sequence[str] | None = None,
-    copy: Literal[True, False] = True
+    copy:Literal[True, False] = True
 ) -> pd.DataFrame | None:
     """
     Compute a split statistic across every internal split of each tree and (optionally)
@@ -150,12 +153,10 @@ def split_test(
 
     Results are written back to the tree(s):
 
-      - **Edges:** The per-branch aggregate value for each child edge is stored under
+      - **Nodes:** The per-branch aggregate value for each child edge is stored under
         ``{key_added}_value``.
-      - **Edges (with permutation test):** Each edge also stores a permutation p-value
-        under ``{key_added}_pvalue``.
-      - **Nodes:** When ``copy=True``, a summary DataFrame is returned containing all
-        comparisons performed at each internal node.
+      - **Edges (with test != None):** Each edge stores a p-value under ``{key_added}_pvalue``, and when
+        test == "permutation", a metric value comparing the given child to all other children.
 
     When ``copy=True``, the function returns a :class:`pandas.DataFrame` summarizing
     the group_1 vs. group_2 comparisons for each split; otherwise, the trees are
@@ -183,6 +184,8 @@ def split_test(
     n_permutations
         Upper bound on the number of permutations to run. The actually executed
         number is ``min(n_permutations, comb(n_left + n_right, n_left))`` per split.
+    random_seed
+        Random seed to ensure reproducibility of permutation test.
     min_group_leaves
         Minimum number of leaves required in each group to perform a statistical test. The t-test may be particularly
         unreliable with small sample sizes.
@@ -211,9 +214,13 @@ def split_test(
         keys_added = [keys_added]
     if len(keys) != len(keys_added):
         raise ValueError("Length of keys must match length of keys_added.")
+    if test is not None and test not in ["permutation", "t-test"]:
+        raise ValueError("Test must either be None or set to one of 'permutation' or 't-test'.")
     tree_keys = tree
     _check_tree_overlap(tdata, tree_keys)
     trees = get_trees(tdata, tree_keys)
+
+    np.random.seed(random_seed)
 
     if metric == "mean_difference":
         metric_fn = MeanDiffMetric()
@@ -222,6 +229,8 @@ def split_test(
 
     aggregate_fn = Aggregator.get_aggregator(aggregate)
     df_dict = {}
+
+    all_trees_leaves_dict = {tree_id: _get_descendant_leaves(t) for tree_id, t in trees.items()}
 
     first_key = True
 
@@ -237,13 +246,18 @@ def split_test(
         tree_list = []
 
         data, is_array, is_square = get_keyed_obs_data(tdata, key)
-        if is_array or is_square and test == "t-test":
+        if (is_array or is_square) and test == "t-test":
             raise ValueError("t-test cannot be performed for vector valued keys.")
-        data = data.dropna()
+
         index_set = set(data.index)
         if not(is_array or is_square):
             data = data[key]
+
+        data = data.dropna()
         for tree_id, t in trees.items():
+
+            tree_leaves_dict = all_trees_leaves_dict[tree_id]
+
             for parent in nx.topological_sort(t):
                 children = list(t.successors(parent))
 
@@ -253,7 +267,7 @@ def split_test(
 
                 # get leaves that are in the data
                 leaves_dict = {
-                    child: [u for u in get_leaves_from_node(t, child) if u in index_set]
+                    child: [u for u in tree_leaves_dict[child] if u in index_set]
                     for child in children
                 }
                 for child, left_leaves in leaves_dict.items():
@@ -279,8 +293,8 @@ def split_test(
                     right_stat = aggregate_fn(right_data.to_numpy())
                     split_stat = float(metric_fn.pairwise(left_stat.reshape(1, -1), right_stat.reshape(1, -1)))
 
-                    nx.set_edge_attributes(t, {
-                        (parent, child): {f"{key_added}_value": left_stat}
+                    nx.set_node_attributes(t, {
+                        child: {f"{key_added}_value": left_stat}
                     })
 
                     if copy:
@@ -291,8 +305,8 @@ def split_test(
 
                     if len(children) == 2:
                         # handle special case in which there are exactly two children
-                        nx.set_edge_attributes(t, {
-                            (parent, children[1]): {f"{key_added}_value": right_stat}
+                        nx.set_node_attributes(t, {
+                            children[1]: {f"{key_added}_value": right_stat}
                         })
 
                         if copy and first_key:
@@ -301,7 +315,7 @@ def split_test(
                         if copy and first_key:
                             group2_list.append(", ".join([x for x in children if x != child]))
 
-                    if test != "None":
+                    if test is not None:
                         if n_right >= min_group_leaves and n_left >= min_group_leaves:
                             if test == "permutation":
                                 lr_data = pd.concat([left_data, right_data])
@@ -333,11 +347,26 @@ def split_test(
                                 (parent, child): {f"{key_added}_pvalue": two_sided_pval}
                             })
 
+                            if test == "permutation":
+                                nx.set_edge_attributes(t, {
+                                    (parent, child): {f"{key_added}_metric": split_stat}
+                                })
+
                             if len(children) == 2:
                                 # handle special case in which there are exactly two children
                                 nx.set_edge_attributes(t, {
                                     (parent, children[1]): {f"{key_added}_pvalue": two_sided_pval}
                                 })
+                                if test == "permutation":
+                                    if metric == "mean_difference":
+                                        # if mean difference metric, multiply by -1 before writing off value
+                                        nx.set_edge_attributes(t, {
+                                            (parent, children[1]): {f"{key_added}_metric": -split_stat}
+                                        })
+                                    else:
+                                        nx.set_edge_attributes(t, {
+                                            (parent, children[1]): {f"{key_added}_metric": split_stat}
+                                        })
 
                             if copy:
                                 pvalue_list.append(two_sided_pval)
@@ -372,7 +401,7 @@ def split_test(
                     }
                 )
 
-            if test != "None":
+            if test is not None:
                 df_dict[key_added][f'{key_added}_pvalue'] = pvalue_list
 
         first_key = False

@@ -1,23 +1,16 @@
 import pandas as pd
 import networkx as nx
 import pytest
-import numpy as np
-import random
 
 import treedata as td
 
 from pycea.tl import split_test
-from pycea.utils import get_leaves, get_leaves_from_node
+from pycea.utils import get_leaves, _get_descendant_leaves
 
 # -------------------------
 # Helpers / fixtures
 # -------------------------
 
-@pytest.fixture(autouse=True)
-def set_seed():
-    """Automatically set the random seed before every test."""
-    np.random.seed(42)
-    random.seed(42)
 
 @pytest.fixture
 def deep_balanced_tdata():
@@ -77,8 +70,10 @@ def test_split_permutation_root_extreme_signal(deep_balanced_tdata):
     assert len(children) == 2
     left_child, right_child = children
 
-    left_desc_leaves = get_leaves_from_node(t, left_child)
-    right_desc_leaves = get_leaves_from_node(t, right_child)
+    leaves_dict = _get_descendant_leaves(t)
+
+    left_desc_leaves = leaves_dict[left_child]
+    right_desc_leaves = leaves_dict[right_child]
 
     # Assign values: left = 1, right = 0
     obs = pd.DataFrame({"x": 1}, index=left_desc_leaves)
@@ -101,8 +96,8 @@ def test_split_permutation_root_extreme_signal(deep_balanced_tdata):
     assert states is not None
 
     # Edge attributes at the root's children
-    assert t[root][left_child]["x_value"] == 1.0
-    assert t[root][right_child]["x_value"] == 0.0
+    assert t.nodes[left_child]["x_value"] == 1.0
+    assert t.nodes[right_child]["x_value"] == 0.0
 
     # Node attributes (via returned DataFrame)
     pval = t[root][right_child]["x_pvalue"]
@@ -139,8 +134,8 @@ def test_split_permutation_root_null_case(deep_balanced_tdata):
     left_child, right_child = children
 
     # Edge attributes: both 1
-    assert t[root][left_child]["x_value"] == 1.0
-    assert t[root][right_child]["x_value"] == 1.0
+    assert t.nodes[left_child]["x_value"] == 1.0
+    assert t.nodes[right_child]["x_value"] == 1.0
 
     pval = t[root][right_child]["x_pvalue"]
     assert pytest.approx(pval, rel=0, abs=1e-12) == 1.0
