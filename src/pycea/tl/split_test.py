@@ -249,14 +249,21 @@ def split_test(
         if (is_array or is_square) and test == "t-test":
             raise ValueError("t-test cannot be performed for vector valued keys.")
 
-        index_set = set(data.index)
         if not(is_array or is_square):
             data = data[key]
 
         data = data.dropna()
+        index_set = set(data.index)
+
         for tree_id, t in trees.items():
 
             tree_leaves_dict = all_trees_leaves_dict[tree_id]
+
+            # filter out children not in data index
+            tree_leaves_dict = {
+                node: [u for u in leaves if u in index_set]
+                for node, leaves in tree_leaves_dict.items()
+            }
 
             for parent in nx.topological_sort(t):
                 children = list(t.successors(parent))
@@ -265,11 +272,8 @@ def split_test(
                 if len(children) < 2:
                     continue
 
-                # get leaves that are in the data
-                leaves_dict = {
-                    child: [u for u in tree_leaves_dict[child] if u in index_set]
-                    for child in children
-                }
+                # get leaves from children
+                leaves_dict = {child: tree_leaves_dict.get(child, []) for child in children}
                 for child, left_leaves in leaves_dict.items():
                     # All other leaves except those from the current child
                     right_leaves = [leaf for other_child, leaves in leaves_dict.items()
