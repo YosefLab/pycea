@@ -11,6 +11,7 @@ from pycea.utils import get_leaves, _get_descendant_leaves
 # Helpers / fixtures
 # -------------------------
 
+# TODO: Add tests to make sure (1) t-test works, (2) comparing vs. rest works and (3) keys with different missing patterns works
 
 @pytest.fixture
 def deep_balanced_tdata():

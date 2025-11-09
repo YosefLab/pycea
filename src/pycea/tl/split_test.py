@@ -77,6 +77,7 @@ def split_test(
     aggregate: _AggregatorFn | _Aggregator = 'mean',
     metric: _MetricFn | _Metric | Literal["mean_difference"] = "mean_difference",
     metric_kwds: Mapping | None = None,
+    comparison: Literal["siblings", "rest"] = "siblings",
     test: Literal["permutation", "t-test"] | None = "permutation",
     n_permutations: int = 100,
     random_seed: int = 42,
@@ -93,6 +94,7 @@ def split_test(
     aggregate: _AggregatorFn | _Aggregator = 'mean',
     metric: _MetricFn | _Metric | Literal["mean_difference"] = "mean_difference",
     metric_kwds: Mapping | None = None,
+    comparison: Literal["siblings", "rest"] = "siblings",
     test: Literal["permutation", "t-test"] | None = "permutation",
     n_permutations: int = 100,
     random_seed: int = 42,
@@ -108,6 +110,7 @@ def split_test(
     aggregate: _AggregatorFn | _Aggregator = 'mean',
     metric: _MetricFn | _Metric | Literal["mean_difference"] = "mean_difference",
     metric_kwds: Mapping | None = None,
+    comparison: Literal["siblings", "rest"] = "siblings",
     test: Literal["permutation", "t-test"] | None = "permutation",
     n_permutations: int = 100,
     random_seed: int = 42,
@@ -123,7 +126,8 @@ def split_test(
 
     For each requested observation key, the function traverses every tree in ``tdata``
     (or only those specified via ``tree``). At each internal node (a node with two or
-    more children), **group_1 vs. group_2** comparisons are performed as follows:
+    more children), **group_1 vs. group_2** comparisons are performed. If comparison = "siblings",
+    nodes are compared as follows:
 
       • **Binary splits (two children):**
         The first child is compared directly against the second child.
@@ -131,6 +135,8 @@ def split_test(
       • **Non-binary splits (three or more children):**
         A one-vs-rest scheme is used, where each child is compared individually
         against the pooled set of all other children at that node.
+
+    If comparison = "rest", then the leaves of each node are compared against all other leaves in the tree.
 
     For each comparison, the user-supplied ``aggregate`` function is applied
     separately to the data for group_1 and group_2 (each producing a vector or scalar),
@@ -176,6 +182,11 @@ def split_test(
         for test="permutation".
     metric_kwds
         Options for the metric.
+    comparison
+        String indicating type of comparison. "siblings" compares the leaves descending from a given node only to
+        the leaves descending from its siblings (either a single test in the case of two siblings or multiple
+        one vs. rest comparisons for multiple siblings). "rest" compares the leaves descending from a given node
+        to all other leaves of the that the node is on.
     test
         Type of test to perform to compare the two groups. "t-test" can only be used for scalar quantities.
     equal_var
@@ -230,8 +241,9 @@ def split_test(
     aggregate_fn = Aggregator.get_aggregator(aggregate)
     df_dict = {}
 
+    # for each tree, get dictionary with keys as nodes and values as leaves
     all_trees_leaves_dict = {tree_id: _get_descendant_leaves(t) for tree_id, t in trees.items()}
-
+    # boolean indicating if the current key is the first key in the loop
     first_key = True
 
     for key, key_added in zip(keys, keys_added):
@@ -268,27 +280,51 @@ def split_test(
             for parent in nx.topological_sort(t):
                 children = list(t.successors(parent))
 
-                # don't do anything if not a split
-                if len(children) < 2:
+                # don't do anything if not a split and comparing siblings
+                if len(children) < 2 and comparison == "siblings":
                     continue
 
                 # get leaves from children
                 leaves_dict = {child: tree_leaves_dict.get(child, []) for child in children}
+
                 for child, left_leaves in leaves_dict.items():
-                    # All other leaves except those from the current child
-                    right_leaves = [leaf for other_child, leaves in leaves_dict.items()
-                                    if other_child != child
-                                    for leaf in leaves]
+
+                    if comparison == "siblings":
+                        # leaves of other children at split
+                        right_leaves = [leaf for other_child, leaves in leaves_dict.items()
+                                        if other_child != child
+                                        for leaf in leaves]
+                    else:
+                        # all other leaves
+                        child_leaf_set = set(left_leaves)
+                        right_leaves = [v for vals in tree_leaves_dict.values() for v in vals if v not in child_leaf_set]
+
+                    if copy and first_key:
+                        tree_list.append(tree_id)
+                        parent_list.append(parent)
+                        group1_list.append(str(child))
 
                     if len(left_leaves) > 0 and len(right_leaves) > 0:
                         left_data = data.loc[left_leaves]
                         right_data = data.loc[right_leaves]
                     else:
-                        continue
+                        # if copy, need to write something off here to avoid dataframes being of different
+                        # lengths if there are different na patterns amongst the keys
+                        if copy:
+                            group1_value_list.append(np.nan)
+                            group2_value_list.append(np.nan)
+                            if test is not None:
+                                pvalue_list.append(np.nan)
+                            if first_key:
+                                if comparison == "siblings":
+                                    if len(right_leaves) > 0:
+                                        group2_list.append(", ".join([x for x in children if x != child]))
+                                    else:
+                                        group2_list.append("")
+                                elif comparison == "rest":
+                                    group2_list.append("rest")
 
-                    if copy and first_key:
-                        tree_list.append(tree_id)
-                        parent_list.append(parent)
+                        continue
 
                     n_right = len(right_leaves)
                     n_left = len(left_leaves)
@@ -304,11 +340,9 @@ def split_test(
                     if copy:
                         group1_value_list.append(left_stat)
                         group2_value_list.append(right_stat)
-                        if first_key:
-                            group1_list.append(child)
 
-                    if len(children) == 2:
-                        # handle special case in which there are exactly two children
+                    if len(children) == 2 and comparison == "siblings":
+                        # handle special case in which there are exactly two children and comparing siblings
                         nx.set_node_attributes(t, {
                             children[1]: {f"{key_added}_value": right_stat}
                         })
@@ -317,7 +351,10 @@ def split_test(
                             group2_list.append(children[1])
                     else:
                         if copy and first_key:
-                            group2_list.append(", ".join([x for x in children if x != child]))
+                            if comparison == "siblings":
+                                group2_list.append(", ".join([x for x in children if x != child]))
+                            elif comparison == "rest":
+                                group2_list.append("rest")
 
                     if test is not None:
                         if n_right >= min_group_leaves and n_left >= min_group_leaves:
@@ -356,8 +393,8 @@ def split_test(
                                     (parent, child): {f"{key_added}_metric": split_stat}
                                 })
 
-                            if len(children) == 2:
-                                # handle special case in which there are exactly two children
+                            if len(children) == 2 and comparison == "siblings":
+                                # handle special case in which there are exactly two children and comparing siblings
                                 nx.set_edge_attributes(t, {
                                     (parent, children[1]): {f"{key_added}_pvalue": two_sided_pval}
                                 })
@@ -379,8 +416,8 @@ def split_test(
                             if copy:
                                 pvalue_list.append(np.nan)
 
-                    if len(children) == 2:
-                        # only need to do one test if there are two children
+                    if len(children) == 2 and comparison == "siblings":
+                        # only need to do one test if there are two children and comparing siblings
                         break
 
         if copy:
