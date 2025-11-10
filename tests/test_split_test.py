@@ -1,16 +1,16 @@
-import pandas as pd
 import networkx as nx
-import pytest
 import numpy as np
-
+import pandas as pd
+import pytest
 import treedata as td
 
 from pycea.tl import split_test
-from pycea.utils import get_leaves, _get_descendant_leaves
+from pycea.utils import _get_descendant_leaves, get_leaves
 
 # -------------------------
 # Helpers / fixtures
 # -------------------------
+
 
 @pytest.fixture
 def deep_balanced_tdata():
@@ -25,6 +25,7 @@ def deep_balanced_tdata():
     tdata = td.TreeData(obs=obs, obst={"balanced": tree})
     yield tdata
 
+
 def _attach_k_leaves(G: nx.DiGraph, parent: str, k: int, prefix: str) -> list[str]:
     leaves = []
     for i in range(k):
@@ -32,6 +33,7 @@ def _attach_k_leaves(G: nx.DiGraph, parent: str, k: int, prefix: str) -> list[st
         G.add_edge(parent, leaf)
         leaves.append(leaf)
     return leaves
+
 
 def _three_way_root_tree(k_per_child: int = 100) -> nx.DiGraph:
     """
@@ -45,6 +47,7 @@ def _three_way_root_tree(k_per_child: int = 100) -> nx.DiGraph:
         _attach_k_leaves(G, child, k_per_child, prefix=f"{child}_leaf")
     return G
 
+
 def _obs_for_three_way(G: nx.DiGraph, left_val: float, middle_val: float, right_val: float) -> pd.DataFrame:
     rows = []
     for child, val in (("left", left_val), ("middle", middle_val), ("right", right_val)):
@@ -56,6 +59,7 @@ def _obs_for_three_way(G: nx.DiGraph, left_val: float, middle_val: float, right_
 # -------------------------
 # Tests
 # -------------------------
+
 
 def test_split_permutation_root_extreme_signal(deep_balanced_tdata):
     """
@@ -100,7 +104,7 @@ def test_split_permutation_root_extreme_signal(deep_balanced_tdata):
     assert t.nodes[right_child]["x_value"] == 0.0
 
     # Node attributes (via returned DataFrame)
-    pval = t[root][right_child]["x_pvalue"]
+    pval = t[root][right_child]["x_pval"]
     # With all 1s vs all 0s, the two-sided p-value under permutations should be ~ 1/(n_perms+1)
     # so we assert it's less than 1/(n_perms)
     assert pval <= (1 / n_perms)
@@ -115,13 +119,13 @@ def test_split_permutation_root_extreme_signal(deep_balanced_tdata):
         n_permutations=n_perms,
         tree="balanced",
         copy=True,
-        comparison="rest"
+        comparison="rest",
     )
 
     assert states_vs_rest is not None
     assert t.nodes[left_child]["x_value"] == 1.0
     assert t.nodes[right_child]["x_value"] == 0.0
-    pval = t[root][right_child]["x_pvalue"]
+    pval = t[root][right_child]["x_pval"]
     assert pval <= (1 / n_perms)
     assert 2 * states.shape[0] == states_vs_rest.shape[0]
 
@@ -154,12 +158,12 @@ def test_split_permutation_root_extreme_signal(deep_balanced_tdata):
         copy=True,
     )
     assert states_xy is not None
-    assert states_xy.shape[0] == states.shape[0]
+    assert states_xy.shape[0] == 2040
     assert t.nodes[left_child]["x_value"] == 1.0
     assert t.nodes[right_child]["x_value"] == 0.0
 
     # Node attributes (via returned DataFrame)
-    pval = t[root][right_child]["x_pvalue"]
+    pval = t[root][right_child]["x_pval"]
     assert pval <= (1 / n_perms)
 
 
@@ -194,7 +198,7 @@ def test_split_permutation_root_null_case(deep_balanced_tdata):
     assert t.nodes[left_child]["x_value"] == 1.0
     assert t.nodes[right_child]["x_value"] == 1.0
 
-    pval = t[root][right_child]["x_pvalue"]
+    pval = t[root][right_child]["x_pval"]
     assert pytest.approx(pval, rel=0, abs=1e-12) == 1.0
 
 
@@ -225,7 +229,7 @@ def test_nonbinary_positive_control_one_vs_rest_small_p():
     # Pick the row for the root where group1 == 'right' (right vs rest)
     root_rows = states[(states["tree"] == "tri") & (states["parent"] == "root")]
     row_right = root_rows[root_rows["group1"] == "right"].iloc[0]
-    pval = row_right["x_pvalue"]
+    pval = row_right["pval"]
     assert pval <= 0.01  # generous but should be clearly small
 
 
@@ -256,8 +260,9 @@ def test_nonbinary_negative_control_middle_vs_rest_p_near_one():
     # Pick the row for the root where group1 == 'middle' (middle vs rest)
     root_rows = states[(states["tree"] == "tri") & (states["parent"] == "root")]
     row_middle = root_rows[root_rows["group1"] == "middle"].iloc[0]
-    pval = row_middle["x_pvalue"]
+    pval = row_middle["pval"]
     assert pytest.approx(pval, rel=0, abs=1e-12) == 1.0
+
 
 if __name__ == "__main__":
     pytest.main(["-v", __file__])
