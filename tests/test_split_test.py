@@ -1,6 +1,7 @@
 import pandas as pd
 import networkx as nx
 import pytest
+import numpy as np
 
 import treedata as td
 
@@ -10,8 +11,6 @@ from pycea.utils import get_leaves, _get_descendant_leaves
 # -------------------------
 # Helpers / fixtures
 # -------------------------
-
-# TODO: Add tests to make sure (1) t-test works, (2) comparing vs. rest works and (3) keys with different missing patterns works
 
 @pytest.fixture
 def deep_balanced_tdata():
@@ -104,6 +103,63 @@ def test_split_permutation_root_extreme_signal(deep_balanced_tdata):
     pval = t[root][right_child]["x_pvalue"]
     # With all 1s vs all 0s, the two-sided p-value under permutations should be ~ 1/(n_perms+1)
     # so we assert it's less than 1/(n_perms)
+    assert pval <= (1 / n_perms)
+
+    # run permutations vs. rest
+    states_vs_rest = split_test(
+        deep_balanced_tdata,
+        keys="x",
+        aggregate="mean",
+        metric="mean_difference",
+        test="permutation",
+        n_permutations=n_perms,
+        tree="balanced",
+        copy=True,
+        comparison="rest"
+    )
+
+    assert states_vs_rest is not None
+    assert t.nodes[left_child]["x_value"] == 1.0
+    assert t.nodes[right_child]["x_value"] == 0.0
+    pval = t[root][right_child]["x_pvalue"]
+    assert pval <= (1 / n_perms)
+    assert 2 * states.shape[0] == states_vs_rest.shape[0]
+
+    # make sure that results stay the same if a few missing y values are inserted
+
+    # Start from the existing 'x' values to define 'y'
+    y = deep_balanced_tdata.obs["x"].copy()
+
+    # Pick a few indices on each side to set as NaN (keep deterministic selection)
+    left_sorted = sorted(left_desc_leaves)
+    right_sorted = sorted(right_desc_leaves)
+    # choose up to 3 from each side, but at least 1 if available
+    left_na_idx = left_sorted[: min(3, len(left_sorted))] if len(left_sorted) > 0 else []
+    right_na_idx = right_sorted[: min(3, len(right_sorted))] if len(right_sorted) > 0 else []
+
+    # Inject NaNs
+    y.loc[left_na_idx] = np.nan
+    y.loc[right_na_idx] = np.nan
+
+    # Add 'y' to obs (aligned by index)
+    deep_balanced_tdata.obs["y"] = y
+    states_xy = split_test(
+        deep_balanced_tdata,
+        keys=["x", "y"],
+        aggregate="mean",
+        metric="mean_difference",
+        test="permutation",
+        n_permutations=n_perms,
+        tree="balanced",
+        copy=True,
+    )
+    assert states_xy is not None
+    assert states_xy.shape[0] == states.shape[0]
+    assert t.nodes[left_child]["x_value"] == 1.0
+    assert t.nodes[right_child]["x_value"] == 0.0
+
+    # Node attributes (via returned DataFrame)
+    pval = t[root][right_child]["x_pvalue"]
     assert pval <= (1 / n_perms)
 
 

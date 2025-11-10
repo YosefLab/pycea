@@ -136,7 +136,7 @@ def split_test(
         A one-vs-rest scheme is used, where each child is compared individually
         against the pooled set of all other children at that node.
 
-    If comparison = "rest", then the leaves of each node are compared against all other leaves in the tree.
+    If comparison = "rest", then the leaves descending from each node are compared against all other leaves in the tree.
 
     For each comparison, the user-supplied ``aggregate`` function is applied
     separately to the data for group_1 and group_2 (each producing a vector or scalar),
@@ -324,7 +324,11 @@ def split_test(
                                 elif comparison == "rest":
                                     group2_list.append("rest")
 
-                        continue
+                        # break the loop in the special case where there are two children and we're comparing siblings
+                        if len(children) == 2 and comparison == "siblings":
+                            break
+                        else:
+                            continue
 
                     n_right = len(right_leaves)
                     n_left = len(left_leaves)
