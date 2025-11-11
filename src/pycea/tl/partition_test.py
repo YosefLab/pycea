@@ -299,6 +299,8 @@ def partition_test(
                         right_data = data.loc[right_leaves]
                     elif len(children) == 2 and comparison == "siblings":
                         break  # special case where there are two children and we're comparing siblings
+                    else:
+                        continue
 
                     n_right = len(right_leaves)
                     n_left = len(left_leaves)
@@ -318,7 +320,7 @@ def partition_test(
                         record["group2"] = str(children[1])
                     else:
                         record["group2"] = (
-                            ", ".join([x for x in children if x != child]) if comparison == "siblings" else "rest"
+                            ", ".join([str(x) for x in children if x != child]) if comparison == "siblings" else "rest"
                         )
 
                     if test is not None:
