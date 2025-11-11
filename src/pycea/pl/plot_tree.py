@@ -282,6 +282,8 @@ def nodes(
     elif nodes == "internal":
         plot_nodes = [node for node in all_nodes if node[1] not in attrs["leaves"]]
     elif isinstance(nodes, Sequence):
+        if isinstance(nodes, str):
+            nodes = [nodes]
         if len(attrs["tree_keys"]) > 1 and len(tree_keys) > 1:
             raise ValueError("Multiple trees are present. To plot a list of nodes, you must specify the tree.")
         plot_nodes = [(tree_keys[0], node) for node in nodes]
