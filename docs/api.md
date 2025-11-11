@@ -32,6 +32,7 @@
     tl.tree_neighbors
     tl.n_extant
     tl.fitness
+    tl.split_test
 ```
 
 ## Plotting
