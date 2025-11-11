@@ -66,7 +66,7 @@ def _run_permutations(
         left_stat = aggregate_fn(left_df.to_numpy())
         right_stat = aggregate_fn(right_df.to_numpy())
 
-        permutation_vals[i] = float(metric_fn.pairwise(left_stat.reshape(1, -1), right_stat.reshape(1, -1)))
+        permutation_vals[i] = np.squeeze(metric_fn.pairwise(left_stat.reshape(1, -1), right_stat.reshape(1, -1)))
 
     return permutation_vals
 
@@ -306,7 +306,7 @@ def split_test(
 
                     left_stat = aggregate_fn(left_data.to_numpy())
                     right_stat = aggregate_fn(right_data.to_numpy())
-                    split_stat = float(metric_fn.pairwise(left_stat.reshape(1, -1), right_stat.reshape(1, -1)))
+                    split_stat = metric_fn.pairwise(left_stat.reshape(1, -1), right_stat.reshape(1, -1))
 
                     nx.set_node_attributes(t, {child: {f"{key_added}_value": left_stat}})
 

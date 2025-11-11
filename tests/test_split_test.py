@@ -13,12 +13,12 @@ from pycea.utils import _get_descendant_leaves, get_leaves
 
 
 @pytest.fixture
-def deep_balanced_tdata():
+def balanced_tdata():
     """
-    Perfect binary tree of depth 10 (1024 leaves) under obst['balanced'].
+    Perfect binary tree of depth 5 (32 leaves) under obst['balanced'].
     obs index are leaf names only, matching default 'alignment="obs"'.
     """
-    tree = nx.balanced_tree(2, 10, nx.DiGraph)
+    tree = nx.balanced_tree(2, 5, nx.DiGraph)
     nx.relabel_nodes(tree, {i: str(i) for i in range(len(tree.nodes()))}, copy=False)
     # Start with an empty obs; tests will fill values per scenario
     obs = pd.DataFrame(index=get_leaves(tree))
@@ -61,12 +61,12 @@ def _obs_for_three_way(G: nx.DiGraph, left_val: float, middle_val: float, right_
 # -------------------------
 
 
-def test_split_permutation_root_extreme_signal(deep_balanced_tdata):
+def test_split_permutation_root_extreme_signal(balanced_tdata):
     """
     Strong-signal case: all left leaves = 1, all right leaves = 0.
     Expect left_stat=1, right_stat=0 at root, split_stat=1, and a very small p-value.
     """
-    t = deep_balanced_tdata.obst["balanced"]
+    t = balanced_tdata.obst["balanced"]
 
     # Identify root, its two children, and their leaf sets
     root = "0"
@@ -82,12 +82,12 @@ def test_split_permutation_root_extreme_signal(deep_balanced_tdata):
     # Assign values: left = 1, right = 0
     obs = pd.DataFrame({"x": 1}, index=left_desc_leaves)
     obs_right = pd.DataFrame({"x": 0}, index=right_desc_leaves)
-    deep_balanced_tdata.obs = pd.concat([obs, obs_right]).sort_index()
+    balanced_tdata.obs = pd.concat([obs, obs_right]).sort_index()
 
     # Run with a modest number of permutations to keep the test fast
     n_perms = 100
     states = split_test(
-        deep_balanced_tdata,
+        balanced_tdata,
         keys="x",
         aggregate="mean",
         metric="mean_difference",
@@ -111,7 +111,7 @@ def test_split_permutation_root_extreme_signal(deep_balanced_tdata):
 
     # run permutations vs. rest
     states_vs_rest = split_test(
-        deep_balanced_tdata,
+        balanced_tdata,
         keys="x",
         aggregate="mean",
         metric="mean_difference",
@@ -132,7 +132,7 @@ def test_split_permutation_root_extreme_signal(deep_balanced_tdata):
     # make sure that results stay the same if a few missing y values are inserted
 
     # Start from the existing 'x' values to define 'y'
-    y = deep_balanced_tdata.obs["x"].copy()
+    y = balanced_tdata.obs["x"].copy()
 
     # Pick a few indices on each side to set as NaN (keep deterministic selection)
     left_sorted = sorted(left_desc_leaves)
@@ -146,9 +146,9 @@ def test_split_permutation_root_extreme_signal(deep_balanced_tdata):
     y.loc[right_na_idx] = np.nan
 
     # Add 'y' to obs (aligned by index)
-    deep_balanced_tdata.obs["y"] = y
+    balanced_tdata.obs["y"] = y
     states_xy = split_test(
-        deep_balanced_tdata,
+        balanced_tdata,
         keys=["x", "y"],
         aggregate="mean",
         metric="mean_difference",
@@ -158,7 +158,7 @@ def test_split_permutation_root_extreme_signal(deep_balanced_tdata):
         copy=True,
     )
     assert states_xy is not None
-    assert states_xy.shape[0] == 2040
+    assert states_xy.shape[0] == 56
     assert t.nodes[left_child]["x_value"] == 1.0
     assert t.nodes[right_child]["x_value"] == 0.0
 
@@ -167,19 +167,19 @@ def test_split_permutation_root_extreme_signal(deep_balanced_tdata):
     assert pval <= (1 / n_perms)
 
 
-def test_split_permutation_root_null_case(deep_balanced_tdata):
+def test_split_permutation_root_null_case(balanced_tdata):
     """
     Null case: all leaves = 1. Expect left_stat=1, right_stat=1, split_stat=0, p-value = 1.0.
     """
-    t = deep_balanced_tdata.obst["balanced"]
+    t = balanced_tdata.obst["balanced"]
 
     # All leaves get value 1
     leaves = get_leaves(t)
-    deep_balanced_tdata.obs = pd.DataFrame({"x": 1}, index=leaves)
+    balanced_tdata.obs = pd.DataFrame({"x": 1}, index=leaves)
 
     # Run
     states = split_test(
-        deep_balanced_tdata,
+        balanced_tdata,
         keys="x",
         aggregate="mean",
         metric="mean_difference",
