@@ -4,7 +4,7 @@ import pandas as pd
 import pytest
 import treedata as td
 
-from pycea.tl import split_test
+from pycea.tl import partition_test
 from pycea.utils import _get_descendant_leaves, get_leaves
 
 # -------------------------
@@ -86,7 +86,7 @@ def test_split_permutation_root_extreme_signal(balanced_tdata):
 
     # Run with a modest number of permutations to keep the test fast
     n_perms = 100
-    states = split_test(
+    states = partition_test(
         balanced_tdata,
         keys="x",
         aggregate="mean",
@@ -110,7 +110,7 @@ def test_split_permutation_root_extreme_signal(balanced_tdata):
     assert pval <= (1 / n_perms)
 
     # run permutations vs. rest
-    states_vs_rest = split_test(
+    states_vs_rest = partition_test(
         balanced_tdata,
         keys="x",
         aggregate="mean",
@@ -147,7 +147,7 @@ def test_split_permutation_root_extreme_signal(balanced_tdata):
 
     # Add 'y' to obs (aligned by index)
     balanced_tdata.obs["y"] = y
-    states_xy = split_test(
+    states_xy = partition_test(
         balanced_tdata,
         keys=["x", "y"],
         aggregate="mean",
@@ -178,7 +178,7 @@ def test_split_permutation_root_null_case(balanced_tdata):
     balanced_tdata.obs = pd.DataFrame({"x": 1}, index=leaves)
 
     # Run
-    states = split_test(
+    states = partition_test(
         balanced_tdata,
         keys="x",
         aggregate="mean",
@@ -214,7 +214,7 @@ def test_nonbinary_positive_control_one_vs_rest_small_p():
     obs = _obs_for_three_way(G, left_val=1.0, middle_val=1.0, right_val=0.0)
 
     tdata = td.TreeData(obs=obs, obst={"tri": G})
-    states = split_test(
+    states = partition_test(
         tdata,
         keys="x",
         aggregate="mean",
@@ -245,7 +245,7 @@ def test_nonbinary_negative_control_middle_vs_rest_p_near_one():
     obs = _obs_for_three_way(G, left_val=1.0, middle_val=0.5, right_val=0.0)
 
     tdata = td.TreeData(obs=obs, obst={"tri": G})
-    states = split_test(
+    states = partition_test(
         tdata,
         keys="x",
         aggregate="mean",

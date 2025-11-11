@@ -31,17 +31,17 @@ def _run_permutations(
 
     Parameters
     ----------
-    data : pd.DataFrame
+    data
         Full dataset to split each permutation.
-    n_permutations : int
+    n_permutations
         Number of permutations to run.
     aggregate
         Callable function that can reduce the data from all the leaves of a given split to a vector or scalar.
     metric
         Callable function that takes to outputs from aggregate (one from each side of a node) and returns a scalar.
-    n_right : int
+    n_right
         Size of the "right" group in each permutation.
-    n_left : int
+    n_left
         Size of the "left" group in each permutation.
 
     Returns
@@ -72,7 +72,7 @@ def _run_permutations(
 
 
 @overload
-def split_test(
+def partition_test(
     tdata: td.TreeData,
     keys: str | Sequence[str],
     comparison: Literal["siblings", "rest"] = "siblings",
@@ -89,7 +89,7 @@ def split_test(
     copy: Literal[True, False] = True,
 ) -> pd.DataFrame: ...
 @overload
-def split_test(
+def partition_test(
     tdata: td.TreeData,
     keys: str | Sequence[str],
     comparison: Literal["siblings", "rest"] = "siblings",
@@ -105,7 +105,7 @@ def split_test(
     tree: str | Sequence[str] | None = None,
     copy: Literal[True, False] = False,
 ) -> None: ...
-def split_test(
+def partition_test(
     tdata: td.TreeData,
     keys: str | Sequence[str],
     comparison: Literal["siblings", "rest"] = "siblings",
@@ -122,49 +122,48 @@ def split_test(
     copy: Literal[True, False] = True,
 ) -> pd.DataFrame | None:
     r"""
-    Compute permutation or t test for splits in a tree.
+    Test for differences between leaf partitions.
 
-    For each requested observation key, the function traverses every tree in ``tdata``
-    (or only those specified via ``tree``). At each internal node, the key's value in the descendant
-    leaves is compared between two groups defined by the ``comparison`` setting:
+    For each requested observation key, this function compares the set of leaves
+    descended from each internal node (group1) to the set of leaves defined by
+    the `comparison` parameter (group2):
 
       • **comparison='siblings':**
-        For binary splits, compare the two children's descendant leaves directly against each other.
-        For non-binary splits, use a one-vs-rest scheme comparing each child individually against
-        the pooled set of all other children at that node.
+        Compare to the descendants of sibling nodes. When there is more than one sibling (i.e., a non-binary split),
+        each child node is compared individually to the pooled set of all other siblings.
 
       • **comparison='rest':**
-        Compare the descendant leaves of each child to all other leaves in the tree.
+        Compare to all other leaves in the tree not descended from the given node.
 
-    The `test` parameter defines how **group1** leaves are compared to **group2** leaves:
+    The `test` parameter defines how the two groups are compared:
 
       • **test='permutation':**
         a two-sided permutation test is performed by repeatedly
-        shuffling the pooled rows (group_1 + group_2), applying the ``aggregate`` function, and
-        then recomputing the split statistic using the provided `metric` function.
+        shuffling the pooled rows (group1 + group2), applying the ``aggregate`` function, and
+        then recomputing the split statistic using the `metric` function.
         The number of permutations executed is the minimum of the user-requested
-        ``n_permutations`` and the **theoretical maximum** number of distinct labelings,
-        ``comb(n_left + n_right, n_left)``. The p-value is computed with standard
+        ``n_permutations`` and the theoretical maximum number of distinct labelings (
+        ``comb(n_left + n_right, n_left)``). The p-value is computed with standard
         +1 smoothing:
 
-            p = ( #{ \|perm_stat\| >= \|observed\| } + 1 ) / ( permutations_performed + 1 )
+            pval = ( #{ \|perm_stat\| >= \|observed\| } + 1 ) / ( permutations_performed + 1 )
 
       • **test='test-t':**
-        a two-sided t-test is performed for each split. Note that for small numbers of leaves the p-value of this
+        a two-sided t-test is performed for each group. Note that for small numbers of leaves the p-value of this
         t-test can be unreliable.
 
       • **test=None:**
-        no statistical test is performed; only the split statistic is computed.
+        no statistical test is performed; only the partition statistic is computed.
 
     P-values are calculated as long as both groups have at least ``min_group_leaves`` leaves;
-    otherwise, no test is performed for that split and the p-value is set to NaN.
+    otherwise, no test is performed for that partition and the p-value is set to NaN.
 
     Parameters
     ----------
     tdata
         TreeData object.
     keys
-        One or more `obs_keys`, `var_names`, `obsm_keys`, or `obsp_keys` to reconstruct.
+        One or more `obs.keys()`, `var_names`, `obsm.keys()`, or `obsp.keys()` to reconstruct.
     comparison
         Set of leaves to compare to:
 
@@ -173,7 +172,7 @@ def split_test(
     test
         Type of test to perform to compare the two groups. "t-test" can only be used for scalar keys.
     aggregate
-        Function to reduce the data from all the leaves of a given split to a vector or scalar. Can be a known
+        Function to reduce the data from all the leaves of a given group to a vector or scalar. Can be a known
         aggregator or a callable. Only used for test="permutation".
     metric
         A metric to compare the children from both sides of the tree. Can be a known metric or a callable. Only used
@@ -185,39 +184,39 @@ def split_test(
         test="t-test".
     n_permutations
         Upper bound on the number of permutations to run. The actually executed
-        number is ``min(n_permutations, comb(n_left + n_right, n_left))`` per split.
+        number is ``min(n_permutations, comb(n_left + n_right, n_left))`` per group.
     random_state
         Random seed to ensure reproducibility of permutation test.
     min_group_leaves
         Minimum number of leaves required in each group to perform a statistical test. The t-test may be particularly
         unreliable with small sample sizes.
     keys_added
-        Attribute keys of `tdata.obst[tree].nodes` where split statistics will be stored. If `None`, `keys` are used.
+        Attribute keys of `tdata.obst[tree].nodes` where group statistics will be stored. If `None`, `keys` are used.
     tree
         The `obst` key or keys of the trees to use. If `None`, all trees are used.
     copy
-        If True, returns a :class:`DataFrame <pandas.DataFrame>` with split statistics.
+        If True, returns a :class:`DataFrame <pandas.DataFrame>` with group statistics.
 
     Returns
     -------
     Returns `None` if `copy=False`, else returns :class:`DataFrame <pandas.DataFrame>` with columns:
         - `'tree'` - Tree name.
         - `'key'` - Observation key.
-        - `'parent'` - Parent node of the split.
-        - `'group1'` - Child node being compared.
-        - `'group2'` - Other child node(s) or "rest" being compared against.
-        - `'value1'` - Aggregate value for `group1`.
-        - `'value2'` - Aggregate value for `group2`.
+        - `'parent'` - Parent of group1 node.
+        - `'group1'` - Node defining group1 leaf set.
+        - `'group2'` - Node(s) defining group2 leaf set or "rest".
+        - `'value1'` - Aggregate leaf value for `group1`.
+        - `'value2'` - Aggregate leaf value for `group2`.
         - `'pval'` - p-value from the statistical test (if performed).
 
     Sets the following fields:
 
     * `tdata.obst[tree].nodes[f"{key_added}_value"]` : `float`/:class:`ndarray <numpy.ndarray>`
-        - Aggregate value for each child at each split.
+        - Aggregate value of leaves descended from that node.
     * `tdata.obst[tree].edges[f"{key_added}_pval"]` : `float`
-        - p-value from statistical test for each split.
+        - P-value for the partition test at that edge (if performed).
     * `tdata.obst[tree].edges[f"{key_added}_metric"]` : `float`
-        - Metric value for each split (only if test="permutation").
+        - Metric value for the partition at that edge (only if test="permutation").
     """
     _set_random_state(random_state)
     if isinstance(keys, str):
