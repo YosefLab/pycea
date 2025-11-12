@@ -23,8 +23,6 @@ def n_extant(
     slot: Literal["obst", "obs"] = "obst",
     copy: Literal[True, False] = True,
 ) -> pd.DataFrame: ...
-
-
 @overload
 def n_extant(
     tdata: td.TreeData,
@@ -38,8 +36,6 @@ def n_extant(
     slot: Literal["obst", "obs"] = "obst",
     copy: Literal[True, False] = False,
 ) -> None: ...
-
-
 def n_extant(
     tdata: td.TreeData,
     depth_key: str = "depth",
@@ -55,8 +51,14 @@ def n_extant(
     """
     Counts extant branches over time.
 
-    Computes the number of extant branches at each depth bin in the tree,
-    optionally stratified by node grouping variable(s).
+    This function computes the number of lineages that are alive (extant)
+    at each depth bin. Lineages are counted by sweeping along each edge
+    (parent → child): a lineage is present from the parent’s depth (inclusive) up to
+    the child’s depth (exclusive), unless ``extend_branches=True`` and the child is a
+    leaf, in which case the lineage extends to the maximum depth bin.
+
+    Grouping is supported by one or more node attributes (``groupby``); counts are
+    computed separately per unique group combination.
 
     Parameters
     ----------
@@ -91,6 +93,13 @@ def n_extant(
 
     * `tdata.uns[key_added]` : :class:`DataFrame <pandas.DataFrame>` with columns
         depth_key, `n_extant`, grouping variables, and `tree`.
+
+    Examples
+    --------
+    Calculate number cells in each clade over time:
+
+    >>> tdata = py.datasets.koblan25()
+    >>> py.tl.n_extant(tdata, depth_key="time", groupby="clade", bins=10)
     """
     # Validate tree keys and get trees
     tree_keys = tree
@@ -164,5 +173,4 @@ def n_extant(
     tdata.uns[key_added] = extant
     if copy:
         return extant
-    return None
     return None

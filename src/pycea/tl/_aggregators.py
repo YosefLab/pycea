@@ -7,7 +7,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 _AggregatorFn = Callable[[np.ndarray], np.ndarray | float]
-_Aggregator = Literal["mean", "median", "sum", "var"]
+_Aggregator = Literal["mean", "median", "sum", "min", "max", "var"]
 
 
 def _reduce(fn, X: NDArray[np.generic]) -> NDArray[np.generic] | float:
@@ -24,6 +24,8 @@ _REGISTRY: dict[str, _AggregatorFn] = {
     "mean": lambda X: _reduce(np.mean, X),
     "median": lambda X: _reduce(np.median, X),
     "sum": lambda X: _reduce(np.sum, X),
+    "min": lambda X: _reduce(np.min, X),
+    "max": lambda X: _reduce(np.max, X),
     "var": _var,
 }
 

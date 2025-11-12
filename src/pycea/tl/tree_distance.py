@@ -143,7 +143,28 @@ def tree_distance(
     tree: str | Sequence[Any] | None = None,
     copy: Literal[True, False] = False,
 ) -> None | sp.sparse.csr_matrix | np.ndarray:
-    """Computes tree distances between observations.
+    r"""Computes tree distances between observations.
+
+    This function calculates distances between observations (typically tree leaves)
+    based on their positions and depths in the tree. It supports *lowest common ancestor (lca)*
+    and *path* distances.
+
+    Given two nodes :math:`i` and :math:`j` in a rooted tree, with depths
+    :math:`d_i` and :math:`d_j`, and with their lowest common ancestor having
+    depth :math:`d_{LCA(i,j)}`:
+
+    .. math::
+
+        D_{ij}^{lca} = d_{LCA(i,j)}
+
+    .. math::
+
+        D_{ij}^{path} = || d_i + d_j - 2 d_{LCA(i,j)} ||
+
+    :math:`D_{ij}^{lca}` represents the depth of the node’s shared ancestor
+    (larger values indicate greater shared ancestry). In contrast, :math:`D_{ij}^{path}`
+    measures the distance along the tree between two nodes (smaller values indicate
+    closer proximity).
 
     Parameters
     ----------
@@ -191,6 +212,17 @@ def tree_distance(
         - Connectivity between observations.
     * `tdata.obs['{key_added}_distances']` : :class:`Series <pandas.Series>` (dtype `float`) if `obs` is a string.
         - Distance from specified observation to others.
+
+    Examples
+    --------
+    Compute full pairwise path distances for tree leaves:
+
+    >>> tdata = py.datasets.koblan25()
+    >>> py.tl.tree_distance(tdata, metric="path")
+
+    Sample 1000 random LCA distances using node 'time' as depth:
+
+    >>> py.tl.tree_distance(tdata, metric="lca", sample_n=1000, depth_key="time")
     """
     # Setup
     _set_random_state(random_state)

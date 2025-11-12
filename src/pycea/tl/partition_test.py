@@ -128,16 +128,16 @@ def partition_test(
     descended from each internal node (group1) to the set of leaves defined by
     the `comparison` parameter (group2):
 
-      • **comparison='siblings':**
+    * ``comparison='siblings':``
         Compare to the descendants of sibling nodes. When there is more than one sibling (i.e., a non-binary split),
         each child node is compared individually to the pooled set of all other siblings.
 
-      • **comparison='rest':**
+    * ``comparison='rest':``
         Compare to all other leaves in the tree not descended from the given node.
 
     The `test` parameter defines how the two groups are compared:
 
-      • **test='permutation':**
+    * ``test='permutation':``
         a two-sided permutation test is performed by repeatedly
         shuffling the pooled rows (group1 + group2), applying the ``aggregate`` function, and
         then recomputing the split statistic using the `metric` function.
@@ -146,13 +146,20 @@ def partition_test(
         ``comb(n_left + n_right, n_left)``). The p-value is computed with standard
         +1 smoothing:
 
-            pval = ( #{ \|perm_stat\| >= \|observed\| } + 1 ) / ( permutations_performed + 1 )
+    .. math::
 
-      • **test='test-t':**
+        p_\text{val} =
+        \frac{
+            \#\{\,|\mathrm{perm\_stat}| \ge |\mathrm{observed}|\,\} + 1
+        }{
+            N_\text{perm} + 1
+        }
+
+    * ``test='test-t':``
         a two-sided t-test is performed for each group. Note that for small numbers of leaves the p-value of this
         t-test can be unreliable.
 
-      • **test=None:**
+    * ``test=None:``
         no statistical test is performed; only the partition statistic is computed.
 
     P-values are calculated as long as both groups have at least ``min_group_leaves`` leaves;
@@ -217,6 +224,13 @@ def partition_test(
         - P-value for the partition test at that edge (if performed).
     * `tdata.obst[tree].edges[f"{key_added}_metric"]` : `float`
         - Metric value for the partition at that edge (only if test="permutation").
+
+    Examples
+    --------
+    Identify clades with the highest expression of "elt-2":
+
+    >>> tdata = py.datasets.packer19()
+    >>> py.tl.partition_test(tdata, keys=["elt-2"], test="t-test", comparison="rest")
     """
     _set_random_state(random_state)
     if isinstance(keys, str):
