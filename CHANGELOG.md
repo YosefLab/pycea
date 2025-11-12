@@ -12,13 +12,15 @@ and this project adheres to [Semantic Versioning][].
 
 ### Added
 
-- `pycea.tl.partition_test` to test for statistically significant differences between leaf partitions.
+- `pycea.tl.partition_test` to test for statistically significant differences between leaf partitions. (#40)
 
 ### Changed
 
+- Replaced `tdata.obs_keys()` with `tdata.obs.keys()` to conform with anndata API changes. (#41)
+
 ### Fixed
 
-- Replaced `tdata.obs_keys()` with `tdata.obs.keys()` to conform with anndata API changes. (#41)
+- Fixed node plotting when `isinstance(nodes,str)`. (#39)
 
 ## [0.1.0] - 2025-09-19
 
