@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning][].
 ## [Unrealeased]
 
 ### Added
+- Added `pycea.tl.expansion_test` for computing expansion p-values to detect clades under selection
 
 ### Changed
 
@@ -23,7 +24,6 @@ and this project adheres to [Semantic Versioning][].
 - `pycea.get` module for data retrieval (#32)
 - Added `pycea.tl.n_extant` and `pycea.pl.n_extant` for calculating and plotting the number of extant lineages over time (#33)
 - Added `pycea.tl.fitness` for estimating fitness of nodes in a tree (#35)
-- Added `pycea.tl.expansion_test` for computing expansion p-values to detect clades under selection (#38)
 
 ### Changed
 
