@@ -27,10 +27,10 @@ def test_fitness_lbi_copy(tdata):
     out = fitness(tdata, method="lbi", copy=True, random_state=42)
     assert isinstance(out, pd.DataFrame)
     assert "fitness" in out.columns
-    assert out.loc[("tree", "B"), "fitness"] == pytest.approx(1.120, abs=1e-3)
+    assert out.loc["B", "fitness"] == pytest.approx(1.120, abs=1e-3)
     tree = tdata.obst["tree"]
     assert all("fitness" in tree.nodes[n] for n in tree.nodes)
-    assert set(out.droplevel(0).index) == set(tree.nodes)
+    assert set(out.index) == set(tree.nodes)
 
 
 def test_bad_input(tdata):

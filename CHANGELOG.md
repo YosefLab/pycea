@@ -13,9 +13,17 @@ and this project adheres to [Semantic Versioning][].
 ### Added
 - Added `pycea.tl.expansion_test` for computing expansion p-values to detect clades under selection
 
+- `pycea.tl.partition_test` to test for statistically significant differences between leaf partitions. (#40)
+- `pycea.tl.expansion_test` for computing expansion p-values to detect expanding clades. (#38)
+
 ### Changed
 
+- Replaced `tdata.obs_keys()` with `tdata.obs.keys()` to conform with anndata API changes. (#41)
+- `pycea.tl.fitness` no longer returns a multi-indexed DataFrame when `tdata` contains a single tree. (#38)
+
 ### Fixed
+
+- Fixed node plotting when `isinstance(nodes,str)`. (#39)
 
 ## [0.1.0] - 2025-09-19
 

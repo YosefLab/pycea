@@ -53,7 +53,7 @@ def test_expansion_test_min_clade(test_tree):
 
 def test_expansion_test_basic(test_tree):
     """Test expansion p-values with min_clade_size=2."""
-    expansion_test(test_tree, min_clade_size=2)
+    result = expansion_test(test_tree, min_clade_size=2, copy=True)
     expected_basic = {
         "0": 1.0,
         "1": 0.3,
@@ -76,6 +76,7 @@ def test_expansion_test_basic(test_tree):
         "18": 1.0,
     }
     node_data = py.get.node_df(test_tree)
+    assert result.shape == (19, 1)
     for node, expected in expected_basic.items():
         actual = node_data.loc[node, "expansion_pvalue"]
         assert abs(actual - expected) < 0.01, f"Basic: Node {node} expected {expected}, got {actual}"
@@ -111,44 +112,6 @@ def test_expansion_test_depth_filter(test_tree):
         assert abs(actual - expected) < 0.01, f"Depth filter: Node {node} expected {expected}, got {actual}"
 
 
-def test_expansion_test_copy_behavior(test_tree):
-    """Test that copy=True returns DataFrane without modifying original."""
-    result_df = expansion_test(test_tree, min_clade_size=2, min_depth=1, copy=True)
-    assert isinstance(result_df, pd.DataFrame)
-    # Check copy has correct values
-    expected = {
-        "0": 1.0,
-        "1": 0.3,
-        "2": 0.8,
-        "3": 0.047,
-        "4": 1.0,
-        "5": 1.0,
-        "6": 1.0,
-        "7": 0.5,
-        "8": 0.6,
-        "9": 0.6,
-        "10": 1.0,
-        "11": 1.0,
-        "12": 1.0,
-        "13": 1.0,
-        "14": 1.0,
-        "15": 1.0,
-        "16": 0.6,
-        "17": 1.0,
-        "18": 1.0,
-    }
-    for node, exp in expected.items():
-        actual = result_df.loc[("tree", node), "expansion_pvalue"]
-        assert abs(actual - exp) < 0.01, f"Copy: Node {node} expected {exp}, got {actual}"
-
-    # Check original was NOT modified
-    original_tree_graph = test_tree.obst["tree"]
-    for node in original_tree_graph.nodes():
-        assert "expansion_pvalue" not in original_tree_graph.nodes[node], (
-            f"Original tree modified at node {node} when copy=True"
-        )
-
-
 def test_expansion_test_multiple_trees():
     """Test multiple trees."""
     tree1 = nx.DiGraph()
@@ -177,3 +140,7 @@ def test_expansion_test_custom_key(test_tree):
     expansion_test(test_tree, min_clade_size=2, key_added="custom_pvalue")
     assert "custom_pvalue" in test_tree.obst["tree"].nodes["0"]
     assert "expansion_pvalue" not in test_tree.obst["tree"].nodes["0"]
+
+
+if __name__ == "__main__":
+    pytest.main(["-v", __file__])

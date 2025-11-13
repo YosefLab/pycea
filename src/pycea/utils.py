@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import random
-from collections.abc import Mapping, Sequence
+from collections.abc import Hashable, Mapping, Sequence
 from typing import Any, cast
 
 import networkx as nx
@@ -177,7 +177,7 @@ def get_keyed_obs_data(
     array_keys = False
     is_square = False
     for key in keys:
-        if key in tdata.obs_keys() and (slot is None or slot == "obs"):
+        if key in tdata.obs.keys() and (slot is None or slot == "obs"):
             if tdata.obs[key].dtype.kind in ["b", "O", "S"]:
                 categories = _get_categories(tdata.obs[key], sort)
                 tdata.obs[key] = pd.Categorical(tdata.obs[key], categories=categories, ordered=True)
@@ -203,7 +203,7 @@ def get_keyed_obs_data(
             if slot is None:
                 raise ValueError(
                     f"Key {key!r} is invalid! You must pass a valid observation annotation. "
-                    f"One of obs_keys, var_names, obsm_keys, obsp_keys."
+                    f"One of obs.keys(), var_names, obsm.keys(), obsp.keys()."
                 )
             else:
                 raise ValueError(
@@ -307,3 +307,28 @@ def _check_tree_overlap(
             raise ValueError("Cannot request multiple trees when tdata.has_overlap is True.")
     else:
         raise ValueError("Tree keys must be a string, list of strings, or None.")
+
+
+def _get_descendant_leaves(t: nx.DiGraph) -> dict[Hashable, list]:
+    """
+    Return a dict mapping each node -> list of leaf descendants (including itself if it is a leaf).
+
+    Works in one bottom-up traversal using reverse topological order.
+    Assumes `t` is a DAG (trees are DAGs). For non-DAGs, raises NetworkXUnfeasible.
+    """
+    # Will store sets while computing (for fast union / uniqueness)
+    leaves_sets: dict[Hashable, set] = {}
+
+    # One topological sort, then a single bottom-up sweep
+    for u in reversed(list(nx.topological_sort(t))):
+        children = list(t.successors(u))
+        if not children:  # leaf
+            leaves_sets[u] = {u}
+        else:  # union of children's leaf sets
+            s = set()
+            for v in children:
+                s |= leaves_sets[v]
+            leaves_sets[u] = s
+
+    # Convert sets to lists (unsorted to avoid type-comparison issues)
+    return {u: list(s) for u, s in leaves_sets.items()}

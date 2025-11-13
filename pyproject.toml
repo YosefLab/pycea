@@ -98,6 +98,7 @@ matrix.deps.env-vars = [
 
 [tool.hatch.build.targets.wheel]
 packages = [ "src/pycea" ]
+exclude = [ "**/.DS_Store", "**/._*" ]
 
 [tool.ruff]
 line-length = 120
@@ -144,6 +145,7 @@ testpaths = [ "tests" ]
 xfail_strict = true
 addopts = [
   "--import-mode=importlib", # allow using test files with same name
+  "--ignore-glob=**/._*.py", # ignore macOS resource fork files
 ]
 markers = [
   "internet: tests which rely on internet resources (enable with `--internet-tests`)",

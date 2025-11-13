@@ -3,6 +3,7 @@
 *~
 buck-out/
 .ipynb_checkpoints/
+*._*
 
 # Compiled files
 .venv/
