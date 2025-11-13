@@ -4,7 +4,7 @@ import pytest
 import treedata as td
 
 import pycea as py
-from pycea.tl.topology import compute_expansion_pvalues
+from pycea.tl.topology import expansion_test
 
 
 @pytest.fixture
@@ -35,42 +35,25 @@ def test_tree():
         ]
     )
 
-    # Create character matrix for leaves
-    character_matrix = pd.DataFrame.from_dict(
-        {
-            "12": [1, 2, 1, 1],
-            "13": [1, 2, 1, 0],
-            "14": [1, 0, 1, 0],
-            "15": [1, 5, 1, 0],
-            "17": [1, 4, 1, 0],
-            "18": [1, 4, 1, 5],
-            "6": [2, 0, 0, 0],
-            "10": [2, 3, 0, 0],
-            "11": [2, 3, 1, 0],
-            "4": [1, 0, 0, 0],
-            "5": [1, 5, 0, 0],
-        },
-        orient="index",
-    )
-
     # Create TreeData object
     tdata = td.TreeData(
-        obs=pd.DataFrame(index=character_matrix.index),
+        obs=pd.DataFrame(index=["4", "5", "6", "10", "11", "12", "13", "14", "15", "17", "18"]),
         obst={"tree": tree},
     )
 
     return tdata
 
 
-def test_expansion_probability_filtering(test_tree):
-    """Test filtering by min_clade_size and min_depth."""
-    # Test 1: min_clade_size=20 filters out all clades
-    compute_expansion_pvalues(test_tree, min_clade_size=20)
+def test_expansion_test_min_clade(test_tree):
+    """Test that min_clade_size=20 filters out all clades."""
+    expansion_test(test_tree, min_clade_size=20)
     node_data = py.get.node_df(test_tree)
     assert (node_data["expansion_pvalue"] == 1.0).all(), "All nodes should be filtered with min_clade_size=20"
 
-    # Test 2: min_clade_size=2 computes p-values
-    compute_expansion_pvalues(test_tree, min_clade_size=2)
+
+def test_expansion_test_basic(test_tree):
+    """Test expansion p-values with min_clade_size=2."""
+    expansion_test(test_tree, min_clade_size=2)
     expected_basic = {
         "0": 1.0,
         "1": 0.3,
@@ -97,8 +80,10 @@ def test_expansion_probability_filtering(test_tree):
         actual = node_data.loc[node, "expansion_pvalue"]
         assert abs(actual - expected) < 0.01, f"Basic: Node {node} expected {expected}, got {actual}"
 
-    # Test 3: min_depth=3 filters shallow nodes
-    compute_expansion_pvalues(test_tree, min_clade_size=2, min_depth=3)
+
+def test_expansion_test_depth_filter(test_tree):
+    """Test filtering with min_depth=3."""
+    expansion_test(test_tree, min_clade_size=2, min_depth=3)
     expected_depth = {
         "0": 1.0,
         "1": 1.0,
@@ -126,10 +111,10 @@ def test_expansion_probability_filtering(test_tree):
         assert abs(actual - expected) < 0.01, f"Depth filter: Node {node} expected {expected}, got {actual}"
 
 
-def test_expansion_probability_copy_behavior(test_tree):
-    """Test that copy=True returns new TreeData without modifying original."""
-    tree_copy = compute_expansion_pvalues(test_tree, min_clade_size=2, min_depth=1, copy=True)
-
+def test_expansion_test_copy_behavior(test_tree):
+    """Test that copy=True returns DataFrane without modifying original."""
+    result_df = expansion_test(test_tree, min_clade_size=2, min_depth=1, copy=True)
+    assert isinstance(result_df, pd.DataFrame)
     # Check copy has correct values
     expected = {
         "0": 1.0,
@@ -152,9 +137,8 @@ def test_expansion_probability_copy_behavior(test_tree):
         "17": 1.0,
         "18": 1.0,
     }
-    node_data_copy = py.get.node_df(tree_copy)
     for node, exp in expected.items():
-        actual = node_data_copy.loc[node, "expansion_pvalue"]
+        actual = result_df.loc[("tree", node), "expansion_pvalue"]
         assert abs(actual - exp) < 0.01, f"Copy: Node {node} expected {exp}, got {actual}"
 
     # Check original was NOT modified
@@ -165,8 +149,8 @@ def test_expansion_probability_copy_behavior(test_tree):
         )
 
 
-def test_expansion_probability_edge_cases():
-    """Test edge cases: empty trees and multiple trees."""
+def test_expansion_test_multiple_trees():
+    """Test multiple trees."""
     tree1 = nx.DiGraph()
     tree1.add_edges_from([("0", "1"), ("0", "2")])
     tree2 = nx.DiGraph()
@@ -175,9 +159,21 @@ def test_expansion_probability_edge_cases():
         obs=pd.DataFrame(index=["1", "2", "B", "C"]),
         obst={"tree1": tree1, "tree2": tree2},
     )
-    with pytest.raises(ValueError, match="Expected exactly one tree"):
-        compute_expansion_pvalues(tdata_multi, min_clade_size=2)
-
-    compute_expansion_pvalues(tdata_multi, min_clade_size=2, tree="tree1")
+    expansion_test(tdata_multi, min_clade_size=2)
     assert "expansion_pvalue" in tdata_multi.obst["tree1"].nodes["0"]
-    assert "expansion_pvalue" not in tdata_multi.obst["tree2"].nodes["A"]
+    assert "expansion_pvalue" in tdata_multi.obst["tree2"].nodes["A"]
+
+    tdata_multi2 = td.TreeData(
+        obs=pd.DataFrame(index=["1", "2", "3", "4", "B", "C"]),
+        obst={"tree1": tree1.copy(), "tree2": tree2.copy()},
+    )
+    expansion_test(tdata_multi2, min_clade_size=2, tree="tree1")
+    assert "expansion_pvalue" in tdata_multi2.obst["tree1"].nodes["0"]
+    assert "expansion_pvalue" not in tdata_multi2.obst["tree2"].nodes["A"]
+
+
+def test_expansion_test_custom_key(test_tree):
+    """Test using custom key_added parameter."""
+    expansion_test(test_tree, min_clade_size=2, key_added="custom_pvalue")
+    assert "custom_pvalue" in test_tree.obst["tree"].nodes["0"]
+    assert "expansion_pvalue" not in test_tree.obst["tree"].nodes["0"]
