@@ -353,4 +353,3 @@ def ancestral_states(
                 _ancestral_states(t, key_added, method, costs, missing_state, default_state)
     if copy:
         return get_keyed_node_data(tdata, keys_added, tree_keys, slot="obst")
-        return get_keyed_node_data(tdata, keys_added, tree_keys)

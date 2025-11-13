@@ -1,4 +1,5 @@
 from collections.abc import Sequence
+from typing import Literal, overload
 
 import networkx as nx
 import pandas as pd
@@ -8,20 +9,37 @@ from scipy.special import comb as nCk
 from pycea.utils import get_keyed_node_data, get_root, get_trees
 
 
+@overload
 def expansion_test(
     tdata: td.TreeData,
     tree: str | Sequence[str] | None = None,
     min_clade_size: int = 10,
     min_depth: int = 1,
     key_added: str = "expansion_pvalue",
-    copy: bool = False,
+    copy: Literal[True, False] = True,
+) -> pd.DataFrame: ...
+@overload
+def expansion_test(
+    tdata: td.TreeData,
+    tree: str | Sequence[str] | None = None,
+    min_clade_size: int = 10,
+    min_depth: int = 1,
+    key_added: str = "expansion_pvalue",
+    copy: Literal[True, False] = False,
+) -> None: ...
+def expansion_test(
+    tdata: td.TreeData,
+    tree: str | Sequence[str] | None = None,
+    min_clade_size: int = 10,
+    min_depth: int = 1,
+    key_added: str = "expansion_pvalue",
+    copy: Literal[True, False] = False,
 ) -> pd.DataFrame | None:
     """Compute expansion p-values on a tree.
 
-    Uses the methodology described in Yang, Jones et al, BioRxiv (2021) to
+    Uses the methodology described in :cite:`Yang_2022` to
     assess the expansion probability of a given subclade of a phylogeny.
-    Mathematical treatment of the coalescent probability is described in
-    Griffiths and Tavare, Stochastic Models (1998).
+    Mathematical treatment of the coalescent probability is described in :cite:`Griffiths_1998`.
 
     The probability computed corresponds to the probability that, under a simple
     neutral coalescent model, a given subclade contains the observed number of
@@ -62,8 +80,6 @@ def expansion_test(
     * tdata.obst[tree].nodes[key_added] : `float`
         - Expansion pvalue for each node.
     """
-    if copy:
-        tdata = tdata.copy()
     trees = get_trees(tdata, tree)
 
     for _tree_key, t in trees.items():
@@ -104,6 +120,9 @@ def expansion_test(
                 t.nodes[child][key_added] = float(p)
 
     if copy:
-        return get_keyed_node_data(tdata, keys=key_added, tree=tree, slot="obst")
+        df = get_keyed_node_data(tdata, keys=key_added, tree=tree, slot="obst")
+        if len(trees) == 1:
+            df.index = df.index.droplevel(0)
+        return df
     else:
         return None
