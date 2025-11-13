@@ -84,14 +84,48 @@ def autocorr(
     layer: str | None = None,
     copy: Literal[True, False] = False,
 ) -> pd.DataFrame | None:
-    """Calculate autocorrelation statistic.
+    r"""Calculate autocorrelation statistic.
+
+    This function computes autocorrelation for one or more variables using
+    either **Moran’s I** or **Geary’s C** statistic, based on a specified connectivity
+    graph between observations.
+
+    Mathematically, the two statistics are defined as follows:
+
+    .. math::
+
+        I =
+        \frac{
+            N \sum_{i,j} w_{i,j} (x_i - \bar{x})(x_j - \bar{x})
+        }{
+            W \sum_i (x_i - \bar{x})^2
+        }
+
+        C =
+        \frac{
+            (N - 1)\sum_{i,j} w_{i,j} (x_i - x_j)^2
+        }{
+            2W \sum_i (x_i - \bar{x})^2
+        }
+
+    where:
+        * :math:`N` is the number of observations,
+        * :math:`x_i` is the value of observation *i*,
+        * :math:`\bar{x}` is the mean of all observations,
+        * :math:`w_{i,j}` is the spatial weight between *i* and *j*, and
+        * :math:`W = \sum_{i,j} w_{i,j}`.
+
+    A Moran’s I value close to 1 indicates strong positive autocorrelation,
+    while values near 0 suggest randomness. For Geary’s C behaves inversely:
+    values less than 1 indicate positive autocorrelation, while values
+    greater than 1 indicate negative autocorrelation.
 
     Parameters
     ----------
     tdata
         TreeData object.
     keys
-        One or more `obs_keys`, `var_names`, `obsm_keys`, or `obsp_keys` to calculate autocorrelation for. Defaults to all 'var_names'.
+        One or more `obs.keys()`, `var_names`, `obsm.keys()`, or `obsp.keys()` to calculate autocorrelation for. Defaults to all 'var_names'.
     connect_key
         `tdata.obsp` connectivity key specifying set of neighbors for each observation.
     method
@@ -116,6 +150,14 @@ def autocorr(
 
     * `tdata.uns['moranI']` : Above DataFrame for if method is `'moran'`.
     * `tdata.uns['gearyC']` : Above DataFrame for if method is `'geary'`.
+
+    Examples
+    --------
+    Estimate gene expression heritability using Moran's I autocorrelation:
+
+    >>> tdata = py.datasets.yang22()
+    >>> py.tl.tree_neighbors(tdata, n_neighbors=10)
+    >>> py.tl.autocorr(tdata, connect_key="tree_connectivities", method="moran")
     """
     # Setup
     if keys is None:

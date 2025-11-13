@@ -260,12 +260,17 @@ def ancestral_states(
 ) -> pd.DataFrame | None:
     """Reconstructs ancestral states for an attribute.
 
+    This function reconstructs ancestral (internal node) states for categorical or
+    continuous attributes defined on tree leaves. Several reconstruction methods
+    are supported, ranging from simple aggregation rules to the Sankoff and Fitch-Hartigan
+    algorithms for discrete character data, or a custom aggregation function can be provided.
+
     Parameters
     ----------
     tdata
         TreeData object.
     keys
-        One or more `obs_keys`, `var_names`, `obsm_keys`, or `obsp_keys` to reconstruct.
+        One or more `obs.keys()`, `var_names`, `obsm.keys()`, or `obsp.keys()` to reconstruct.
     method
         Method to reconstruct ancestral states:
 
@@ -279,7 +284,7 @@ def ancestral_states(
     default_state
         The expected state for the root node.
     costs
-        A pd.DataFrame with the costs of changing states (from rows to columns).
+        A pd.DataFrame with the costs of changing states (from rows to columns). Only used if method is 'sankoff'.
     keys_added
         Attribute keys of `tdata.obst[tree].nodes` where ancestral states will be stored. If `None`, `keys` are used.
     tree
@@ -295,6 +300,18 @@ def ancestral_states(
 
     * `tdata.obst[tree].nodes[key_added]` : `float` | `Object` | `List[Object]`
         - Inferred ancestral states. List of states if data was an array.
+
+    Examples
+    --------
+    Infer the expression of Krt20 and Cd74 based on their mean value in descendant cells:
+
+    >>> tdata = py.datasets.yang22()
+    >>> py.tl.ancestral_states(tdata, keys=["Krt20", "Cd74"], method="mean")
+
+    Reconstruct ancestral character states using the Fitch-Hartigan algorithm:
+
+    >>> py.tl.ancestral_states(tdata, keys="characters", method="fitch_hartigan", missing_state=-1)
+
     """
     if isinstance(keys, str):
         keys = [keys]

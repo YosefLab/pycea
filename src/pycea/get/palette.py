@@ -72,12 +72,17 @@ def palette(
     """
     Get color palette for a given key.
 
+    This function gets the mapping from category → color for a given key
+    in ``tdata``. If no customizations are provided, the function will return
+    a previously stored palette in ``tdata.uns`` if it exists. Otherwise,
+    a new palette is generated.
+
     Parameters
     ----------
     tdata
         The `treedata.TreeData` object.
     key
-        A key from `obs_keys`, `obsm_keys`, or `obsp_keys` to generate a color palette for.
+        A key from `obs.keys()`, `obsm.keys()`, or `obsp.keys()` to generate a color palette for.
     custom
         A dictionary mapping specific values to colors (e.g., `{"category1": "red"}`).
     cmap
@@ -94,6 +99,21 @@ def palette(
     Returns
     -------
     palette - Color palette for the given key
+
+    Examples
+    --------
+    Get character color palette with saturation adjusted by indel probability:
+
+    >>> tdata = py.datasets.yang22()
+    >>> indel_palette = py.get.palette(
+    ...     tdata,
+    ...     "characters",
+    ...     custom={"-": "white", "*": "lightgrey"},
+    ...     cmap="gist_rainbow",
+    ...     priors=tdata.uns["priors"],
+    ...     sort="random",
+    ... )
+
     """
     # Setup
     tdata._sanitize()
