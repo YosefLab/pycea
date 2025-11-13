@@ -185,4 +185,3 @@ def clades(
     tdata.obs[key_added] = tdata.obs.index.map(node_to_clade[key_added])
     if copy:
         return pd.concat(lcas)
-        return pd.concat(lcas)

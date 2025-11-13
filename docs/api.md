@@ -33,6 +33,7 @@
     tl.n_extant
     tl.fitness
     tl.partition_test
+    tl.expansion_test
 ```
 
 ## Plotting
