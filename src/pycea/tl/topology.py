@@ -68,7 +68,7 @@ def expansion_test(
         Attribute key where expansion p-values will be stored in tree nodes.
         Default is "expansion_pvalue".
     copy
-        If True, return a copy of the TreeData with attributes added.
+        If True, return a :class:`pandas.DataFrame` with attributes added.
         If False, modify in place and return None. Default is False.
 
     Returns
