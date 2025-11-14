@@ -8,7 +8,15 @@ and this project adheres to [Semantic Versioning][].
 [keep a changelog]: https://keepachangelog.com/en/1.0.0/
 [semantic versioning]: https://semver.org/spec/v2.0.0.html
 
-## [Unrealeased]
+## Unreleased
+
+### Added
+
+### Changed
+
+### Fixed
+
+## [0.2.0] - 2025-11-14
 
 ### Added
 - Added `pycea.tl.expansion_test` for computing expansion p-values to detect clades under selection
