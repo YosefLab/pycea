@@ -16,7 +16,7 @@ from pycea.utils import (
     get_trees,
 )
 
-from ._utils import _remove_attribute
+from ._utils import _check_colors_length, _remove_attribute
 
 
 def _nodes_at_depth(tree, parent, nodes, depth, depth_key):
@@ -149,6 +149,11 @@ def clades(
     * `tdata.obst[tree].nodes[key_added]` : `Object`
         - Clade assignment for each node.
 
+    Modifies the following fields:
+
+    * `tdata.uns[f"{key_added}_colors"]` : `List`
+        - Removed if its length does not match the number of unique clades.
+
     Examples
     --------
     Mark clades at specified depth
@@ -183,5 +188,6 @@ def clades(
         node_to_clade = get_keyed_node_data(tdata, key_added, tree_keys, slot="obst")
         node_to_clade.index = node_to_clade.index.droplevel(0)
     tdata.obs[key_added] = tdata.obs.index.map(node_to_clade[key_added])
+    _check_colors_length(tdata, key_added)
     if copy:
         return pd.concat(lcas)

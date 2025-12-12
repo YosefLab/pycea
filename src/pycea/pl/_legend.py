@@ -117,8 +117,6 @@ def _place_legend(
     shared_kwargs: dict[str, Any],
     at_x: float,
     at_y: float,
-    box_width: float | None = None,
-    expand: bool = False,
 ) -> mlegend.Legend:
     """Place a legend on the axes at the specified position.
 
@@ -131,13 +129,9 @@ def _place_legend(
     shared_kwargs
         A dictionary of shared keyword arguments for all legends.
     at_x
-        The x-coordinate (in axes fraction) to place the legend.
+        The x offset in pixels from the top-right corner of the axes.
     at_y
-        The y-coordinate (in axes fraction) to place the legend.
-    box_width
-        The width of the legend box (in axes fraction).
-    expand
-        Whether to expand the legend to the box_width.
+        The y offset in pixels from the top-right corner of the axes.
     """
     handlelength = legend_kwargs.get("handlelength", 2.0)
     fontsize = shared_kwargs.get("fontsize", mpl.rcParams["legend.fontsize"])
@@ -145,16 +139,13 @@ def _place_legend(
         fontsize = FontProperties(size=fontsize).get_size_in_points()
     if handlelength == "dynamic":
         handlelength = 100 / fontsize
-        if box_width is not None:
-            handlelength = (box_width * 325) / fontsize
+    offset_trans = mtransforms.ScaledTranslation(at_x / ax.figure.dpi, at_y / ax.figure.dpi, ax.figure.dpi_scale_trans)
     opts: dict[str, Any] = {
         "handlelength": handlelength,
         "loc": legend_kwargs.get("loc", "upper left"),
-        "bbox_to_anchor": (at_x, at_y),
+        "bbox_to_anchor": (1, 1),
+        "bbox_transform": ax.transAxes + offset_trans,
     }
-    if expand and box_width is not None:
-        opts["bbox_to_anchor"] = (at_x, at_y, box_width + 0.03, 0)
-        opts["mode"] = "expand"
     opts.update({k: v for k, v in legend_kwargs.items() if k not in ("loc", "handlelength")})
     opts.update(shared_kwargs)
     leg: mlegend.Legend = ax.legend(**opts)
@@ -188,11 +179,14 @@ def _render_legends(
         shared_kwargs = {}
     fig = ax.figure
     fig.canvas.draw()  # make sure transforms are current
+    ax_height = ax.bbox.height
+    ax_width = ax.bbox.width
+    spacing *= ax_height  # convert to pixels
 
     if not hasattr(ax, "_attrs"):
         ax._attrs = {}  # type: ignore
-    x_offset = ax._attrs.get("x_offset", anchor_x)  # type: ignore
-    y_offset = ax._attrs.get("y_offset", 1.0)  # type: ignore
+    x_offset = ax._attrs.get("x_offset", (anchor_x - 1) * ax_width)  # type: ignore
+    y_offset = ax._attrs.get("y_offset", 0.0)  # type: ignore
     column_max_width = ax._attrs.get("column_max_width", 0.0)  # type: ignore
 
     for legend_kwargs in legends:
@@ -201,39 +195,28 @@ def _render_legends(
             ax.add_artist(ax.get_legend())
         # 2) place normally to measure its natural size
         legend = _place_legend(ax, legend_kwargs, shared_kwargs, x_offset, y_offset)
-        # 3) measure in axes fraction
+        # 3) measure in pixels
         renderer = fig.canvas.get_renderer()  # type: ignore
         bbox_disp = legend.get_window_extent(renderer=renderer)
-        bbox_axes = mtransforms.Bbox(ax.transAxes.inverted().transform(bbox_disp))
-        height = bbox_axes.height
-        width = bbox_axes.width
+        width = bbox_disp.width
+        height = bbox_disp.height
         # 4) if first in column, initialize max width
         if column_max_width == 0.0:
             column_max_width = width
         # 5) if it overflows vertically, start new column
-        if (height > y_offset) & (y_offset != 1.0):
+        if (height - y_offset > ax_height) & (y_offset != 0.0):
             legend.remove()
             x_offset += column_max_width + spacing
-            y_offset = 1.0
-            column_max_width = 0.0
+            y_offset = 0.0
             # place again and re-measure
             legend = _place_legend(ax, legend_kwargs, shared_kwargs, x_offset, y_offset)
             bbox_disp = legend.get_window_extent(renderer=renderer)
-            bbox_axes = mtransforms.Bbox(ax.transAxes.inverted().transform(bbox_disp))
-            height = bbox_axes.height
-            width = bbox_axes.width
-            column_max_width = width
-        # 6) if this legend is narrower than the column max, re-place with expand
-        elif width < column_max_width:
-            legend.remove()
-            legend = _place_legend(
-                ax, legend_kwargs, shared_kwargs, x_offset, y_offset, box_width=column_max_width, expand=True
-            )
-        # 7) otherwise, update column max if this one is wider
-        else:
-            column_max_width = width
-        # 8) finalize: update y_offset and save to _attrs
+            column_max_width = bbox_disp.width
+            height = bbox_disp.height
+        # 6) update offsets for next legend
         y_offset -= height + spacing
+        if width > column_max_width:
+            column_max_width = width
         ax._attrs.update({"y_offset": y_offset})  # type: ignore
         ax._attrs.update({"x_offset": x_offset})  # type: ignore
         ax._attrs.update({"column_max_width": column_max_width})  # type: ignore
