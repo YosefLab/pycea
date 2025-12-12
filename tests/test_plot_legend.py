@@ -70,21 +70,13 @@ def test_size_legend():
     assert len(legend2["labels"]) == 6
 
 
-def test_place_legend_default_and_expand():
+def test_place_legend_default():
     fig, ax = plt.subplots()
     l1 = mlines.Line2D([], [], color="red", label="a")
     legend_kwargs = {"title": "t1", "handles": [l1], "labels": ["a"]}
     shared_kwargs = {"fontsize": 10}
     leg = _place_legend(ax, legend_kwargs, shared_kwargs, at_x=0.5, at_y=0.5)
     assert isinstance(leg, mlegend.Legend)
-    # Expand case
-    fig2, ax2 = plt.subplots()
-    p1 = mpatches.Patch(color="blue", label="b")
-    legend_kwargs2 = {"title": "t2", "handles": [p1], "labels": ["b"], "handlelength": 2}
-    shared_kwargs2 = {"fontsize": 12}
-    leg2 = _place_legend(ax2, legend_kwargs2, shared_kwargs2, at_x=0.2, at_y=0.8, box_width=0.3, expand=True)
-    assert isinstance(leg2, mlegend.Legend)
-    assert hasattr(leg2, "_bbox_to_anchor")
 
 
 def test_render_legends():

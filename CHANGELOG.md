@@ -13,8 +13,10 @@ and this project adheres to [Semantic Versioning][].
 ### Added
 
 ### Changed
+- `pycea.tl.clades` now resets `tdata.uns["clade_colors"]` when number of clades differs from number of colors (#45)
 
 ### Fixed
+- Legend placement now works with tight and constrained layouts (#45)
 
 ## [0.2.0] - 2025-11-14
 
