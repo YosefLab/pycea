@@ -36,10 +36,11 @@ dependencies = [
   "session-info",
   "treedata>=0.2.2",
 ]
-# https://docs.pypi.org/project_metadata/#project-urls
-urls.Documentation = "https://pycea.readthedocs.io/"
-urls.Homepage = "https://github.com/colganwi/pycea"
-urls.Source = "https://github.com/colganwi/pycea"
+
+[project.urls]
+Documentation = "https://pycea.readthedocs.io/"
+Homepage = "https://github.com/colganwi/pycea"
+Source = "https://github.com/colganwi/pycea"
 
 [dependency-groups]
 dev = [
@@ -60,7 +61,7 @@ doc = [
   "sphinx-autodoc-typehints",
   "sphinx-book-theme>=1",
   "sphinx-copybutton",
-  "sphinx-tabs",
+  "sphinx-design>=0.7.0",
   "sphinxcontrib-bibtex>=1",
   "sphinxcontrib-katex",
   "sphinxext-opengraph",
@@ -71,7 +72,8 @@ installer = "uv"
 dependency-groups = [ "dev" ]
 
 [tool.hatch.envs.docs]
-features = [ "doc" ]
+installer = "uv"
+dependency-groups = [ "doc" ]
 scripts.build = "sphinx-build -M html docs docs/_build {args}"
 scripts.open = "python -m webbrowser -t docs/_build/html/index.html"
 scripts.clean = "git clean -fdX -- {args:docs}"
