@@ -65,11 +65,6 @@ doc = [
   "sphinxcontrib-katex",
   "sphinxext-opengraph",
 ]
-optional-dependencies.test = [
-  "coverage>=7.10",
-  "pytest",
-  "pytest-cov",     # For VS Code’s coverage functionality
-]
 # https://docs.pypi.org/project_metadata/#project-urls
 urls.Documentation = "https://pycea.readthedocs.io/"
 urls.Homepage = "https://github.com/YosefLab/pycea"
