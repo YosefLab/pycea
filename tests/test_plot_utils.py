@@ -240,9 +240,9 @@ def test_get_colors_numeric():
     data = pd.Series([0, 1, 2], index=["a", "b", "c"])
     indices = ["a", "b", "c", "d"]
     colors, legend, ncat = _get_colors(tdata, "num", data, indices, cmap="viridis")
-    assert isinstance(colors, list)
+    assert isinstance(colors, np.ndarray)
     assert len(colors) == 4
-    assert colors[-1] == "lightgrey"
+    np.testing.assert_allclose(colors[-1], mcolors.to_rgba("lightgrey"))
     assert ncat == 0
     assert isinstance(legend, dict)
 
