@@ -365,7 +365,10 @@ def _get_colors(
     if data.dtype.kind in ["i", "f"]:  # Numeric
         norm = _get_norm(vmin=vmin, vmax=vmax, data=data)
         color_map = plt.get_cmap(cmap)
-        colors = [color_map(norm(data[i])) if i in data.index else na_color for i in indicies]
+        # Vectorized: reindex to align with indicies (NaN for missing), then apply colormap in bulk
+        values = data.reindex(indicies)
+        color_map.set_bad(na_color)
+        colors = color_map(norm(np.ma.masked_invalid(values.values.astype(float))))
         legend = _cbar_legend(key, color_map, norm)
         n_categories = 0
     else:  # Categorical
