@@ -3,6 +3,7 @@
 *~
 buck-out/
 .ipynb_checkpoints/
+*._*
 
 # Compiled files
 .venv/
@@ -19,6 +20,8 @@ __pycache__/
 /.pytest_cache/
 /.cache/
 /data/
+/node_modules/
+/.coverage*
 
 # docs
 /docs/generated/

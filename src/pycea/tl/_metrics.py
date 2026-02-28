@@ -1,6 +1,7 @@
 from collections.abc import Callable
 from typing import Literal
 
+from sklearn.metrics import pairwise_distances
 import numpy as np
 import treedata as td
 
@@ -32,6 +33,12 @@ _Metric = Literal[
     "yule",
 ]
 
+class MeanDiffMetric:
+    def __call__(self, a, b):
+        return np.mean(a - b)
+
+    def pairwise(self, X, Y):
+        return pairwise_distances(X, Y, metric=self.__call__)
 
 def _lca_distance(tree, depth_key, node1, node2, lca):
     """Compute the lca distance between two nodes in a tree."""

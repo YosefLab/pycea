@@ -167,6 +167,17 @@ def tree_neighbors(
 ) -> None | tuple[sp.sparse.csr_matrix, sp.sparse.csr_matrix]:
     """Identifies neighbors in the tree.
 
+    For each leaf, this function identifies neighbors according to a chosen
+    tree distance `metric` and either:
+
+    * the top-``n_neighbors`` closest leaves (ties broken at random)
+
+    * all leaves within a distance threshold ``max_dist``.
+
+    Results are stored as sparse connectivities and distances, or returned when
+    ``copy=True``. You can restrict the operation to a subset of leaves via
+    ``obs`` and/or to specific trees via ``tree``.
+
     Parameters
     ----------
     tdata
@@ -212,6 +223,13 @@ def tree_neighbors(
         - Set of neighbors for each observation.
     * `tdata.obs['{key_added}_neighbors']` : :class:`Series <pandas.Series>` (dtype `bool`) if `obs` is a string.
         - Set of neighbors for specified observation.
+
+    Examples
+    --------
+    Identify the 5 closest neighbors for each leaf based on path distance:
+
+    >>> tdata = py.datasets.koblan25()
+    >>> py.tl.tree_neighbors(tdata, n_neighbors=5, depth_key="time")
     """
     # Setup
     _set_random_state(random_state)

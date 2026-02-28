@@ -531,6 +531,8 @@ def fitness(
     leaf_fitness = get_keyed_leaf_data(tdata, key_added, tree_keys)
     tdata.obs[key_added] = tdata.obs.index.map(leaf_fitness[key_added])
     if copy:
-        return get_keyed_node_data(tdata, key_added, tree_keys)
-    return None
+        df = get_keyed_node_data(tdata, key_added, tree_keys)
+        if len(trees) == 1:
+            df.index = df.index.droplevel(0)
+        return df
     return None

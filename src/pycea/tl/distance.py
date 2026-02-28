@@ -98,6 +98,11 @@ def distance(
 ) -> None | np.ndarray | sp.sparse.csr_matrix:
     """Computes distances between observations.
 
+    Supports full pairwise distances, distances from a single observation to all others,
+    distances within a specified subset, or distances for an explicit list of pairs.
+    Distances can be computed using a named metric (e.g. ``"euclidean"``, ``"cosine"``,
+    ``"manhattan"``) or a user-supplied callable.
+
     Parameters
     ----------
     tdata
@@ -143,6 +148,28 @@ def distance(
         - Connectivity between observations.
     * `tdata.obs['{key_added}_distances']` : :class:`Series <pandas.Series>` (dtype `float`) if `obs` is a string.
         - Distance from specified observation to others.
+
+    Notes
+    -----
+    * When both ``connect_key`` and ``sample_n`` are provided, sampling is performed
+      **within** the connected pairs induced by the connectivity.
+    * If you pass a callable metric, it must accept two 1D vectors and return a scalar.
+
+    Examples
+    --------
+    Calculate pairwise spatial distance between all observations:
+
+    >>> tdata = py.datasets.koblan25()
+    >>> py.tl.distance(tdata, key="spatial")
+
+    Calculate spatial distance between closely related observations:
+
+    >>> py.tl.tree_neighbors(tdata, n_neighbors=10, depth_key="time")
+    >>> py.tl.distance(tdata, key="spatial", connect_key="tree_connectivities")
+
+    Calculate distance from a single observation to all others:
+
+    >>> py.tl.distance(tdata, key="spatial", obs="M3-1-19")
     """
     # Setup
     _set_random_state(random_state)
@@ -270,6 +297,12 @@ def compare_distance(
 ) -> pd.DataFrame:
     """Get pairwise observation distances.
 
+    This function gathers distances between the same observation pairs from one or
+    more entries in ``tdata.obsp`` and returns them side-by-side in a tidy
+    :class:`pandas.DataFrame`. Only pairs for which **all** requested distance
+    matrices have defined values are included. Optionally, comparisons can be
+    restricted within groups and/or randomly subsampled.
+
     Parameters
     ----------
     tdata
@@ -293,6 +326,15 @@ def compare_distance(
 
     * `obs1` and `obs2` are the observation names.
     * `{dist_key}_distances` are the distances between the observations.
+
+    Examples
+    --------
+    Compare spatial and tree distances for 1000 random pairs of observations:
+
+    >>> tdata = py.datasets.koblan25()
+    >>> py.tl.distance(tdata, key="spatial", sample_n=1000)
+    >>> py.tl.tree_distance(tdata, key="tree", connect_key="spatial_connectivities")
+    >>> df = py.tl.compare_distance(tdata, dist_keys=["spatial_distances", "tree_distances"])
 
     """
     # Setup

@@ -57,6 +57,13 @@ def branches(
     """\
     Plot the branches of a tree.
 
+    Plots the branches of one or more trees stored in ``tdata.obst`` as a
+    :class:`matplotlib.collections.LineCollection`. Branch appearance (`color` and `linewidth`)
+    can be fixed scalars or set based on edge attributes (continuous or categorical).
+    Coloring of continuous variables is based on a colormap (`cmap`), while categorical
+    variables can be colored using a custom `palette` or a default categorical color set.
+    Polar coordinates are used when `polar` is True.
+
     Parameters
     ----------
     tdata
@@ -94,6 +101,22 @@ def branches(
     Returns
     -------
     ax - The axes that the plot was drawn on.
+
+    Notes
+    -----
+    * If ``ax`` is provided the coordinate system must match the ``polar`` setting.
+    * Continuous color attributes use ``cmap`` with ``vmin``/``vmax`` normalization.
+
+    Examples
+    --------
+    Plot tree branches:
+
+    >>> tdata = py.datasets.packer19()
+    >>> py.pl.branches(tdata, depth_key="time")
+
+    Plot tree branches in polar coordinates, colored by clade:
+
+    >>> py.pl.branches(tdata, depth_key="time", polar=True, color="clade")
     """  # noqa: D205
     # Setup
     tdata._sanitize()
@@ -207,6 +230,11 @@ def nodes(
     """\
     Plot the nodes of a tree.
 
+    Plot the nodes of one or more trees from ``tdata.obst`` on the current axes using
+    :func:`matplotlib.pyplot.scatter`. Appearance can be fixed (single color/marker/size) or set based on
+    node attributes (continuous or categorical). You can plot only leaves, only
+    internal nodes, all nodes, or an explicit list of node names.
+
     Parameters
     ----------
     tdata
@@ -249,6 +277,25 @@ def nodes(
     Returns
     -------
     ax - The axes that the plot was drawn on.
+
+    Notes
+    -----
+    * Must call :func:`pycea.pl.branches` or :func:`pycea.pl.tree` before calling this function.
+    * Continuous color attributes use ``cmap`` with ``vmin``/``vmax`` normalization.
+
+    Examples
+    --------
+    Plot internal nodes colored by depth:
+
+    >>> tdata = py.datasets.packer19()
+    >>> py.pl.branches(tdata, depth_key="time")
+    >>> py.pl.nodes(tdata, nodes="internal", color="time", cmap="plasma")
+
+    Color nodes by "elt-2" expression and highlight the "E" node with a star marker:
+
+    >>> py.pl.branches(tdata, depth_key="time")
+    >>> py.pl.nodes(tdata, color="elt-2", nodes="all")
+    >>> py.pl.nodes(tdata, color="red", nodes="EMS", style="*", size=200, slot="obst")
     """  # noqa: D205
     # Setup
     kwargs = kwargs if kwargs else {}
@@ -282,6 +329,8 @@ def nodes(
     elif nodes == "internal":
         plot_nodes = [node for node in all_nodes if node[1] not in attrs["leaves"]]
     elif isinstance(nodes, Sequence):
+        if isinstance(nodes, str):
+            nodes = [nodes]
         if len(attrs["tree_keys"]) > 1 and len(tree_keys) > 1:
             raise ValueError("Multiple trees are present. To plot a list of nodes, you must specify the tree.")
         plot_nodes = [(tree_keys[0], node) for node in nodes]
@@ -395,12 +444,17 @@ def annotation(
     """\
     Plot leaf annotations for a tree.
 
+    Plots one or more leaf annotations (small heatmap-like bars) next to the tree’s
+    leaves, preserving the leaf order/layout used by :func:`pycea.pl.branches`. Each key can be
+    continuous (colored via a `colormap`) or categorical (colored via a `palette`). Multiple
+    keys are stacked horizontally (or radially if your tree plot is polar).
+
     Parameters
     ----------
     tdata
         The TreeData object.
     keys
-        One or more `obs_keys`, `var_names`, `obsm_keys`, or `obsp_keys` to plot.
+        One or more `obs.keys()`, `var_names`, `obsm.keys()`, or `obsp.keys()` to plot.
     width
         The width of the annotation bar relative to the tree.
     gap
@@ -432,6 +486,25 @@ def annotation(
     Returns
     -------
     ax - The axes that the plot was drawn on.
+
+    Notes
+    -----
+    * Must call :func:`pycea.pl.branches` or :func:`pycea.pl.tree` before calling this function.
+    * Continuous color attributes use ``cmap`` with ``vmin``/``vmax`` normalization.
+
+    Examples
+    --------
+    Plot leaf annotations for "elt-2" and "pal-1" expression:
+
+    >>> tdata = py.datasets.packer19(tree = "observed")
+    >>> py.pl.branches(tdata, depth_key="time")
+    >>> py.pl.annotation(tdata, keys=["elt-2", "pal-1"])
+
+    Plot leaf annotation for spatial distance between leaves:
+
+    >>> py.tl.distance(tdata, key = "spatial")
+    >>> py.pl.branches(tdata, depth_key="time")
+    >>> py.pl.annotation(tdata, keys="spatial_distances", cmap="magma")
     """  # noqa: D205
     # Setup
     if tree:  # TODO: Annotate only the leaves for the given tree
@@ -598,12 +671,16 @@ def tree(
     """\
     Plot a tree with branches, nodes, and annotations.
 
+    This function combines :func:`pycea.pl.branches`, :func:`pycea.pl.nodes`, and :func:`pycea.pl.annotation` to enable
+    plotting a complete tree with branches, nodes, and leaf annotations in a single call. Each component
+    (branches, nodes, annotations) can be customized independently using the respective parameters.
+
     Parameters
     ----------
     tdata
         The TreeData object.
     keys
-        One or more `obs_keys`, `var_names`, `obsm_keys`, or `obsp_keys` annotations.
+        One or more `obs.keys()`, `var_names`, `obsm.keys()`, or `obsp.keys()` annotations.
     nodes
         Either "all", "leaves", "internal", or a list of nodes to plot. Defaults to "internal" if node color, style, or size is set.
     polar
@@ -641,6 +718,18 @@ def tree(
     Returns
     -------
     ax - The axes that the plot was drawn on.
+
+    Notes
+    -----
+    * If ``ax`` is provided the coordinate system must match the ``polar`` setting.
+    * Continuous color attributes use ``cmap`` with ``vmin``/``vmax`` normalization.
+
+    Examples
+    --------
+    Plot a tree with nodes and leaves colored by "elt-2" expression:
+
+    >>> tdata = py.datasets.packer19()
+    >>> py.pl.tree(tdata, nodes="all", node_color="elt-2", keys="elt-2", depth_key="time")
     """  # noqa: D205
     # Setup
     branch_legend = legend.get("branch", None) if isinstance(legend, Mapping) else legend

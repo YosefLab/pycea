@@ -16,7 +16,7 @@ from pycea.utils import (
     get_trees,
 )
 
-from ._utils import _remove_attribute
+from ._utils import _check_colors_length, _remove_attribute
 
 
 def _nodes_at_depth(tree, parent, nodes, depth, depth_key):
@@ -103,6 +103,20 @@ def clades(
 ) -> None | pd.DataFrame:
     """Marks clades in a tree.
 
+    A clade is defined by a **ancestral node**; all nodes and
+    edges in the ancestral node's descendant subtree inherit the same clade label.
+    You can specify clades in two ways:
+
+    * **Depth-based:**
+       Given a ``depth`` threshold, all nodes that are extant
+       at that depth are considered ancestral nodes. Each ancestral node and its descendants
+       are assigned a unique clade label.
+
+    * **Explicit mapping:**
+       When ``clades``, a dictionary mapping nodes to clade labels is provided,
+       those nodes are considered ancestral nodes. Each such node and its descendants are assigned
+       the corresponding clade label.
+
     Parameters
     ----------
     tdata
@@ -134,6 +148,22 @@ def clades(
         - Clade assignment for each observation.
     * `tdata.obst[tree].nodes[key_added]` : `Object`
         - Clade assignment for each node.
+
+    Modifies the following fields:
+
+    * `tdata.uns[f"{key_added}_colors"]` : `List`
+        - Removed if its length does not match the number of unique clades.
+
+    Examples
+    --------
+    Mark clades at specified depth
+
+    >>> tdata = pycea.datasets.koblan25()
+    >>> pycea.tl.clades(tdata, depth=4, depth_key="time")
+
+    Highlight descendants of 'node6'
+
+    >>> pycea.tl.clades(tdata, clades={"node6": "node6_descendants"}, key_added="highlight")
     """
     # Setup
     tree_keys = tree
@@ -158,6 +188,6 @@ def clades(
         node_to_clade = get_keyed_node_data(tdata, key_added, tree_keys, slot="obst")
         node_to_clade.index = node_to_clade.index.droplevel(0)
     tdata.obs[key_added] = tdata.obs.index.map(node_to_clade[key_added])
+    _check_colors_length(tdata, key_added)
     if copy:
-        return pd.concat(lcas)
         return pd.concat(lcas)

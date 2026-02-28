@@ -18,9 +18,7 @@ def _sort_tree(tree: nx.DiGraph, key: str, reverse: bool = False) -> nx.DiGraph:
             # children.
             children = list(tree.successors(node))
             try:
-                sorted_children = sorted(
-                    children, key=lambda x: tree.nodes[x][key], reverse=reverse
-                )
+                sorted_children = sorted(children, key=lambda x: tree.nodes[x][key], reverse=reverse)
             except KeyError as err:
                 raise KeyError(
                     f"Node {next(iter(children))} does not have a {key} attribute.",
@@ -28,21 +26,24 @@ def _sort_tree(tree: nx.DiGraph, key: str, reverse: bool = False) -> nx.DiGraph:
                 ) from err
 
             # Capture edge attributes prior to removal
-            edge_data = {
-                child: tree.get_edge_data(node, child, default={}) for child in children
-            }
+            edge_data = {child: tree.get_edge_data(node, child, default={}) for child in children}
 
             # Remove existing edges and re-add them in the sorted order with
             # their associated metadata.
             tree.remove_edges_from((node, child) for child in children)
-            tree.add_edges_from(
-                (node, child, edge_data[child]) for child in sorted_children
-            )
+            tree.add_edges_from((node, child, edge_data[child]) for child in sorted_children)
     return tree
 
 
 def sort(tdata: td.TreeData, key: str, reverse: bool = False, tree: str | Sequence[str] | None = None) -> None:
     """Reorders branches based on a node attribute.
+
+    For every internal node with multiple children, reorders outgoing edges (child branches)
+    based on a given node attribute. The order is applied in-place preserving all node and edge metadata.
+
+    Sorting allows for consistent or meaningful ordering of descendants in
+    tree visualizations, e.g., ordering by inferred ancestral state values
+    or other numeric or categorical metrics.
 
     Parameters
     ----------
@@ -58,6 +59,16 @@ def sort(tdata: td.TreeData, key: str, reverse: bool = False, tree: str | Sequen
     Returns
     -------
     Returns `None` and does not set any fields.
+
+    Examples
+    --------
+    Sort branches by number of descendant leaves:
+
+    >>> tdata = py.datasets.yang22()
+    >>> tdata.obs["n"] = 1
+    >>> py.tl.ancestral_states(tdata, keys="n", method="sum")
+    >>> py.tl.sort(tdata, key="n")
+
     """
     trees = get_trees(tdata, tree)
     for name, t in trees.items():

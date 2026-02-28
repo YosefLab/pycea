@@ -4,7 +4,7 @@ requires = [ "hatchling" ]
 
 [project]
 name = "pycea-lineage"
-version = "0.1.0"
+version = "0.2.0"
 description = "Scverse lineage tracing toolkit"
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -14,13 +14,13 @@ maintainers = [
 authors = [
   { name = "William Colgan" },
 ]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 classifiers = [
   "Programming Language :: Python :: 3 :: Only",
-  "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
 ]
 dependencies = [
   "cycler",
@@ -36,50 +36,71 @@ dependencies = [
   "session-info",
   "treedata>=0.2.2",
 ]
-optional-dependencies.dev = [
+
+[project.urls]
+Documentation = "https://pycea.readthedocs.io/"
+Homepage = "https://github.com/colganwi/pycea"
+Source = "https://github.com/colganwi/pycea"
+
+[dependency-groups]
+dev = [
   "pre-commit",
   "twine>=4.0.2",
 ]
-optional-dependencies.doc = [
-  "docutils>=0.8,!=0.18.*,!=0.19.*",
+test = [
+  "coverage>=7.10",
+  "pytest",
+  "pytest-cov",     # For VS Code’s coverage functionality
+]
+doc = [
   "ipykernel",
   "ipython",
   "myst-nb>=1.1",
   "pandas",
-  # Until pybtex >0.24.0 releases: https://bitbucket.org/pybtex-devs/pybtex/issues/169/
-  "setuptools",
-  "sphinx>=4",
+  "sphinx>=8.1",
   "sphinx-autodoc-typehints",
   "sphinx-book-theme>=1",
   "sphinx-copybutton",
-  "sphinx-tabs",
+  "sphinx-design>=0.7.0",
   "sphinxcontrib-bibtex>=1",
+  "sphinxcontrib-katex",
   "sphinxext-opengraph",
 ]
-optional-dependencies.test = [
-  "coverage",
-  "pytest",
-]
-# https://docs.pypi.org/project_metadata/#project-urls
-urls.Documentation = "https://pycea.readthedocs.io/"
-urls.Homepage = "https://github.com/YosefLab/pycea"
-urls.Source = "https://github.com/YosefLab/pycea"
 
 [tool.hatch.envs.default]
 installer = "uv"
-features = [ "dev" ]
+dependency-groups = [ "dev" ]
 
 [tool.hatch.envs.docs]
-features = [ "doc" ]
+installer = "uv"
+dependency-groups = [ "doc" ]
 scripts.build = "sphinx-build -M html docs docs/_build {args}"
 scripts.open = "python -m webbrowser -t docs/_build/html/index.html"
 scripts.clean = "git clean -fdX -- {args:docs}"
 
+# Test the lowest and highest supported Python versions with normal deps
+[[tool.hatch.envs.hatch-test.matrix]]
+deps = [ "stable" ]
+python = [ "3.11", "3.14" ]
+
+# Test the newest supported Python version also with pre-release deps
+[[tool.hatch.envs.hatch-test.matrix]]
+deps = [ "pre" ]
+python = [ "3.14" ]
+
 [tool.hatch.envs.hatch-test]
-features = [ "test" ]
+dependency-groups = [ "dev", "test" ]
+
+[tool.hatch.envs.hatch-test.overrides]
+# If the matrix variable `deps` is set to "pre",
+# set the environment variable `UV_PRERELEASE` to "allow".
+matrix.deps.env-vars = [
+  { key = "UV_PRERELEASE", value = "allow", if = [ "pre" ] },
+]
 
 [tool.hatch.build.targets.wheel]
 packages = [ "src/pycea" ]
+exclude = [ "**/.DS_Store", "**/._*" ]
 
 [tool.ruff]
 line-length = 120
@@ -121,11 +142,12 @@ lint.per-file-ignores."docs/*" = [ "I" ]
 lint.per-file-ignores."tests/*" = [ "D" ]
 lint.pydocstyle.convention = "numpy"
 
-[tool.pytest.ini_options]
+[tool.pytest]
+strict = true
 testpaths = [ "tests" ]
-xfail_strict = true
 addopts = [
   "--import-mode=importlib", # allow using test files with same name
+  "--ignore-glob=**/._*.py", # ignore macOS resource fork files
 ]
 markers = [
   "internet: tests which rely on internet resources (enable with `--internet-tests`)",
@@ -133,6 +155,7 @@ markers = [
 
 [tool.coverage.run]
 source = [ "pycea" ]
+patch = [ "subprocess" ]
 omit = [
   "**/test_*.py",
 ]

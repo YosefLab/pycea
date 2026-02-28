@@ -107,3 +107,12 @@ def _remove_attribute(tree, key, nodes=True, edges=True):
         for u, v in tree.edges:
             if key in tree.edges[u, v]:
                 del tree.edges[u, v][key]
+
+
+def _check_colors_length(tdata, key: str):
+    """Remove colors from uns if they do not match the number of unique entries in obs."""
+    if f"{key}_colors" not in tdata.uns.keys():
+        return
+    if tdata.obs[key].nunique() != len(tdata.uns[f"{key}_colors"]):
+        del tdata.uns[f"{key}_colors"]
+    return

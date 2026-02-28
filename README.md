@@ -1,6 +1,8 @@
 [![Tests][badge-tests]][link-tests]
 [![Documentation][badge-docs]][link-docs]
 [![PyPI](https://img.shields.io/pypi/v/pycea-lineage.svg)](https://pypi.org/project/pycea-lineage)
+[![codecov](https://codecov.io/gh/YosefLab/pycea/graph/badge.svg?token=nBiipyN9oe)](https://codecov.io/gh/YosefLab/pycea)
+[![PyPI Downloads](https://static.pepy.tech/personalized-badge/pycea-lineage?period=total&units=INTERNATIONAL_SYSTEM&left_color=GREY&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/pycea-lineage)
 
 [badge-tests]: https://img.shields.io/github/actions/workflow/status/YosefLab/pycea/test.yaml?branch=main
 [link-tests]: https://github.com/YosefLab/pycea/actions/workflows/test.yml

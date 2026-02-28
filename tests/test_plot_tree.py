@@ -83,7 +83,7 @@ def test_character_annotation(tdata):
         keys="characters",
         palette=palette,
     )
-    assert "characters_colors" in tdata.uns_keys()
+    assert "characters_colors" in tdata.uns.keys()
     plt.savefig(plot_path / "character_annotation.png", bbox_inches="tight")
     plt.close()
 
