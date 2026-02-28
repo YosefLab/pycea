@@ -28,10 +28,15 @@ def tdata():
 
 @pytest.fixture
 def nodes_tdata():
+    # Tree: root -> B, C; C -> D, E
+    # spatial: root=NaN (reconstruct), B=[0,1] (leaf), C=[1,1] (fixed), D=[2,1] (leaf), E=[4,4] (leaf)
     tree = nx.DiGraph([("root", "B"), ("root", "C"), ("C", "D"), ("C", "E")])
     spatial = np.array([[np.nan, np.nan], [0, 1], [1, 1], [2, 1], [4, 4]])
     nodes_tdata = td.TreeData(
-        obs=pd.DataFrame(index=["root", "B", "C", "D", "E"]),
+        obs=pd.DataFrame(
+            {"value": [np.nan, 0, 5, 3, 2], "str_value": [None, "0", "1", "3", "2"]},
+            index=["root", "B", "C", "D", "E"],
+        ),
         obst={"tree": tree},
         obsm={"spatial": spatial},  # type: ignore
         alignment="nodes",
@@ -114,10 +119,28 @@ def test_ancestral_states_sankoff(tdata):
 
 
 def test_ancestral_states_nodes_tdata(nodes_tdata):
+    # C=[1,1] is a fixed observed internal node; root has NaN (reconstructed)
+    # root = mean(B=[0,1], C=[1,1]) = [0.5, 1.0]  (C treated as fixed, not expanded into D/E)
     states = ancestral_states(nodes_tdata, "spatial", method="mean", copy=True)
-    print(nodes_tdata.obst["tree"].nodes["root"]["spatial"])
-    print(states)
-    assert states.loc[("tree", "root"), "spatial"] == [2.0, 2.0]
+    assert nodes_tdata.obst["tree"].nodes["root"]["spatial"] == [0.5, 1.0]
+    assert nodes_tdata.obst["tree"].nodes["C"]["spatial"] == [1, 1]  # C value preserved
+    assert states.loc[("tree", "root"), "spatial"] == [0.5, 1.0]
+
+
+def test_ancestral_states_nodes_scalar(nodes_tdata):
+    # C=5 (fixed), root=NaN (reconstruct from B=0 and C=5)
+    ancestral_states(nodes_tdata, "value", method="mean", copy=False)
+    tree = nodes_tdata.obst["tree"]
+    assert tree.nodes["C"]["value"] == 5  # C preserved
+    assert tree.nodes["root"]["value"] == pytest.approx(2.5)  # mean(B=0, C=5)
+    assert tree.nodes["B"]["value"] == 0  # leaf unchanged
+
+
+def test_ancestral_states_nodes_fitch(nodes_tdata):
+    # C="1" (fixed internal); root reconstructed from B="0" and C="1"
+    ancestral_states(nodes_tdata, "str_value", method="fitch_hartigan", missing_state=None, copy=False)
+    tree = nodes_tdata.obst["tree"]
+    assert tree.nodes["C"]["str_value"] == "1"  # C value preserved
 
 
 def test_ancestral_states_invalid(tdata):

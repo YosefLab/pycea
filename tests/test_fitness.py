@@ -60,5 +60,28 @@ def test_random_state_gives_reproducible_output(tdata):
     pd.testing.assert_frame_equal(df1.sort_index(), df2.sort_index())
 
 
+@pytest.fixture
+def nodes_tdata():
+    tree = nx.DiGraph([("root", "A"), ("root", "B"), ("B", "C"), ("B", "D"), ("B", "E")])
+    nx.set_node_attributes(tree, {"root": 0, "A": 3, "B": 1, "C": 2.5, "D": 2.5, "E": 2.5}, "depth")
+    tdata = td.TreeData(
+        obs=pd.DataFrame(index=["root", "A", "B", "C", "D", "E"]),
+        obst={"tree": tree},
+        alignment="nodes",
+    )
+    return tdata
+
+
+def test_fitness_nodes_alignment(nodes_tdata):
+    fitness(nodes_tdata, method="lbi", copy=False, random_state=42)
+    # All nodes (leaves + internal) should be written to obs
+    assert set(nodes_tdata.obs.index) == {"root", "A", "B", "C", "D", "E"}
+    assert nodes_tdata.obs["fitness"].notna().all()
+    # obs values match what's stored in the tree
+    tree = nodes_tdata.obst["tree"]
+    for node in tree.nodes:
+        assert nodes_tdata.obs.loc[node, "fitness"] == pytest.approx(tree.nodes[node]["fitness"], abs=1e-10)
+
+
 if __name__ == "__main__":
     pytest.main(["-v", __file__])

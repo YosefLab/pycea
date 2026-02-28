@@ -514,7 +514,9 @@ def fitness(
     * tdata.obst[tree].nodes[key_added] : `float`
         - Inferred fitness values for each node.
     * tdata.obs[key_added] : `float`
-        - Inferred fitness values for each leaf.
+        - Inferred fitness values for each observed node. For ``tdata.alignment == "leaves"``,
+          only leaf nodes are written. For ``"nodes"`` or ``"subset"``, all observed nodes
+          (including internal nodes) are written.
     """
     tree_keys = tree
     _check_tree_overlap(tdata, tree_keys)
@@ -528,8 +530,12 @@ def fitness(
             _infer_fitness_lbi(t, depth_key=depth_key, key_added=key_added, sample_n=sample_n, **(method_kwargs or {}))
         else:
             raise ValueError(f"method {method!r} not recognized, use 'sbd' or 'lbi'")
-    leaf_fitness = get_keyed_leaf_data(tdata, key_added, tree_keys)
-    tdata.obs[key_added] = tdata.obs.index.map(leaf_fitness[key_added])
+    if tdata.alignment == "leaves":
+        node_fitness = get_keyed_leaf_data(tdata, key_added, tree_keys)
+    else:
+        node_fitness = get_keyed_node_data(tdata, key_added, tree_keys, slot="obst")
+        node_fitness.index = node_fitness.index.droplevel(0)
+    tdata.obs[key_added] = tdata.obs.index.map(node_fitness[key_added])
     if copy:
         df = get_keyed_node_data(tdata, key_added, tree_keys)
         if len(trees) == 1:

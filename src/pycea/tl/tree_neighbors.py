@@ -20,19 +20,46 @@ from ._utils import (
 )
 
 
-def _lca_neighbors(tree, start_node, n_neighbors, max_dist, depth_key):
+def _lca_neighbors(tree, start_node, n_neighbors, max_dist, depth_key, observed_nodes=None):
     """Find neighbors using LCA distance via a walk-up approach.
 
-    Walks from start_node to root, collecting sibling subtree leaves at each level.
-    All leaves in a sibling subtree share the same LCA distance (depth_key of their
+    Walks from start_node to root, collecting sibling subtree nodes at each level.
+    All nodes in a sibling subtree share the same LCA distance (depth_key of their
     common ancestor with start_node). Processes closest relatives first.
-    Time complexity: O(n) per leaf.
+    Time complexity: O(n) per node.
+
+    Parameters
+    ----------
+    observed_nodes
+        Set of observed node names to collect as neighbors. If None, only leaf nodes
+        (out_degree == 0) are collected (default leaves-alignment behavior).
     """
     neighbors = []
     neighbor_distances = []
     seen = {start_node}
     node = start_node
     is_finite = n_neighbors != float("inf")
+
+    # For nodes/subset alignment: also collect observed descendants of start_node.
+    # LCA(start_node, descendant) = start_node, so lca_dist = depth[start_node].
+    if observed_nodes is not None:
+        start_depth = tree.nodes[start_node][depth_key]
+        if start_depth <= max_dist:
+            desc_candidates = []
+            stack = list(tree.successors(start_node))
+            while stack:
+                n = stack.pop()
+                if n not in seen:
+                    seen.add(n)
+                    if n in observed_nodes:
+                        desc_candidates.append(n)
+                    if tree.out_degree(n) != 0:
+                        stack.extend(tree.successors(n))
+            random.shuffle(desc_candidates)
+            take = desc_candidates[: n_neighbors - len(neighbors)] if is_finite else desc_candidates
+            for n in take:
+                neighbors.append(n)
+                neighbor_distances.append(start_depth)
 
     while len(neighbors) < n_neighbors:
         parents = list(tree.predecessors(node))
@@ -43,23 +70,29 @@ def _lca_neighbors(tree, start_node, n_neighbors, max_dist, depth_key):
         seen.add(parent)
 
         if lca_dist <= max_dist:
-            # Collect unseen leaves — their LCA with start_node is exactly parent
-            sibling_leaves = []
+            candidates = []
+            # For nodes/subset alignment: parent itself is a candidate (LCA(start, parent) = parent)
+            if observed_nodes is not None and parent in observed_nodes:
+                candidates.append(parent)
+            # Collect observed nodes from sibling subtrees
             stack = list(tree.successors(parent))
             while stack:
                 n = stack.pop()
                 if n in seen:
                     continue
                 seen.add(n)
-                if tree.out_degree(n) == 0:
-                    sibling_leaves.append(n)
-                else:
+                is_observed = (observed_nodes is None and tree.out_degree(n) == 0) or (
+                    observed_nodes is not None and n in observed_nodes
+                )
+                if is_observed:
+                    candidates.append(n)
+                if tree.out_degree(n) != 0:
                     stack.extend(tree.successors(n))
 
-            random.shuffle(sibling_leaves)
-            take = sibling_leaves[: n_neighbors - len(neighbors)] if is_finite else sibling_leaves
-            for leaf in take:
-                neighbors.append(leaf)
+            random.shuffle(candidates)
+            take = candidates[: n_neighbors - len(neighbors)] if is_finite else candidates
+            for candidate in take:
+                neighbors.append(candidate)
                 neighbor_distances.append(lca_dist)
 
         node = parent
@@ -67,8 +100,15 @@ def _lca_neighbors(tree, start_node, n_neighbors, max_dist, depth_key):
     return neighbors, neighbor_distances
 
 
-def _bfs_by_distance(tree, start_node, n_neighbors, max_dist, depth_key):
-    """Breadth-first search for path distance neighbors."""
+def _bfs_by_distance(tree, start_node, n_neighbors, max_dist, depth_key, observed_nodes=None):
+    """Breadth-first search for path distance neighbors.
+
+    Parameters
+    ----------
+    observed_nodes
+        Set of observed node names to collect as neighbors. If None, only leaf nodes
+        (out_degree == 0) are collected (default leaves-alignment behavior).
+    """
     queue = []
     heapq.heappush(queue, (0, start_node))
     visited = {start_node}
@@ -91,36 +131,63 @@ def _bfs_by_distance(tree, start_node, n_neighbors, max_dist, depth_key):
     # Breadth-first search using direct children only
     while queue and (len(neighbors) < n_neighbors):
         distance, node = heapq.heappop(queue)
+        # For nodes/subset alignment: the popped node itself may be an observed neighbor
+        # (handles ancestor nodes that were pre-queued; descendants are handled in child loop)
+        if observed_nodes is not None and node != start_node and node in observed_nodes:
+            neighbors.append(node)
+            neighbor_distances.append(distance)
+            if len(neighbors) >= n_neighbors:
+                break
         children = list(tree.successors(node))
         random.shuffle(children)
         for child in children:
             if child not in visited:
                 child_distance = distance + abs(tree.nodes[node][depth_key] - tree.nodes[child][depth_key])
                 if child_distance <= max_dist:
-                    if tree.out_degree(child) == 0:
+                    # For leaves alignment: add leaf when discovered as child
+                    if observed_nodes is None and tree.out_degree(child) == 0:
                         neighbors.append(child)
                         neighbor_distances.append(child_distance)
                         if len(neighbors) >= n_neighbors:
                             break
-                    heapq.heappush(queue, (child_distance, child))
+                    # Push to queue: non-leaves always; observed nodes for nodes alignment
+                    # (observed non-leaves will be added as neighbors when popped)
+                    if tree.out_degree(child) != 0 or observed_nodes is not None:
+                        heapq.heappush(queue, (child_distance, child))
                 visited.add(child)
 
     return neighbors, neighbor_distances
 
 
-def _tree_neighbors(tree, n_neighbors, max_dist, depth_key, metric, leaves=None):
-    """Identify neighbors in a given tree."""
+def _tree_neighbors(tree, n_neighbors, max_dist, depth_key, metric, nodes=None, observed_nodes=None):
+    """Identify neighbors in a given tree.
+
+    Parameters
+    ----------
+    nodes
+        Nodes to find neighbors for. If None, defaults to all leaf nodes.
+    observed_nodes
+        Set of nodes that are considered observable neighbors. If None, only leaves
+        (out_degree == 0) are returned as neighbors.
+    """
     rows, cols, distances = [], [], []
-    if leaves is None:
-        leaves = [node for node in tree.nodes() if tree.out_degree(node) == 0]
-    for leaf in leaves:
-        if metric == "lca":
-            leaf_neighbors, leaf_distances = _lca_neighbors(tree, leaf, n_neighbors, max_dist, depth_key)
+    if nodes is None:
+        if observed_nodes is not None:
+            nodes = list(observed_nodes)
         else:
-            leaf_neighbors, leaf_distances = _bfs_by_distance(tree, leaf, n_neighbors, max_dist, depth_key)
-        rows.extend([leaf] * len(leaf_neighbors))
-        cols.extend(leaf_neighbors)
-        distances.extend(leaf_distances)
+            nodes = [node for node in tree.nodes() if tree.out_degree(node) == 0]
+    for node in nodes:
+        if metric == "lca":
+            node_neighbors, node_distances = _lca_neighbors(
+                tree, node, n_neighbors, max_dist, depth_key, observed_nodes
+            )
+        else:
+            node_neighbors, node_distances = _bfs_by_distance(
+                tree, node, n_neighbors, max_dist, depth_key, observed_nodes
+            )
+        rows.extend([node] * len(node_neighbors))
+        cols.extend(node_neighbors)
+        distances.extend(node_distances)
     return rows, cols, distances
 
 
@@ -167,16 +234,20 @@ def tree_neighbors(
 ) -> None | tuple[sp.sparse.csr_matrix, sp.sparse.csr_matrix]:
     """Identifies neighbors in the tree.
 
-    For each leaf, this function identifies neighbors according to a chosen
+    For each observation, this function identifies neighbors according to a chosen
     tree distance `metric` and either:
 
-    * the top-``n_neighbors`` closest leaves (ties broken at random)
+    * the top-``n_neighbors`` closest observations (ties broken at random)
 
-    * all leaves within a distance threshold ``max_dist``.
+    * all observations within a distance threshold ``max_dist``.
 
     Results are stored as sparse connectivities and distances, or returned when
-    ``copy=True``. You can restrict the operation to a subset of leaves via
+    ``copy=True``. You can restrict the operation to a subset of observations via
     ``obs`` and/or to specific trees via ``tree``.
+
+    For ``tdata.alignment == "leaves"``, only leaf nodes are considered as neighbors.
+    For ``tdata.alignment == "nodes"`` or ``"subset"``, all observed nodes (leaves and
+    internal nodes present in ``tdata.obs``) are considered as neighbors.
 
     Parameters
     ----------
@@ -191,9 +262,9 @@ def tree_neighbors(
     obs
         The observations to use:
 
-        - If `None`, neighbors for all leaves are stored in `tdata.obsp`.
-        - If a string, neighbors of specified leaf are stored in `tdata.obs`.
-        - If a sequence, neighbors within specified leaves are stored in `tdata.obsp`.
+        - If `None`, neighbors for all observed nodes are stored in `tdata.obsp`.
+        - If a string, neighbors of specified observation are stored in `tdata.obs`.
+        - If a sequence, neighbors within specified observations are stored in `tdata.obsp`.
     metric
         The type of tree distance to compute:
 
@@ -239,18 +310,28 @@ def tree_neighbors(
     _check_tree_overlap(tdata, tree_keys)
     if update:
         _check_previous_params(tdata, {"metric": metric}, key_added, ["neighbors", "distances"])
-    # Neighbors of a single leaf
+    # Neighbors of a single observation
     if isinstance(obs, str):
         trees = get_trees(tdata, tree_keys)
-        leaf_to_tree = {leaf: key for key, tree in trees.items() for leaf in get_leaves(tree)}
-        if obs not in leaf_to_tree:
-            raise ValueError(f"Leaf {obs} not found in any tree.")
-        t = trees[leaf_to_tree[obs]]
+        if tdata.alignment == "leaves":
+            node_to_tree = {leaf: key for key, tree in trees.items() for leaf in get_leaves(tree)}
+        else:
+            node_to_tree = {node: key for key, tree in trees.items() for node in tree.nodes()}
+        if obs not in node_to_tree:
+            raise ValueError(f"Observation {obs} not found in any tree.")
+        t = trees[node_to_tree[obs]]
+        obs_set = set(tdata.obs_names) & set(t.nodes()) if tdata.alignment != "leaves" else None
         connectivities, _, distances = _tree_neighbors(
-            t, n_neighbors or float("inf"), max_dist or float("inf"), depth_key, metric, leaves=[obs]
+            t,
+            n_neighbors or float("inf"),
+            max_dist or float("inf"),
+            depth_key,
+            metric,
+            nodes=[obs],
+            observed_nodes=obs_set,
         )
         tdata.obs[f"{key_added}_neighbors"] = tdata.obs_names.isin(connectivities)
-    # Neighbors for some or all leaves
+    # Neighbors for some or all observations
     else:
         if isinstance(obs, Sequence):
             tdata_subset = tdata[obs]
@@ -261,10 +342,17 @@ def tree_neighbors(
             raise ValueError("obs must be a string, a sequence of strings, or None.")
         # For each tree, identify neighbors
         rows, cols, data = [], [], []
+        obs_names_set = set(tdata.obs_names)
         for _, t in trees.items():
             check_tree_has_key(t, depth_key)
+            observed_nodes = obs_names_set & set(t.nodes()) if tdata.alignment != "leaves" else None
             tree_rows, tree_cols, tree_data = _tree_neighbors(
-                t, n_neighbors or float("inf"), max_dist or float("inf"), depth_key, metric
+                t,
+                n_neighbors or float("inf"),
+                max_dist or float("inf"),
+                depth_key,
+                metric,
+                observed_nodes=observed_nodes,
             )
             rows.extend([tdata.obs_names.get_loc(row) for row in tree_rows])
             cols.extend([tdata.obs_names.get_loc(col) for col in tree_cols])

@@ -94,5 +94,49 @@ def test_tree_neighbors_invalid(tdata):
         tree_neighbors(tdata, n_neighbors=3, metric="path", depth_key="invalid")
 
 
+@pytest.fixture
+def nodes_tdata():
+    # Tree:  root(0) -> A(1), B(1); A -> C(2), D(2); B -> E(2)
+    tree = nx.DiGraph([("root", "A"), ("root", "B"), ("A", "C"), ("A", "D"), ("B", "E")])
+    nx.set_node_attributes(tree, {"root": 0, "A": 1, "B": 1, "C": 2, "D": 2, "E": 2}, "depth")
+    tdata = td.TreeData(
+        obs=pd.DataFrame(index=["root", "A", "B", "C", "D", "E"]),
+        obst={"tree": tree},
+        alignment="nodes",
+    )
+    return tdata
+
+
+def test_tree_neighbors_nodes_alignment(nodes_tdata):
+    # path(A, C) = |1+2 - 2*1| = 1; path(A, B) = |1+1 - 2*0| = 2; path(C, E) = |2+2 - 2*0| = 4
+    tree_neighbors(nodes_tdata, max_dist=2, metric="path")
+    dist = nodes_tdata.obsp["tree_distances"]
+    a_idx = nodes_tdata.obs_names.get_loc("A")
+    b_idx = nodes_tdata.obs_names.get_loc("B")
+    c_idx = nodes_tdata.obs_names.get_loc("C")
+    d_idx = nodes_tdata.obs_names.get_loc("D")
+    # Internal nodes appear as neighbors
+    assert dist[a_idx, c_idx] == 1  # A -> C (path = 1)
+    assert dist[a_idx, d_idx] == 1  # A -> D (path = 1)
+    assert dist[c_idx, a_idx] == 1  # C -> A (path = 1)
+    assert dist[a_idx, b_idx] == 2  # A -> B (path = 2)
+    # matrix is n_obs x n_obs (6 observations including internal nodes)
+    assert dist.shape == (6, 6)
+    # LCA metric: lca(A, C) = A (depth 1); lca(C, D) = A (depth 1); lca(C, E) = root (depth 0)
+    tree_neighbors(nodes_tdata, max_dist=2, metric="lca", key_added="lca")
+    lca_dist = nodes_tdata.obsp["lca_distances"]
+    assert lca_dist[a_idx, c_idx] == 1  # lca(A, C) = A, depth = 1
+    assert lca_dist[c_idx, d_idx] == 1  # lca(C, D) = A, depth = 1
+
+
+def test_tree_neighbors_nodes_single_obs(nodes_tdata):
+    # For a single-string obs, only the queried node is marked True (consistent behavior)
+    tree_neighbors(nodes_tdata, n_neighbors=3, metric="path", obs="A")
+    assert nodes_tdata.obs.query("tree_neighbors").index.tolist() == ["A"]
+    # Internal node (B) is also a valid starting point
+    tree_neighbors(nodes_tdata, n_neighbors=2, metric="path", obs="B")
+    assert nodes_tdata.obs.query("tree_neighbors").index.tolist() == ["B"]
+
+
 if __name__ == "__main__":
     pytest.main(["-v", __file__])
