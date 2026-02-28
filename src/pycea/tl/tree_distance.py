@@ -145,9 +145,11 @@ def tree_distance(
 ) -> None | sp.sparse.csr_matrix | np.ndarray:
     r"""Computes tree distances between observations.
 
-    This function calculates distances between observations (typically tree leaves)
-    based on their positions and depths in the tree. It supports *lowest common ancestor (lca)*
-    and *path* distances.
+    This function calculates distances between observations based on their positions
+    and depths in the tree. For ``tdata.alignment == "leaves"``, this computes distances
+    between leaf nodes. For ``tdata.alignment == "nodes"`` or ``"subset"``, distances are
+    computed between all observed nodes (leaves and internal nodes in ``tdata.obs``).
+    It supports *lowest common ancestor (lca)* and *path* distances.
 
     Given two nodes :math:`i` and :math:`j` in a rooted tree, with depths
     :math:`d_i` and :math:`d_j`, and with their lowest common ancestor having
@@ -175,8 +177,8 @@ def tree_distance(
     obs
         The observations to use:
 
-        - If `None`, pairwise distance for tree leaves is stored in `tdata.obsp`.
-        - If a string, distance to all other tree leaves is `tdata.obs`.
+        - If `None`, pairwise distance for all observed nodes is stored in `tdata.obsp`.
+        - If a string, distance to all other observed nodes is stored in `tdata.obs`.
         - If a sequence, pairwise distance is stored in `tdata.obsp`.
         - If a sequence of pairs, distance between pairs is stored in `tdata.obsp`.
     metric
