@@ -5,7 +5,6 @@ import random
 from collections.abc import Sequence
 from typing import Literal, overload
 
-import networkx as nx
 import scipy as sp
 import treedata as td
 
@@ -21,29 +20,83 @@ from ._utils import (
 )
 
 
-def _bfs_by_distance(tree, start_node, n_neighbors, max_dist, metric, depth_key):
-    """Breadth-first search with a maximum distance."""
-    # Setup
-    queue = []
-    heapq.heappush(queue, (0, start_node))
-    visited = set()
-    visited.add(start_node)
+def _lca_neighbors(tree, start_node, n_neighbors, max_dist, depth_key):
+    """Find neighbors using LCA distance via a walk-up approach.
+
+    Walks from start_node to root, collecting sibling subtree leaves at each level.
+    All leaves in a sibling subtree share the same LCA distance (depth_key of their
+    common ancestor with start_node). Processes closest relatives first.
+    Time complexity: O(n) per leaf.
+    """
     neighbors = []
     neighbor_distances = []
-    # Breadth-first search
+    seen = {start_node}
+    node = start_node
+    is_finite = n_neighbors != float("inf")
+
+    while len(neighbors) < n_neighbors:
+        parents = list(tree.predecessors(node))
+        if not parents:
+            break
+        parent = parents[0]
+        lca_dist = tree.nodes[parent][depth_key]
+        seen.add(parent)
+
+        if lca_dist <= max_dist:
+            # Collect unseen leaves — their LCA with start_node is exactly parent
+            sibling_leaves = []
+            stack = list(tree.successors(parent))
+            while stack:
+                n = stack.pop()
+                if n in seen:
+                    continue
+                seen.add(n)
+                if tree.out_degree(n) == 0:
+                    sibling_leaves.append(n)
+                else:
+                    stack.extend(tree.successors(n))
+
+            random.shuffle(sibling_leaves)
+            take = sibling_leaves[: n_neighbors - len(neighbors)] if is_finite else sibling_leaves
+            for leaf in take:
+                neighbors.append(leaf)
+                neighbor_distances.append(lca_dist)
+
+        node = parent
+
+    return neighbors, neighbor_distances
+
+
+def _bfs_by_distance(tree, start_node, n_neighbors, max_dist, depth_key):
+    """Breadth-first search for path distance neighbors."""
+    queue = []
+    heapq.heappush(queue, (0, start_node))
+    visited = {start_node}
+    neighbors = []
+    neighbor_distances = []
+
+    # Pre-compute ancestors and add to queue once
+    node = start_node
+    while True:
+        parents = list(tree.predecessors(node))
+        if not parents:
+            break
+        parent = parents[0]
+        parent_distance = abs(tree.nodes[start_node][depth_key] - tree.nodes[parent][depth_key])
+        if parent_distance <= max_dist:
+            heapq.heappush(queue, (parent_distance, parent))
+        visited.add(parent)
+        node = parent
+
+    # Breadth-first search using direct children only
     while queue and (len(neighbors) < n_neighbors):
         distance, node = heapq.heappop(queue)
-        # Add children to queue
-        children = list(nx.descendants(tree, node))
+        children = list(tree.successors(node))
         random.shuffle(children)
         for child in children:
             if child not in visited:
-                if metric == "path":
-                    child_distance = distance + abs(tree.nodes[node][depth_key] - tree.nodes[child][depth_key])
-                elif metric == "lca":
-                    child_distance = distance
+                child_distance = distance + abs(tree.nodes[node][depth_key] - tree.nodes[child][depth_key])
                 if child_distance <= max_dist:
-                    # Check if child is a leaf
                     if tree.out_degree(child) == 0:
                         neighbors.append(child)
                         neighbor_distances.append(child_distance)
@@ -51,16 +104,7 @@ def _bfs_by_distance(tree, start_node, n_neighbors, max_dist, metric, depth_key)
                             break
                     heapq.heappush(queue, (child_distance, child))
                 visited.add(child)
-        # Add parents to queue
-        for parent in nx.ancestors(tree, node):
-            if parent not in visited:
-                if metric == "path":
-                    parent_distance = distance + abs(tree.nodes[node][depth_key] - tree.nodes[parent][depth_key])
-                elif metric == "lca":
-                    parent_distance = tree.nodes[parent][depth_key]
-                if parent_distance <= max_dist:
-                    heapq.heappush(queue, (parent_distance, parent))
-                visited.add(parent)
+
     return neighbors, neighbor_distances
 
 
@@ -70,10 +114,13 @@ def _tree_neighbors(tree, n_neighbors, max_dist, depth_key, metric, leaves=None)
     if leaves is None:
         leaves = [node for node in tree.nodes() if tree.out_degree(node) == 0]
     for leaf in leaves:
-        neighbors, neighbor_distances = _bfs_by_distance(tree, leaf, n_neighbors, max_dist, metric, depth_key)
-        rows.extend([leaf] * len(neighbors))
-        cols.extend(neighbors)
-        distances.extend(neighbor_distances)
+        if metric == "lca":
+            leaf_neighbors, leaf_distances = _lca_neighbors(tree, leaf, n_neighbors, max_dist, depth_key)
+        else:
+            leaf_neighbors, leaf_distances = _bfs_by_distance(tree, leaf, n_neighbors, max_dist, depth_key)
+        rows.extend([leaf] * len(leaf_neighbors))
+        cols.extend(leaf_neighbors)
+        distances.extend(leaf_distances)
     return rows, cols, distances
 
 

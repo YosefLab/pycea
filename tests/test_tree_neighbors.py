@@ -63,6 +63,22 @@ def test_update_tree_neighbors(tdata):
     assert tdata.obsp["tree_connectivities"].sum() == 6
 
 
+def test_tree_neighbors_distances(tdata):
+    c_idx = tdata.obs_names.get_loc("C")
+    d_idx = tdata.obs_names.get_loc("D")
+    f_idx = tdata.obs_names.get_loc("F")
+    # Path metric: path(C,D) = |3+3-2*2| = 2; path(C,F) = |3+3-2*0| = 6
+    tree_neighbors(tdata, max_dist=10, metric="path", tree="tree1")
+    dist = tdata.obsp["tree_distances"]
+    assert dist[c_idx, d_idx] == 2
+    assert dist[c_idx, f_idx] == 6
+    # LCA metric (default depth key): LCA(C,D)=A depth=2; LCA(C,F)=root depth=0
+    tree_neighbors(tdata, max_dist=10, metric="lca", tree="tree1", key_added="lca")
+    lca_dist = tdata.obsp["lca_distances"]
+    assert lca_dist[c_idx, d_idx] == 2
+    assert lca_dist[c_idx, f_idx] == 0
+
+
 def test_tree_neighbors_invalid(tdata):
     with pytest.raises(ValueError):
         tree_neighbors(tdata, n_neighbors=3, metric="invalid")  # type: ignore
