@@ -88,6 +88,42 @@ def test_character_annotation(tdata):
     plt.close()
 
 
+def test_polar_angle_range(tdata):
+    # Semicircle
+    fig, ax = plt.subplots(dpi=300, subplot_kw={"polar": True})
+    pycea.pl.branches(tdata, polar=True, angle_range=(0, 180), depth_key="time", ax=ax)
+    import numpy as np
+
+    assert np.isclose(ax._attrs["start_angle"], 0.0)
+    assert np.isclose(ax._attrs["end_angle"], np.pi)
+    pycea.pl.annotation(tdata, keys="clade", ax=ax)
+    plt.savefig(plot_path / "polar_semicircle.png", bbox_inches="tight")
+    plt.close()
+
+    # Quarter circle
+    fig, ax = plt.subplots(dpi=300, subplot_kw={"polar": True})
+    pycea.pl.branches(tdata, polar=True, angle_range=(0, 90), depth_key="time", ax=ax)
+    assert np.isclose(ax._attrs["start_angle"], 0.0)
+    assert np.isclose(ax._attrs["end_angle"], np.pi / 2)
+    plt.savefig(plot_path / "polar_quarter.png", bbox_inches="tight")
+    plt.close()
+
+    # Offset arc
+    fig, ax = plt.subplots(dpi=300, subplot_kw={"polar": True})
+    pycea.pl.branches(tdata, polar=True, angle_range=(45, 315), depth_key="time", ax=ax)
+    assert np.isclose(ax._attrs["start_angle"], np.deg2rad(45))
+    assert np.isclose(ax._attrs["end_angle"], np.deg2rad(315))
+    plt.savefig(plot_path / "polar_offset.png", bbox_inches="tight")
+    plt.close()
+
+    # Default (0, 360) unchanged
+    fig, ax = plt.subplots(dpi=300, subplot_kw={"polar": True})
+    pycea.pl.branches(tdata, polar=True, depth_key="time", ax=ax)
+    assert np.isclose(ax._attrs["start_angle"], 0.0)
+    assert np.isclose(ax._attrs["end_angle"], 2 * np.pi)
+    plt.close()
+
+
 def test_branches_bad_input(tdata):
     fig, ax = plt.subplots()
     with pytest.raises(ValueError):

@@ -37,6 +37,7 @@ def branches(
     polar: bool = False,
     extend_branches: bool = False,
     angled_branches: bool = False,
+    angle_range: tuple[float, float] = (0, 360),
     color: str = "black",
     linewidth: float | str = 0.5,
     depth_key: str = "depth",
@@ -74,6 +75,10 @@ def branches(
         Whether to extend branches so the tips are at the same depth.
     angled_branches
         Whether to plot branches at an angle.
+    angle_range
+        A ``(start, end)`` tuple in degrees specifying the arc span for polar plots.
+        Defaults to ``(0, 360)`` for a full circle. Use a smaller range (e.g. ``(0, 180)``)
+        to generate a "pie slice" shaped tree. Only used when ``polar=True``.
     color
         Either a color name, or a key for an attribute of the edges to color by.
     linewidth
@@ -131,8 +136,16 @@ def branches(
     kwargs = kwargs if kwargs else {}
     trees = get_trees(tdata, tree_keys)
     # Get layout
+    start_angle_rad = np.deg2rad(angle_range[0])
+    end_angle_rad = np.deg2rad(angle_range[1])
     node_coords, branch_coords, leaves, depth = layout_trees(
-        trees, depth_key=depth_key, polar=polar, extend_branches=extend_branches, angled_branches=angled_branches
+        trees,
+        depth_key=depth_key,
+        polar=polar,
+        extend_branches=extend_branches,
+        angled_branches=angled_branches,
+        start_angle=start_angle_rad,
+        end_angle=end_angle_rad,
     )
     segments = []
     edges = []
@@ -191,6 +204,8 @@ def branches(
         "offset": depth,
         "polar": polar,
         "tree_keys": list(trees.keys()),
+        "start_angle": start_angle_rad,
+        "end_angle": end_angle_rad,
     }
     # Add legends
     if legend is True or (legend is None and legends and max_categories <= 20):
@@ -548,11 +563,14 @@ def annotation(
     else:
         raise ValueError("Invalid label value. Must be a bool, str, or a sequence of strings.")
     # Compute coordinates for annotations
+    start_angle = attrs.get("start_angle", 0.0)
+    end_angle = attrs.get("end_angle", 2 * np.pi)
+    arc_span_rad = end_angle - start_angle
     start_lat = attrs["offset"] + attrs["depth"] * gap
     end_lat = start_lat + attrs["depth"] * width * data.shape[1]
     lats = np.linspace(start_lat, end_lat, data.shape[1] + 1)
-    lons = np.linspace(0, 2 * np.pi, len(leaves) + 1)
-    lons = lons - np.pi / len(leaves)
+    lons = np.linspace(start_angle, end_angle, len(leaves) + 1)
+    lons = lons - arc_span_rad / (2 * len(leaves))
     # Covert to RGB array
     rgb_array = []
     legends = []
@@ -561,7 +579,7 @@ def annotation(
         label = labels[0] if labels is not None else keys[0]
         if is_square:
             data = data.loc[leaves, list(reversed(leaves))]
-            end_lat = start_lat + attrs["depth"] * 2 * np.pi * width / 0.05
+            end_lat = start_lat + attrs["depth"] * arc_span_rad * width / 0.05
             lats = np.linspace(start_lat, end_lat, data.shape[1] + 1)
         if data.loc[:, data.columns[0]].dtype == "category":  # all columns are categorical with same categories
             max_categories = len(data.loc[:, data.columns[0]].cat.categories)
@@ -651,6 +669,7 @@ def tree(
     polar: bool = False,
     extend_branches: bool = False,
     angled_branches: bool = False,
+    angle_range: tuple[float, float] = (0, 360),
     depth_key: str = "depth",
     branch_color: str = "black",
     branch_linewidth: float | str = 0.5,
@@ -689,6 +708,9 @@ def tree(
         Whether to extend branches so the tips are at the same depth.
     angled_branches
         Whether to plot branches at an angle.
+    angle_range
+        A ``(start, end)`` tuple in degrees specifying the arc span for polar plots.
+        Defaults to ``(0, 360)`` for a full circle. Only used when ``polar=True``.
     depth_key
         The key for the depth of the nodes.
     branch_color
@@ -742,6 +764,7 @@ def tree(
         depth_key=depth_key,
         extend_branches=extend_branches,
         angled_branches=angled_branches,
+        angle_range=angle_range,
         color=branch_color,
         linewidth=branch_linewidth,
         tree=tree,

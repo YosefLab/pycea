@@ -94,6 +94,8 @@ def layout_trees(
     polar: bool = False,
     extend_branches: bool = True,
     angled_branches: bool = False,
+    start_angle: float = 0.0,
+    end_angle: float = 2 * np.pi,
 ) -> tuple[
     dict[tuple[str, str], tuple[float, float]],
     dict[tuple[Any, tuple[str, str]], tuple[list[float], list[float]]],
@@ -114,6 +116,10 @@ def layout_trees(
         Whether to extend branches so the tips are at the same depth.
     angled_branches
         Whether to plot branches at an angle.
+    start_angle
+        The start angle in radians for the polar layout.
+    end_angle
+        The end angle in radians for the polar layout.
 
     Returns
     -------
@@ -140,7 +146,7 @@ def layout_trees(
     n_leaves = len(leaves)
     leaf_coords = {}
     for i in range(n_leaves):
-        lon = (i / n_leaves) * 2 * np.pi
+        lon = start_angle + (i / n_leaves) * (end_angle - start_angle)
         if extend_branches:
             leaf_coords[leaves[i]] = (max_depth, lon)
         else:
