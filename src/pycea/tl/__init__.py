@@ -1,3 +1,4 @@
+from .ancestral_linkage import ancestral_linkage
 from .ancestral_states import ancestral_states
 from .autocorr import autocorr
 from .clades import clades
