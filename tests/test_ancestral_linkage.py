@@ -495,6 +495,56 @@ def test_by_tree_permutation_stats_has_z_score(two_tree_tdata):
     assert (stats["p_value"].between(0, 1)).all()
 
 
+# ── alternative parameter tests ───────────────────────────────────────────────
+
+
+def test_alternative_two_sided_pairwise_p_values_in_range(balanced_tdata):
+    """Two-sided p-values are in [0, 1]."""
+    tdata = balanced_tdata
+    tl.ancestral_linkage(
+        tdata, groupby="celltype", test="permutation", alternative="two-sided",
+        n_permutations=20, random_state=0,
+    )
+    stats = tdata.uns["celltype_linkage_stats"]
+    assert (stats["p_value"].between(0, 1)).all()
+
+
+def test_alternative_two_sided_symmetric(balanced_tdata):
+    """Two-sided p-values are symmetric: p(A→B) == p(B→A) when the tree is symmetric."""
+    tdata = balanced_tdata
+    tl.ancestral_linkage(
+        tdata, groupby="celltype", test="permutation", alternative="two-sided",
+        n_permutations=50, random_state=1,
+    )
+    stats = tdata.uns["celltype_linkage_stats"]
+    ab = stats[(stats["source"] == "A") & (stats["target"] == "B")]["p_value"].values[0]
+    ba = stats[(stats["source"] == "B") & (stats["target"] == "A")]["p_value"].values[0]
+    assert np.isclose(ab, ba)
+
+
+def test_alternative_two_sided_single_target(balanced_tdata):
+    """Two-sided p-values work in single-target mode."""
+    tdata = balanced_tdata
+    result = tl.ancestral_linkage(
+        tdata, groupby="celltype", target="B", test="permutation",
+        alternative="two-sided", n_permutations=20, random_state=0, copy=True,
+    )
+    assert isinstance(result, pd.DataFrame)
+    assert (result["p_value"].between(0, 1)).all()
+
+
+def test_alternative_none_matches_default(balanced_tdata):
+    """alternative=None produces identical results to omitting the parameter."""
+    def run(alt):
+        tdata = balanced_tdata
+        return tl.ancestral_linkage(
+            tdata, groupby="celltype", test="permutation", alternative=alt,
+            n_permutations=20, random_state=42, copy=True,
+        )
+
+    pd.testing.assert_frame_equal(run(None), run(None))
+
+
 # ── warning tests ─────────────────────────────────────────────────────────────
 
 

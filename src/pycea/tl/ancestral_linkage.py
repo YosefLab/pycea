@@ -263,6 +263,25 @@ def _run_parallel(worker_fn: Callable, seeds: np.ndarray, n_threads: int | None)
     return [worker_fn(seed) for seed in tqdm(seeds, desc="Permutations", leave=False)]
 
 
+def _compute_p_values(
+    null_array: np.ndarray,
+    obs_values: np.ndarray,
+    null_mean: np.ndarray,
+    metric: str,
+    alternative: str | None,
+) -> np.ndarray:
+    """Compute permutation p-values given the null distribution and observed values."""
+    if alternative == "two-sided":
+        deviation = np.abs(null_array - null_mean[np.newaxis])
+        obs_deviation = np.abs(obs_values - null_mean)
+        return np.nanmean(deviation >= obs_deviation[np.newaxis], axis=0)
+    # One-tailed in the "more related" direction
+    if metric == "lca":
+        return np.nanmean(null_array >= obs_values[np.newaxis], axis=0)
+    else:
+        return np.nanmean(null_array <= obs_values[np.newaxis], axis=0)
+
+
 def _run_permutation_test(
     tdata: td.TreeData,
     trees: dict,
@@ -275,6 +294,7 @@ def _run_permutation_test(
     depth_key: str,
     n_permutations: int,
     n_threads: int | None,
+    alternative: str | None,
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """Permutation test: shuffle leaf labels, recompute linkage, return (z_score_df, p_value_df, null_mean_df)."""
     all_leaves = list(leaf_to_cat.keys())
@@ -306,11 +326,7 @@ def _run_permutation_test(
     sign = 1.0 if metric == "lca" else -1.0
     z_scores = sign * (obs_values - null_mean) / (null_std + 1e-10)
 
-    # One-tailed p-value in the "more related" direction
-    if metric == "lca":
-        p_values = np.nanmean(null_array >= obs_values[np.newaxis], axis=0)
-    else:
-        p_values = np.nanmean(null_array <= obs_values[np.newaxis], axis=0)
+    p_values = _compute_p_values(null_array, obs_values, null_mean, metric, alternative)
 
     z_score_df = pd.DataFrame(z_scores, index=observed_df.index, columns=observed_df.columns)
     p_value_df = pd.DataFrame(p_values, index=observed_df.index, columns=observed_df.columns)
@@ -330,6 +346,7 @@ def ancestral_linkage(
     metric: _TreeMetric = "path",
     symmetrize: Literal["mean", "max", "min", None] = None,
     test: Literal["permutation", None] = None,
+    alternative: Literal["two-sided", None] = None,
     n_permutations: int = 100,
     n_threads: int | None = None,
     by_tree: bool = False,
@@ -350,6 +367,7 @@ def ancestral_linkage(
     metric: _TreeMetric = "path",
     symmetrize: Literal["mean", "max", "min", None] = None,
     test: Literal["permutation", None] = None,
+    alternative: Literal["two-sided", None] = None,
     n_permutations: int = 100,
     n_threads: int | None = None,
     by_tree: bool = False,
@@ -368,6 +386,7 @@ def ancestral_linkage(
     metric: _TreeMetric = "path",
     symmetrize: Literal["mean", "max", "min", None] = None,
     test: Literal["permutation", None] = None,
+    alternative: Literal["two-sided", None] = None,
     n_permutations: int = 100,
     n_threads: int | None = None,
     aggregate: Literal["min", "max", "mean"] | Callable | None = None,
@@ -424,9 +443,19 @@ def ancestral_linkage(
 
         - ``'permutation'``: randomly shuffle cell-category labels ``n_permutations``
           times and recompute linkage each time to build a null distribution.
-          Z-scores and one-tailed p-values (in the direction of closer-than-expected
-          relatedness) are added to the stats table.  The stored linkage matrix is
-          replaced by z-scores when this test is run.
+          Z-scores and p-values are added to the stats table.  The stored linkage
+          matrix is replaced by z-scores when this test is run.
+    alternative
+        The alternative hypothesis for the permutation test (ignored when
+        ``test=None``):
+
+        - ``None`` (default): one-tailed test in the "more closely related than
+          chance" direction — p-value is the fraction of permutations with LCA depth
+          ≥ observed (``metric='lca'``) or path distance ≤ observed
+          (``metric='path'``).
+        - ``'two-sided'``: two-tailed test — p-value is the fraction of permutations
+          whose deviation from the null mean is at least as large as the observed
+          deviation.
     n_permutations
         Number of label permutations used when ``test='permutation'``.
     n_threads
@@ -580,11 +609,12 @@ def ancestral_linkage(
                     perm_val = float(np.mean(null_vals))
                     sign = 1.0 if metric == "lca" else -1.0
                     z = sign * (obs_val - perm_val) / (float(np.std(null_vals)) + 1e-10)
-                    p = (
-                        float(np.mean(null_vals >= obs_val))
-                        if metric == "lca"
-                        else float(np.mean(null_vals <= obs_val))
-                    )
+                    if alternative == "two-sided":
+                        p = float(np.mean(np.abs(null_vals - perm_val) >= abs(obs_val - perm_val)))
+                    elif metric == "lca":
+                        p = float(np.mean(null_vals >= obs_val))
+                    else:
+                        p = float(np.mean(null_vals <= obs_val))
                 else:
                     perm_val, z, p = np.nan, np.nan, np.nan
                 rows.append(
@@ -626,7 +656,7 @@ def ancestral_linkage(
         if test == "permutation":
             global_z_df, global_p_df, global_null_mean_df = _run_permutation_test(
                 tdata, trees, leaf_to_cat, all_cats, all_cats,
-                linkage_df, aggregate, metric, depth_key, n_permutations, n_threads,
+                linkage_df, aggregate, metric, depth_key, n_permutations, n_threads, alternative,
             )
 
         # Build stats rows (long format, never symmetrized)
@@ -651,7 +681,7 @@ def ancestral_linkage(
                 if test == "permutation":
                     tree_z_df, tree_p_df, tree_null_mean_df = _run_permutation_test(
                         tdata, single_tree, tree_leaf_to_cat, all_cats, all_cats,
-                        tree_linkage_df, aggregate, metric, depth_key, n_permutations, n_threads,
+                        tree_linkage_df, aggregate, metric, depth_key, n_permutations, n_threads, alternative,
                     )
 
                 for src_cat in all_cats:
