@@ -165,5 +165,36 @@ def test_annotation_bad_input(tdata):
     plt.close()
 
 
+def test_hex_color_branches(tdata):
+    """Branches colored by a per-edge hex attribute use the raw hex values directly."""
+    import matplotlib.colors as mcolors
+    hex_colors = {"1": "#e41a1c", "2": "#377eb8"}
+    for tree_key, tree in tdata.obst.items():
+        for u, v, data in tree.edges(data=True):
+            data["hex_color"] = hex_colors[tree_key]
+    fig, ax = plt.subplots()
+    pycea.pl.branches(tdata, color="hex_color", depth_key="time", ax=ax)
+    edge_colors = ax.collections[0].get_colors()
+    expected = {mcolors.to_rgba(c) for c in hex_colors.values()}
+    actual = {tuple(row) for row in edge_colors}
+    assert actual == expected
+    plt.close()
+
+
+def test_hex_color_nodes(tdata):
+    """Nodes colored by a per-node hex attribute use the raw hex values directly."""
+    import matplotlib.colors as mcolors
+    hex_color = "#4daf4a"
+    for node, data in tdata.obst["1"].nodes(data=True):
+        data["hex_color"] = hex_color
+    fig, ax = plt.subplots()
+    pycea.pl.branches(tdata, tree="1", depth_key="time", ax=ax)
+    pycea.pl.nodes(tdata, nodes="leaves", color="hex_color", ax=ax)
+    node_colors = ax.collections[1].get_facecolors()
+    expected = mcolors.to_rgba(hex_color)
+    assert all(tuple(row) == expected for row in node_colors)
+    plt.close()
+
+
 if __name__ == "__main__":
     pytest.main(["-v", __file__])
