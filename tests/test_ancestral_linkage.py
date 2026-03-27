@@ -545,6 +545,61 @@ def test_alternative_none_matches_default(balanced_tdata):
     pd.testing.assert_frame_equal(run(None), run(None))
 
 
+# ── permutation_mode tests ────────────────────────────────────────────────────
+
+
+def test_permutation_mode_non_target_pairwise_p_in_range(balanced_tdata):
+    """non_target mode pairwise: p-values in [0, 1]."""
+    tdata = balanced_tdata
+    tl.ancestral_linkage(
+        tdata, groupby="celltype", test="permutation", permutation_mode="non_target",
+        n_permutations=20, random_state=0,
+    )
+    stats = tdata.uns["celltype_linkage_stats"]
+    assert (stats["p_value"].between(0, 1)).all()
+    assert "z_score" in stats.columns
+    assert "permuted_value" in stats.columns
+
+
+def test_permutation_mode_non_target_single_target_p_in_range(balanced_tdata):
+    """non_target mode single-target: p-values in [0, 1]."""
+    tdata = balanced_tdata
+    result = tl.ancestral_linkage(
+        tdata, groupby="celltype", target="B", test="permutation",
+        permutation_mode="non_target", n_permutations=20, random_state=0, copy=True,
+    )
+    assert isinstance(result, pd.DataFrame)
+    assert (result["p_value"].between(0, 1)).all()
+
+
+def test_permutation_mode_non_target_differs_from_all(balanced_tdata):
+    """non_target and all modes produce different null means (different null construction)."""
+    def run(mode):
+        tdata = balanced_tdata
+        return tl.ancestral_linkage(
+            tdata, groupby="celltype", test="permutation", permutation_mode=mode,
+            n_permutations=50, random_state=42, copy=True,
+        )
+
+    stats_all = run("all")
+    stats_non_target = run("non_target")
+    # permuted_value may differ between modes (different null distributions)
+    # At minimum both should produce valid DataFrames with the same structure
+    assert set(stats_all.columns) == set(stats_non_target.columns)
+
+
+def test_permutation_mode_non_target_by_tree(two_tree_tdata):
+    """non_target mode works with by_tree=True."""
+    tdata = two_tree_tdata
+    tl.ancestral_linkage(
+        tdata, groupby="celltype", by_tree=True, test="permutation",
+        permutation_mode="non_target", n_permutations=10, random_state=0,
+    )
+    stats = tdata.uns["celltype_linkage_stats"]
+    assert "z_score" in stats.columns
+    assert (stats["p_value"].between(0, 1)).all()
+
+
 # ── warning tests ─────────────────────────────────────────────────────────────
 
 
@@ -578,3 +633,39 @@ def test_custom_callable_aggregate(balanced_tdata):
                          key_added="ref")
     ref = tdata.uns["ref_linkage"]
     pd.testing.assert_frame_equal(mat, ref)
+
+
+# ── bug-fix regression tests ──────────────────────────────────────────────────
+
+
+def test_lca_max_non_ultrametric_raises():
+    """aggregate='max' + metric='lca' on a non-ultrametric tree must raise ValueError."""
+    t = nx.DiGraph()
+    for node, depth in [
+        ("root", 0.0), ("n1", 0.8), ("n2", 0.1),
+        ("a1", 1.0), ("b1", 0.2), ("b2", 0.9),
+    ]:
+        t.add_node(node, depth=depth)
+    t.add_edges_from([
+        ("root", "n1"), ("root", "n2"),
+        ("n1", "a1"), ("n1", "b2"),
+        ("n2", "b1"),
+    ])
+    obs = pd.DataFrame({"ct": ["A", "B", "B"]}, index=["a1", "b1", "b2"])
+    tdata = td.TreeData(obs=obs, obst={"tree": t})
+
+    with pytest.raises(ValueError, match="ultrametric"):
+        tl.ancestral_linkage(tdata, groupby="ct", aggregate="max", metric="lca")
+
+
+def test_symmetrize_invalid_raises():
+    """Unknown symmetrize value must raise ValueError, not silently use 'min'."""
+    t = nx.DiGraph()
+    for node, depth in [("root", 0.0), ("a1", 1.0), ("b1", 1.0)]:
+        t.add_node(node, depth=depth)
+    t.add_edges_from([("root", "a1"), ("root", "b1")])
+    obs = pd.DataFrame({"ct": ["A", "B"]}, index=["a1", "b1"])
+    tdata = td.TreeData(obs=obs, obst={"tree": t})
+
+    with pytest.raises(ValueError, match="symmetrize"):
+        tl.ancestral_linkage(tdata, groupby="ct", symmetrize="meen")

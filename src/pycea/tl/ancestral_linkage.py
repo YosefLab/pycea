@@ -78,19 +78,11 @@ def _all_pairs_scores(
     agg_fn: Callable,
 ) -> dict:
     """Per-leaf aggregated distance to each target category via all-pairs distance matrix."""
-    # Use precomputed dense distances if available
-    precomputed = None
-    if "tree_distances" in tdata.obsp:
-        D = tdata.obsp["tree_distances"]
-        if isinstance(D, np.ndarray):
-            precomputed = D
+    from pycea.tl.tree_distance import tree_distance as _td
 
-    if precomputed is None:
-        from pycea.tl.tree_distance import tree_distance as _td
-
-        tree_keys = list(trees.keys())
-        result = _td(tdata, depth_key=depth_key, metric=metric, tree=tree_keys, copy=True)
-        precomputed = result.toarray() if sp.sparse.issparse(result) else result
+    tree_keys = list(trees.keys())
+    result = _td(tdata, depth_key=depth_key, metric=metric, tree=tree_keys, copy=True)
+    precomputed = result.toarray() if sp.sparse.issparse(result) else result
 
     scores: dict = {}
     obs_names = tdata.obs_names
@@ -132,11 +124,25 @@ def _compute_scores(
         for l in t_leaves:
             cat_to_leaves_by_tree[tree_key][leaf_to_cat[l]].append(l)
 
-    # Choose strategy: Dijkstra handles the natural "closest" direction for each metric
+    # Choose strategy: Dijkstra handles the natural "closest" direction for each metric.
+    # NOTE: the lca+max Dijkstra shortcut is only correct for ultrametric trees (all
+    # leaves at equal depth).  On non-ultrametric trees, the nearest-path target is not
+    # always the deepest-LCA target, so Dijkstra can underestimate linkage.
+    # TODO: add a fast non-ultrametric path for lca+max.
     is_named = isinstance(aggregate, str)
     use_dijkstra = is_named and ((aggregate == "min" and metric == "path") or (aggregate == "max" and metric == "lca"))
 
     if use_dijkstra:
+        if metric == "lca":
+            for tree_key, t in trees.items():
+                t_leaves = source_leaves_by_tree[tree_key]
+                depths = [t.nodes[l][depth_key] for l in t_leaves]
+                if depths and not np.allclose(depths, depths[0]):
+                    raise ValueError(
+                        f"Tree '{tree_key}' is not ultrametric (leaves have unequal depths). "
+                        "aggregate='max' with metric='lca' requires an ultrametric tree. "
+                        "Use aggregate='mean' or metric='path' for non-ultrametric trees."
+                    )
         all_scores: dict = {}
         for tree_key, t in trees.items():
             tree_scores = _dijkstra_min_scores(
@@ -189,8 +195,10 @@ def _symmetrize_matrix(df: pd.DataFrame, mode: str) -> pd.DataFrame:
         sym = (arr + arr_T) / 2
     elif mode == "max":
         sym = np.maximum(arr, arr_T)
-    else:  # min
+    elif mode == "min":
         sym = np.minimum(arr, arr_T)
+    else:
+        raise ValueError(f"symmetrize must be 'mean', 'max', 'min', or None; got '{mode}'.")
     return pd.DataFrame(sym, index=df.index, columns=df.columns)
 
 
@@ -203,6 +211,8 @@ def _symmetrize_matrix(df: pd.DataFrame, mode: str) -> pd.DataFrame:
 
 _PERM_PAIRWISE_DATA: dict = {}
 _PERM_SINGLE_DATA: dict = {}
+_PERM_NON_TARGET_PAIRWISE_DATA: dict = {}
+_PERM_SINGLE_NON_TARGET_DATA: dict = {}
 
 
 def _perm_pairwise_worker(seed: int) -> np.ndarray:
@@ -247,20 +257,72 @@ def _perm_single_target_worker(seed: int) -> dict:
     return result
 
 
+def _perm_pairwise_non_target_worker(seed: int) -> np.ndarray:
+    """Non-target pairwise permutation using precomputed fixed scores.
+
+    Target leaves never move, so scores to each target set are constant across
+    permutations.  Each permutation only shuffles source-category labels and
+    re-averages precomputed per-leaf scores — no tree computation required.
+
+    Returns a float array of shape ``(n_src, n_tgt)`` aligned to
+    ``d["index"] × d["columns"]``.
+    """
+    d = _PERM_NON_TARGET_PAIRWISE_DATA
+    idx = d["index"]
+    result = np.full((len(idx), len(d["fixed_scores"])), np.nan)
+    for j, (score_map, nt_leaves, nt_cats, tgt_cat, tgt_leaves) in enumerate(zip(
+        d["fixed_scores"], d["nt_leaves"], d["nt_cats"], d["columns"], d["target_leaves"],
+    )):
+        rng = np.random.default_rng([seed, j])
+        perm_cats = rng.permutation(nt_cats)
+        perm_cat_to_leaves: dict = defaultdict(list)
+        for l in tgt_leaves:
+            perm_cat_to_leaves[tgt_cat].append(l)
+        for l, c in zip(nt_leaves, perm_cats):
+            perm_cat_to_leaves[c].append(l)
+        for i, src_cat in enumerate(idx):
+            vals = [score_map[l] for l in perm_cat_to_leaves.get(src_cat, [])
+                    if l in score_map and not np.isnan(score_map[l])]
+            result[i, j] = float(np.mean(vals)) if vals else np.nan
+    return result
+
+
+def _perm_single_non_target_worker(seed: int) -> dict:
+    """Non-target single-target permutation using precomputed fixed scores.
+
+    Target leaves never move, so their distances to the target set are constant.
+    Each permutation only shuffles non-target source labels and re-averages.
+    """
+    d = _PERM_SINGLE_NON_TARGET_DATA
+    rng = np.random.default_rng(seed)
+    perm_cats = rng.permutation(d["nt_cats"])
+    perm_cat_to_leaves: dict = defaultdict(list)
+    for l in d["target_leaves"]:
+        perm_cat_to_leaves[d["target"]].append(l)
+    for l, c in zip(d["nt_leaves"], perm_cats):
+        perm_cat_to_leaves[c].append(l)
+    score_map = d["fixed_scores"]
+    result: dict = {}
+    for cat in d["all_cats"]:
+        vals = [score_map[l] for l in perm_cat_to_leaves.get(cat, [])
+                if l in score_map and not np.isnan(score_map[l])]
+        result[cat] = float(np.mean(vals)) if vals else np.nan
+    return result
+
+
 def _run_parallel(worker_fn: Callable, seeds: np.ndarray, n_threads: int | None) -> list:
     """Run *worker_fn(seed)* for each seed, optionally in parallel via fork processes."""
     max_workers = n_threads if n_threads is not None else 1
 
+    _tqdm_kwargs = {"desc": "Permutations", "leave": not sys.stderr.isatty()}
+
     if max_workers > 1 and sys.platform == "linux":
         ctx = mp.get_context("fork")
         with ctx.Pool(max_workers) as pool:
-            return list(tqdm(
-                pool.imap_unordered(worker_fn, seeds),
-                total=len(seeds), desc="Permutations", leave=False,
-            ))
+            return list(tqdm(pool.imap_unordered(worker_fn, seeds), total=len(seeds), **_tqdm_kwargs))
 
     # Single-threaded fallback (also used on non-Linux platforms)
-    return [worker_fn(seed) for seed in tqdm(seeds, desc="Permutations", leave=False)]
+    return [worker_fn(seed) for seed in tqdm(seeds, **_tqdm_kwargs)]
 
 
 def _compute_p_values(
@@ -334,6 +396,75 @@ def _run_permutation_test(
     return z_score_df, p_value_df, null_mean_df
 
 
+def _run_permutation_test_non_target(
+    tdata: td.TreeData,
+    trees: dict,
+    leaf_to_cat: dict,
+    all_cats: list,
+    observed_df: pd.DataFrame,
+    aggregate: str | Callable,
+    metric: str,
+    depth_key: str,
+    n_permutations: int,
+    n_threads: int | None,
+    alternative: str | None,
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """Non-target permutation test: single batch of ``n_permutations`` workers.
+
+    Scores to each fixed target set are precomputed once (same total Dijkstra work
+    as the ``all`` mode).  Each permutation then only shuffles source-category labels
+    and re-averages precomputed scores — no tree computation inside the permutation loop.
+    """
+    cat_to_leaves: dict = defaultdict(list)
+    for l, c in leaf_to_cat.items():
+        cat_to_leaves[c].append(l)
+    all_leaves = list(leaf_to_cat.keys())
+    cols = observed_df.columns.tolist()
+
+    # Precompute per-leaf scores to each fixed target set (done once, outside the loop)
+    fixed_scores = []
+    nt_leaves_per_col = []
+    nt_cats_per_col = []
+    target_leaves_per_col = []
+    for target_cat in cols:
+        t_leaves = cat_to_leaves.get(target_cat, [])
+        scores = _compute_scores(tdata, trees, leaf_to_cat, [target_cat], aggregate, metric, depth_key)
+        fixed_scores.append({leaf: s.get(target_cat, np.nan) for leaf, s in scores.items()})
+        t_set = set(t_leaves)
+        nt = [l for l in all_leaves if l not in t_set]
+        nt_leaves_per_col.append(nt)
+        nt_cats_per_col.append([leaf_to_cat[l] for l in nt])
+        target_leaves_per_col.append(list(t_leaves))
+
+    _PERM_NON_TARGET_PAIRWISE_DATA.clear()
+    _PERM_NON_TARGET_PAIRWISE_DATA.update({
+        "fixed_scores": fixed_scores,
+        "nt_leaves": nt_leaves_per_col,
+        "nt_cats": nt_cats_per_col,
+        "target_leaves": target_leaves_per_col,
+        "index": observed_df.index.tolist(),
+        "columns": cols,
+    })
+
+    perm_seeds = np.random.randint(0, 2**31, size=n_permutations)
+    null_matrices = _run_parallel(_perm_pairwise_non_target_worker, perm_seeds, n_threads)
+
+    null_array = np.array(null_matrices)  # (n_permutations, n_src, n_tgt)
+    null_mean = np.nanmean(null_array, axis=0)
+    null_std = np.nanstd(null_array, axis=0)
+    obs_values = observed_df.values.astype(float)
+
+    sign = 1.0 if metric == "lca" else -1.0
+    z_scores = sign * (obs_values - null_mean) / (null_std + 1e-10)
+    p_values = _compute_p_values(null_array, obs_values, null_mean, metric, alternative)
+
+    return (
+        pd.DataFrame(z_scores, index=observed_df.index, columns=observed_df.columns),
+        pd.DataFrame(p_values, index=observed_df.index, columns=observed_df.columns),
+        pd.DataFrame(null_mean, index=observed_df.index, columns=observed_df.columns),
+    )
+
+
 # ── public API ────────────────────────────────────────────────────────────────
 
 
@@ -347,6 +478,7 @@ def ancestral_linkage(
     symmetrize: Literal["mean", "max", "min", None] = None,
     test: Literal["permutation", None] = None,
     alternative: Literal["two-sided", None] = None,
+    permutation_mode: Literal["all", "non_target"] = "all",
     n_permutations: int = 100,
     n_threads: int | None = None,
     by_tree: bool = False,
@@ -368,6 +500,7 @@ def ancestral_linkage(
     symmetrize: Literal["mean", "max", "min", None] = None,
     test: Literal["permutation", None] = None,
     alternative: Literal["two-sided", None] = None,
+    permutation_mode: Literal["all", "non_target"] = "all",
     n_permutations: int = 100,
     n_threads: int | None = None,
     by_tree: bool = False,
@@ -387,6 +520,7 @@ def ancestral_linkage(
     symmetrize: Literal["mean", "max", "min", None] = None,
     test: Literal["permutation", None] = None,
     alternative: Literal["two-sided", None] = None,
+    permutation_mode: Literal["all", "non_target"] = "all",
     n_permutations: int = 100,
     n_threads: int | None = None,
     aggregate: Literal["min", "max", "mean"] | Callable | None = None,
@@ -456,6 +590,17 @@ def ancestral_linkage(
         - ``'two-sided'``: two-tailed test — p-value is the fraction of permutations
           whose deviation from the null mean is at least as large as the observed
           deviation.
+    permutation_mode
+        How category labels are shuffled when ``test='permutation'``:
+
+        - ``'all'`` (default): shuffle all cell-category labels across all leaves.
+          Tests whether the two categories are more associated on the tree than
+          random, but does not control for the target category's cluster structure.
+        - ``'non_target'``: fix the target category's leaves at their tree positions
+          and shuffle only the non-target labels.  The null therefore reflects
+          "random cells near this specific target cluster," which removes inflation
+          caused by small, tightly clustered target categories.  In pairwise mode
+          each target column gets its own independent null distribution.
     n_permutations
         Number of label permutations used when ``test='permutation'``.
     n_threads
@@ -581,20 +726,34 @@ def ancestral_linkage(
             all_leaf_list = list(leaf_to_cat.keys())
             perm_seeds = np.random.randint(0, 2**31, size=n_permutations)
 
-            _PERM_SINGLE_DATA.clear()
-            _PERM_SINGLE_DATA.update({
-                "tdata": tdata,
-                "trees": trees,
-                "all_leaves": all_leaf_list,
-                "all_cat_vals": [leaf_to_cat[l] for l in all_leaf_list],
-                "target": target,
-                "single_agg": single_agg,
-                "metric": metric,
-                "depth_key": depth_key,
-                "all_cats": all_cats,
-            })
-
-            null_results = _run_parallel(_perm_single_target_worker, perm_seeds, n_threads)
+            if permutation_mode == "non_target":
+                t_leaves = cat_to_leaves[target]
+                t_set = set(t_leaves)
+                nt_leaves = [l for l in all_leaf_list if l not in t_set]
+                _PERM_SINGLE_NON_TARGET_DATA.clear()
+                _PERM_SINGLE_NON_TARGET_DATA.update({
+                    "fixed_scores": score_map,  # precomputed above, target leaves fixed
+                    "target_leaves": list(t_leaves),
+                    "nt_leaves": nt_leaves,
+                    "nt_cats": [leaf_to_cat[l] for l in nt_leaves],
+                    "target": target,
+                    "all_cats": all_cats,
+                })
+                null_results = _run_parallel(_perm_single_non_target_worker, perm_seeds, n_threads)
+            else:
+                _PERM_SINGLE_DATA.clear()
+                _PERM_SINGLE_DATA.update({
+                    "tdata": tdata,
+                    "trees": trees,
+                    "all_leaves": all_leaf_list,
+                    "all_cat_vals": [leaf_to_cat[l] for l in all_leaf_list],
+                    "target": target,
+                    "single_agg": single_agg,
+                    "metric": metric,
+                    "depth_key": depth_key,
+                    "all_cats": all_cats,
+                })
+                null_results = _run_parallel(_perm_single_target_worker, perm_seeds, n_threads)
 
             null_cat_scores: dict = defaultdict(list)
             for perm_result in null_results:
@@ -654,10 +813,16 @@ def ancestral_linkage(
         global_p_df: pd.DataFrame | None = None
         global_null_mean_df: pd.DataFrame | None = None
         if test == "permutation":
-            global_z_df, global_p_df, global_null_mean_df = _run_permutation_test(
-                tdata, trees, leaf_to_cat, all_cats, all_cats,
-                linkage_df, aggregate, metric, depth_key, n_permutations, n_threads, alternative,
-            )
+            if permutation_mode == "non_target":
+                global_z_df, global_p_df, global_null_mean_df = _run_permutation_test_non_target(
+                    tdata, trees, leaf_to_cat, all_cats,
+                    linkage_df, aggregate, metric, depth_key, n_permutations, n_threads, alternative,
+                )
+            else:
+                global_z_df, global_p_df, global_null_mean_df = _run_permutation_test(
+                    tdata, trees, leaf_to_cat, all_cats, all_cats,
+                    linkage_df, aggregate, metric, depth_key, n_permutations, n_threads, alternative,
+                )
 
         # Build stats rows (long format, never symmetrized)
         stats_rows: list = []
@@ -679,10 +844,16 @@ def ancestral_linkage(
                 tree_p_df: pd.DataFrame | None = None
                 tree_null_mean_df: pd.DataFrame | None = None
                 if test == "permutation":
-                    tree_z_df, tree_p_df, tree_null_mean_df = _run_permutation_test(
-                        tdata, single_tree, tree_leaf_to_cat, all_cats, all_cats,
-                        tree_linkage_df, aggregate, metric, depth_key, n_permutations, n_threads, alternative,
-                    )
+                    if permutation_mode == "non_target":
+                        tree_z_df, tree_p_df, tree_null_mean_df = _run_permutation_test_non_target(
+                            tdata, single_tree, tree_leaf_to_cat, all_cats,
+                            tree_linkage_df, aggregate, metric, depth_key, n_permutations, n_threads, alternative,
+                        )
+                    else:
+                        tree_z_df, tree_p_df, tree_null_mean_df = _run_permutation_test(
+                            tdata, single_tree, tree_leaf_to_cat, all_cats, all_cats,
+                            tree_linkage_df, aggregate, metric, depth_key, n_permutations, n_threads, alternative,
+                        )
 
                 for src_cat in all_cats:
                     for tgt_cat in all_cats:
