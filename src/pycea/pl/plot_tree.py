@@ -237,6 +237,7 @@ def nodes(
     na_color: str = "#FFFFFF00",
     na_style: str = "none",
     na_size: float = 0,
+    outline_width: float | None = None,
     slot: Literal["obst", "obs", "X"] | None = None,
     ax: Axes | None = None,
     legend_kwargs: dict[str, Any] | None = None,
@@ -279,6 +280,9 @@ def nodes(
         The marker to use for annotations with missing data.
     na_size
         The size to use for annotations with missing data.
+    outline_width
+        Width of a black outline drawn around each node marker. ``None`` (default)
+        draws no outline.
     ax
         A matplotlib axes object. If `None`, a new figure and axes will be created.
     slot
@@ -416,6 +420,19 @@ def nodes(
         legends.append(_categorical_legend(style, marker_map=marker_map, type="marker"))
     else:
         raise ValueError("Invalid style value. Must be a marker name, or an str specifying an attribute of the nodes.")
+    # Apply outline
+    if outline_width is not None:
+        def _outline_edgecolors(face_colors):
+            if isinstance(face_colors, str):
+                return "black"
+            rgba = mcolors.to_rgba_array(face_colors)
+            return ["black" if a > 0 else "none" for a in rgba[:, 3]]
+
+        kwargs.setdefault("edgecolors", _outline_edgecolors(kwargs.get("color")))
+        kwargs.setdefault("linewidths", outline_width)
+        for kw in kwargs_list:
+            kw.setdefault("edgecolors", _outline_edgecolors(kw.get("color")))
+            kw.setdefault("linewidths", outline_width)
     # Plot
     if len(kwargs_list) > 0:
         for kwargs in kwargs_list:
@@ -576,7 +593,7 @@ def annotation(
     legends = []
     max_categories = 0
     if is_array:  # single cmap for all columns
-        label = labels[0] if labels is not None else keys[0]
+        label = labels[0] if labels else keys[0]
         if is_square:
             data = data.loc[leaves, list(reversed(leaves))]
             end_lat = start_lat + attrs["depth"] * arc_span_rad * width / 0.05
@@ -609,7 +626,7 @@ def annotation(
                     legends.append(_cbar_legend(label, color_map, norm))
     # Add shared cmap
     if share_cmap and norm is not None:
-        if labels is not None:
+        if labels:
             label = labels[0]
         elif is_array:
             label = keys[0]
