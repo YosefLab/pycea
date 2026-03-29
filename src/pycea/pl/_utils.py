@@ -368,7 +368,12 @@ def _get_colors(
     """Get colors for plotting."""
     if len(data) == 0:
         raise ValueError(f"Key {key!r} is not present in any edge.")
-    if data.dtype.kind in ["i", "f"]:  # Numeric
+    non_na = data.dropna()
+    if len(non_na) > 0 and non_na.apply(lambda v: isinstance(v, str) and v.startswith("#") and mcolors.is_color_like(v)).all():  # Hex passthrough
+        colors = [data[i] if (i in data.index and pd.notna(data.at[i])) else na_color for i in indicies]
+        legend = {}
+        n_categories = 0
+    elif data.dtype.kind in ["i", "f"]:  # Numeric
         norm = _get_norm(vmin=vmin, vmax=vmax, data=data)
         color_map = plt.get_cmap(cmap)
         # Vectorized: reindex to align with indicies (NaN for missing), then apply colormap in bulk
