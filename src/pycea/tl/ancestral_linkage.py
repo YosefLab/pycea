@@ -578,7 +578,7 @@ def ancestral_linkage(
         - ``'permutation'``: randomly shuffle cell-category labels ``n_permutations``
           times and recompute linkage each time to build a null distribution.
           Z-scores and p-values are added to the stats table.  The stored linkage
-          matrix is replaced by z-scores when this test is run.
+          matrix is replaced by ``observed - permuted_mean`` when this test is run.
     alternative
         The alternative hypothesis for the permutation test (ignored when
         ``test=None``):
@@ -637,9 +637,12 @@ def ancestral_linkage(
 
     * ``tdata.obs['{target}_linkage']`` : :class:`Series <pandas.Series>` (dtype ``float``) – single-target mode only.
         Per-cell distance to the nearest cell of the target category.
+    * ``tdata.obs['{target}_norm_linkage']`` : :class:`Series <pandas.Series>` (dtype ``float``) – single-target mode with ``test='permutation'`` only.
+        Per-cell z-score: ``sign * (score - null_mean) / null_std``, where the null
+        distribution is taken from the cell's source-category permutations.
     * ``tdata.uns['{key_added}_linkage']`` : :class:`DataFrame <pandas.DataFrame>` – pairwise mode only.
         Category × category linkage matrix (source rows, target columns).
-        Contains z-scores instead of raw distances when ``test='permutation'``.
+        Contains ``observed - permuted_mean`` instead of raw distances when ``test='permutation'``.
     * ``tdata.uns['{key_added}_linkage_params']`` : ``dict`` – pairwise mode only.
         Parameters used to compute the linkage matrix.
     * ``tdata.uns['{key_added}_linkage_stats']`` : :class:`DataFrame <pandas.DataFrame>` – pairwise mode only.
@@ -710,32 +713,28 @@ def ancestral_linkage(
 
         # Always use "closest": min path or max lca
         single_agg: str = "max" if metric == "lca" else "min"
-        all_scores = _compute_scores(tdata, trees, leaf_to_cat, [target], single_agg, metric, depth_key)
+        sign = 1.0 if metric == "lca" else -1.0
 
-        # Per-leaf scores
-        score_map = {leaf: scores.get(target, np.nan) for leaf, scores in all_scores.items()}
-        tdata.obs[f"{target}_linkage"] = tdata.obs.index.map(pd.Series(score_map, dtype=float))
-
-        if test == "permutation":
-            # Observed: mean per source category
-            obs_cat_scores: dict = {}
+        def _run_single_perm(single_tree, tree_lc, tree_sm, tree_cl, extra_row_fields=None):
+            """Run the permutation test for one tree (or globally) and return (rows, norm_map)."""
+            tree_obs_cat: dict = {}
             for cat in all_cats:
-                vals = [score_map[l] for l in cat_to_leaves[cat] if l in score_map and not np.isnan(score_map[l])]
-                obs_cat_scores[cat] = float(np.mean(vals)) if vals else np.nan
+                vals = [tree_sm[l] for l in tree_cl[cat] if l in tree_sm and not np.isnan(tree_sm[l])]
+                tree_obs_cat[cat] = float(np.mean(vals)) if vals else np.nan
 
-            all_leaf_list = list(leaf_to_cat.keys())
+            tree_leaf_list = list(tree_lc.keys())
             perm_seeds = np.random.randint(0, 2**31, size=n_permutations)
 
             if permutation_mode == "non_target":
-                t_leaves = cat_to_leaves[target]
-                t_set = set(t_leaves)
-                nt_leaves = [l for l in all_leaf_list if l not in t_set]
+                t_lv = tree_cl[target]
+                t_set = set(t_lv)
+                nt_lv = [l for l in tree_leaf_list if l not in t_set]
                 _PERM_SINGLE_NON_TARGET_DATA.clear()
                 _PERM_SINGLE_NON_TARGET_DATA.update({
-                    "fixed_scores": score_map,  # precomputed above, target leaves fixed
-                    "target_leaves": list(t_leaves),
-                    "nt_leaves": nt_leaves,
-                    "nt_cats": [leaf_to_cat[l] for l in nt_leaves],
+                    "fixed_scores": tree_sm,
+                    "target_leaves": list(t_lv),
+                    "nt_leaves": nt_lv,
+                    "nt_cats": [tree_lc[l] for l in nt_lv],
                     "target": target,
                     "all_cats": all_cats,
                 })
@@ -744,9 +743,9 @@ def ancestral_linkage(
                 _PERM_SINGLE_DATA.clear()
                 _PERM_SINGLE_DATA.update({
                     "tdata": tdata,
-                    "trees": trees,
-                    "all_leaves": all_leaf_list,
-                    "all_cat_vals": [leaf_to_cat[l] for l in all_leaf_list],
+                    "trees": single_tree,
+                    "all_leaves": tree_leaf_list,
+                    "all_cat_vals": [tree_lc[l] for l in tree_leaf_list],
                     "target": target,
                     "single_agg": single_agg,
                     "metric": metric,
@@ -755,19 +754,21 @@ def ancestral_linkage(
                 })
                 null_results = _run_parallel(_perm_single_target_worker, perm_seeds, n_threads)
 
-            null_cat_scores: dict = defaultdict(list)
+            null_cat: dict = defaultdict(list)
             for perm_result in null_results:
                 for cat in all_cats:
-                    null_cat_scores[cat].append(perm_result[cat])
+                    null_cat[cat].append(perm_result[cat])
 
-            rows = []
+            rows: list = []
+            cat_null_mean: dict = {}
+            cat_null_std: dict = {}
             for cat in all_cats:
-                obs_val = obs_cat_scores[cat]
-                null_vals = np.array([v for v in null_cat_scores[cat] if not np.isnan(v)], dtype=float)
+                obs_val = tree_obs_cat[cat]
+                null_vals = np.array([v for v in null_cat[cat] if not np.isnan(v)], dtype=float)
                 if len(null_vals) > 0:
                     perm_val = float(np.mean(null_vals))
-                    sign = 1.0 if metric == "lca" else -1.0
-                    z = sign * (obs_val - perm_val) / (float(np.std(null_vals)) + 1e-10)
+                    null_std = float(np.std(null_vals))
+                    z = sign * (obs_val - perm_val) / (null_std + 1e-10)
                     if alternative == "two-sided":
                         p = float(np.mean(np.abs(null_vals - perm_val) >= abs(obs_val - perm_val)))
                     elif metric == "lca":
@@ -775,32 +776,76 @@ def ancestral_linkage(
                     else:
                         p = float(np.mean(null_vals <= obs_val))
                 else:
-                    perm_val, z, p = np.nan, np.nan, np.nan
-                rows.append(
-                    {
-                        "source": cat,
-                        "target": target,
-                        "value": obs_val,
-                        "permuted_value": perm_val,
-                        "z_score": z,
-                        "p_value": p,
-                    }
-                )
+                    perm_val, null_std, z, p = np.nan, 0.0, np.nan, np.nan
+                cat_null_mean[cat] = perm_val
+                cat_null_std[cat] = null_std
+                row: dict = {"source": cat, "target": target, "value": obs_val,
+                             "permuted_value": perm_val, "z_score": z, "p_value": p}
+                if extra_row_fields:
+                    row.update(extra_row_fields)
+                rows.append(row)
 
-            test_df = pd.DataFrame(rows)
+            norm_map: dict = {}
+            for leaf, score in tree_sm.items():
+                cat = tree_lc.get(leaf)
+                if cat is not None and not np.isnan(score):
+                    norm_map[leaf] = sign * (score - cat_null_mean.get(cat, np.nan)) / (cat_null_std.get(cat, 0.0) + 1e-10)
+                else:
+                    norm_map[leaf] = np.nan
+            return rows, norm_map
+
+        if by_tree and test == "permutation":
+            # Per-tree: compute scores, run permutation, normalize per cell independently
+            merged_score_map: dict = {}
+            merged_norm_map: dict = {}
+            all_rows: list = []
+
+            for tree_key, t in trees.items():
+                t_nodes = set(t.nodes())
+                single_tree = {tree_key: t}
+                tree_lc: dict = {l: c for l, c in leaf_to_cat.items() if l in t_nodes}
+                tree_cl: dict = defaultdict(list)
+                for l, c in tree_lc.items():
+                    tree_cl[c].append(l)
+
+                tree_all_scores = _compute_scores(
+                    tdata, single_tree, tree_lc, [target], single_agg, metric, depth_key
+                )
+                tree_sm: dict = {l: s.get(target, np.nan) for l, s in tree_all_scores.items()}
+                merged_score_map.update(tree_sm)
+
+                rows, norm_map = _run_single_perm(single_tree, tree_lc, tree_sm, tree_cl,
+                                                  extra_row_fields={"tree": tree_key})
+                all_rows.extend(rows)
+                merged_norm_map.update(norm_map)
+
+            tdata.obs[f"{target}_linkage"] = tdata.obs.index.map(pd.Series(merged_score_map, dtype=float))
+            tdata.obs[f"{target}_norm_linkage"] = tdata.obs.index.map(pd.Series(merged_norm_map, dtype=float))
+            test_df = pd.DataFrame(all_rows)
             tdata.uns[f"{key_added}_test"] = test_df
             if copy:
                 return test_df
 
-        if copy:
-            result_series = pd.Series(
-                {
-                    cat: float(np.nanmean([score_map.get(l, np.nan) for l in cat_to_leaves[cat]]))
-                    for cat in all_cats
-                },
-                name=f"{target}_linkage",
-            )
-            return result_series.to_frame()
+        else:
+            # Global (non-by_tree) path
+            all_scores = _compute_scores(tdata, trees, leaf_to_cat, [target], single_agg, metric, depth_key)
+            score_map = {leaf: scores.get(target, np.nan) for leaf, scores in all_scores.items()}
+            tdata.obs[f"{target}_linkage"] = tdata.obs.index.map(pd.Series(score_map, dtype=float))
+
+            if test == "permutation":
+                rows, norm_map = _run_single_perm(trees, leaf_to_cat, score_map, cat_to_leaves)
+                tdata.obs[f"{target}_norm_linkage"] = tdata.obs.index.map(pd.Series(norm_map, dtype=float))
+                test_df = pd.DataFrame(rows)
+                tdata.uns[f"{key_added}_test"] = test_df
+                if copy:
+                    return test_df
+
+            if copy:
+                result_series = pd.Series(
+                    {cat: float(np.nanmean([score_map.get(l, np.nan) for l in cat_to_leaves[cat]])) for cat in all_cats},
+                    name=f"{target}_linkage",
+                )
+                return result_series.to_frame()
 
     # ── pairwise mode ─────────────────────────────────────────────────────────
     else:

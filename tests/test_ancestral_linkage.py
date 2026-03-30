@@ -669,3 +669,75 @@ def test_symmetrize_invalid_raises():
 
     with pytest.raises(ValueError, match="symmetrize"):
         tl.ancestral_linkage(tdata, groupby="ct", symmetrize="meen")
+
+
+# ── permutation improvement tests ─────────────────────────────────────────────
+
+
+def test_pairwise_permutation_linkage_is_value_minus_permuted(balanced_tdata):
+    """uns linkage matrix stores observed - permuted_mean (not z-scores) when test='permutation'."""
+    tdata = balanced_tdata
+    tl.ancestral_linkage(tdata, groupby="celltype", test="permutation", n_permutations=20, random_state=0)
+    linkage = tdata.uns["celltype_linkage"]
+    stats = tdata.uns["celltype_linkage_stats"]
+    for _, row in stats.iterrows():
+        expected = row["value"] - row["permuted_value"]
+        actual = linkage.loc[row["source"], row["target"]]
+        assert actual == pytest.approx(expected, abs=1e-9)
+
+
+def test_single_target_permutation_adds_norm_linkage(balanced_tdata):
+    """test='permutation' in single-target mode adds _norm_linkage column to obs."""
+    tdata = balanced_tdata
+    tl.ancestral_linkage(
+        tdata, groupby="celltype", target="B", test="permutation",
+        n_permutations=30, random_state=1,
+    )
+    assert "B_linkage" in tdata.obs.columns
+    assert "B_norm_linkage" in tdata.obs.columns
+    # norm_linkage should be finite for cells with valid scores
+    valid = tdata.obs["B_linkage"].notna()
+    assert tdata.obs.loc[valid, "B_norm_linkage"].notna().all()
+
+
+def test_single_target_norm_linkage_sign(balanced_tdata):
+    """Within-target cells should have positive norm_linkage (closer to target = higher z-score)."""
+    tdata = balanced_tdata
+    tl.ancestral_linkage(
+        tdata, groupby="celltype", target="B", test="permutation",
+        n_permutations=100, random_state=42,
+    )
+    # B cells are closest to B (path=1.0); A cells are farther (path=2.0)
+    # For metric='path', sign=-1, so B cells get higher (less negative) norm_linkage
+    b_norm = tdata.obs.loc[["b1", "b2"], "B_norm_linkage"].mean()
+    a_norm = tdata.obs.loc[["a1", "a2"], "B_norm_linkage"].mean()
+    assert b_norm > a_norm
+
+
+def test_single_target_by_tree_permutation(three_cat_tdata):
+    """by_tree=True with single target + permutation runs per-tree and adds norm_linkage."""
+    tdata = three_cat_tdata
+    tl.ancestral_linkage(
+        tdata, groupby="celltype", target="A", test="permutation", by_tree=True,
+        n_permutations=20, random_state=7,
+    )
+    assert "A_linkage" in tdata.obs.columns
+    assert "A_norm_linkage" in tdata.obs.columns
+    test_df = tdata.uns["celltype_test"]
+    # by_tree adds a "tree" column
+    assert "tree" in test_df.columns
+    # Each tree in tdata.obst should appear in the test results
+    for tree_key in tdata.obst:
+        assert tree_key in test_df["tree"].values
+
+
+def test_single_target_by_tree_perm_non_target(balanced_tdata):
+    """by_tree + permutation_mode='non_target' in single-target mode runs and produces norm_linkage."""
+    tdata = balanced_tdata
+    tl.ancestral_linkage(
+        tdata, groupby="celltype", target="B", test="permutation",
+        by_tree=True, permutation_mode="non_target", n_permutations=20, random_state=3,
+    )
+    assert "B_norm_linkage" in tdata.obs.columns
+    test_df = tdata.uns["celltype_test"]
+    assert "tree" in test_df.columns
