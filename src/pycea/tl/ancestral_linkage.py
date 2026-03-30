@@ -477,6 +477,7 @@ def ancestral_linkage(
     metric: _TreeMetric = "path",
     symmetrize: Literal["mean", "max", "min", None] = None,
     test: Literal["permutation", None] = None,
+    normalize: bool = False,
     alternative: Literal["two-sided", None] = None,
     permutation_mode: Literal["all", "non_target"] = "all",
     n_permutations: int = 100,
@@ -499,6 +500,7 @@ def ancestral_linkage(
     metric: _TreeMetric = "path",
     symmetrize: Literal["mean", "max", "min", None] = None,
     test: Literal["permutation", None] = None,
+    normalize: bool = False,
     alternative: Literal["two-sided", None] = None,
     permutation_mode: Literal["all", "non_target"] = "all",
     n_permutations: int = 100,
@@ -519,6 +521,7 @@ def ancestral_linkage(
     metric: _TreeMetric = "path",
     symmetrize: Literal["mean", "max", "min", None] = None,
     test: Literal["permutation", None] = None,
+    normalize: bool = False,
     alternative: Literal["two-sided", None] = None,
     permutation_mode: Literal["all", "non_target"] = "all",
     n_permutations: int = 100,
@@ -577,8 +580,12 @@ def ancestral_linkage(
 
         - ``'permutation'``: randomly shuffle cell-category labels ``n_permutations``
           times and recompute linkage each time to build a null distribution.
-          Z-scores and p-values are added to the stats table.  The stored linkage
-          matrix is replaced by ``observed - permuted_mean`` when this test is run.
+          Z-scores and p-values are added to the stats table.
+    normalize
+        If ``True`` and ``test='permutation'``, subtract the permuted mean from the
+        observed values: pairwise linkage matrix becomes ``observed - permuted_mean``;
+        single-target ``tdata.obs['{target}_linkage']`` becomes
+        ``cell_score - category_permuted_mean``.  Ignored when ``test=None``.
     alternative
         The alternative hypothesis for the permutation test (ignored when
         ``test=None``):
@@ -636,13 +643,13 @@ def ancestral_linkage(
     Sets the following fields:
 
     * ``tdata.obs['{target}_linkage']`` : :class:`Series <pandas.Series>` (dtype ``float``) – single-target mode only.
-        Per-cell distance to the nearest cell of the target category.
-    * ``tdata.obs['{target}_norm_linkage']`` : :class:`Series <pandas.Series>` (dtype ``float``) – single-target mode with ``test='permutation'`` only.
-        Per-cell z-score: ``sign * (score - null_mean) / null_std``, where the null
-        distribution is taken from the cell's source-category permutations.
+        Per-cell distance to the nearest cell of the target category.  When
+        ``normalize=True`` and ``test='permutation'``, replaced by
+        ``cell_score - category_permuted_mean``.
     * ``tdata.uns['{key_added}_linkage']`` : :class:`DataFrame <pandas.DataFrame>` – pairwise mode only.
         Category × category linkage matrix (source rows, target columns).
-        Contains ``observed - permuted_mean`` instead of raw distances when ``test='permutation'``.
+        When ``normalize=True`` and ``test='permutation'``, contains
+        ``observed - permuted_mean`` instead of raw distances.
     * ``tdata.uns['{key_added}_linkage_params']`` : ``dict`` – pairwise mode only.
         Parameters used to compute the linkage matrix.
     * ``tdata.uns['{key_added}_linkage_stats']`` : :class:`DataFrame <pandas.DataFrame>` – pairwise mode only.
@@ -716,7 +723,7 @@ def ancestral_linkage(
         sign = 1.0 if metric == "lca" else -1.0
 
         def _run_single_perm(single_tree, tree_lc, tree_sm, tree_cl, extra_row_fields=None):
-            """Run the permutation test for one tree (or globally) and return (rows, norm_map)."""
+            """Run the permutation test for one tree (or globally) and return (rows, cat_null_mean)."""
             tree_obs_cat: dict = {}
             for cat in all_cats:
                 vals = [tree_sm[l] for l in tree_cl[cat] if l in tree_sm and not np.isnan(tree_sm[l])]
@@ -761,7 +768,6 @@ def ancestral_linkage(
 
             rows: list = []
             cat_null_mean: dict = {}
-            cat_null_std: dict = {}
             for cat in all_cats:
                 obs_val = tree_obs_cat[cat]
                 null_vals = np.array([v for v in null_cat[cat] if not np.isnan(v)], dtype=float)
@@ -778,21 +784,13 @@ def ancestral_linkage(
                 else:
                     perm_val, null_std, z, p = np.nan, 0.0, np.nan, np.nan
                 cat_null_mean[cat] = perm_val
-                cat_null_std[cat] = null_std
                 row: dict = {"source": cat, "target": target, "value": obs_val,
                              "permuted_value": perm_val, "z_score": z, "p_value": p}
                 if extra_row_fields:
                     row.update(extra_row_fields)
                 rows.append(row)
 
-            norm_map: dict = {}
-            for leaf, score in tree_sm.items():
-                cat = tree_lc.get(leaf)
-                if cat is not None and not np.isnan(score):
-                    norm_map[leaf] = sign * (score - cat_null_mean.get(cat, np.nan)) / (cat_null_std.get(cat, 0.0) + 1e-10)
-                else:
-                    norm_map[leaf] = np.nan
-            return rows, norm_map
+            return rows, cat_null_mean
 
         if by_tree and test == "permutation":
             # Per-tree: compute scores, run permutation, normalize per cell independently
@@ -814,13 +812,18 @@ def ancestral_linkage(
                 tree_sm: dict = {l: s.get(target, np.nan) for l, s in tree_all_scores.items()}
                 merged_score_map.update(tree_sm)
 
-                rows, norm_map = _run_single_perm(single_tree, tree_lc, tree_sm, tree_cl,
-                                                  extra_row_fields={"tree": tree_key})
+                rows, cat_null_mean = _run_single_perm(single_tree, tree_lc, tree_sm, tree_cl,
+                                                       extra_row_fields={"tree": tree_key})
                 all_rows.extend(rows)
-                merged_norm_map.update(norm_map)
+                if normalize:
+                    for leaf, score in tree_sm.items():
+                        cat = tree_lc.get(leaf)
+                        perm_val = cat_null_mean.get(cat, np.nan) if cat is not None else np.nan
+                        merged_norm_map[leaf] = (score - perm_val) if not np.isnan(score) else np.nan
 
             tdata.obs[f"{target}_linkage"] = tdata.obs.index.map(pd.Series(merged_score_map, dtype=float))
-            tdata.obs[f"{target}_norm_linkage"] = tdata.obs.index.map(pd.Series(merged_norm_map, dtype=float))
+            if normalize:
+                tdata.obs[f"{target}_linkage"] = tdata.obs.index.map(pd.Series(merged_norm_map, dtype=float))
             test_df = pd.DataFrame(all_rows)
             tdata.uns[f"{key_added}_test"] = test_df
             if copy:
@@ -833,8 +836,14 @@ def ancestral_linkage(
             tdata.obs[f"{target}_linkage"] = tdata.obs.index.map(pd.Series(score_map, dtype=float))
 
             if test == "permutation":
-                rows, norm_map = _run_single_perm(trees, leaf_to_cat, score_map, cat_to_leaves)
-                tdata.obs[f"{target}_norm_linkage"] = tdata.obs.index.map(pd.Series(norm_map, dtype=float))
+                rows, cat_null_mean = _run_single_perm(trees, leaf_to_cat, score_map, cat_to_leaves)
+                if normalize:
+                    norm_map = {
+                        leaf: (score - cat_null_mean.get(leaf_to_cat.get(leaf), np.nan))
+                        if not np.isnan(score) else np.nan
+                        for leaf, score in score_map.items()
+                    }
+                    tdata.obs[f"{target}_linkage"] = tdata.obs.index.map(pd.Series(norm_map, dtype=float))
                 test_df = pd.DataFrame(rows)
                 tdata.uns[f"{key_added}_test"] = test_df
                 if copy:
@@ -931,8 +940,8 @@ def ancestral_linkage(
                         row["p_value"] = global_p_df.loc[src_cat, tgt_cat]
                     stats_rows.append(row)
 
-        # uns[linkage] = observed - permuted_mean (symmetrized) if test ran, else raw linkage (symmetrized)
-        output_df: pd.DataFrame = (linkage_df - global_null_mean_df) if test == "permutation" else linkage_df
+        # uns[linkage] = observed - permuted_mean if normalize, else raw linkage (both symmetrized if requested)
+        output_df: pd.DataFrame = (linkage_df - global_null_mean_df) if (test == "permutation" and normalize) else linkage_df
         if symmetrize is not None:
             output_df = _symmetrize_matrix(output_df, symmetrize)
 
@@ -942,6 +951,7 @@ def ancestral_linkage(
             "metric": metric,
             "symmetrize": symmetrize,
             "test": test,
+            "normalize": normalize,
             "by_tree": by_tree,
             "depth_key": depth_key,
         }
