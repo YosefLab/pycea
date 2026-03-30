@@ -143,6 +143,37 @@ def test_ancestral_states_nodes_fitch(nodes_tdata):
     assert tree.nodes["C"]["str_value"] == "1"  # C value preserved
 
 
+def test_ancestral_states_sum(tdata):
+    # tree1: root -> B(0), C; C -> D(0), E(3)  [index order: B=0, D=0, E=3, F=2]
+    # C sum = 0+3 = 3; root sum = 0+3 = 3
+    states = ancestral_states(tdata, "value", method="sum", copy=True)
+    assert tdata.obst["tree1"].nodes["C"]["value"] == 3
+    assert tdata.obst["tree1"].nodes["root"]["value"] == 3
+    # tree2: root -> F(2); root sum = 2
+    assert tdata.obst["tree2"].nodes["root"]["value"] == 2
+    assert states is not None
+    assert states["value"].loc[("tree1", "root")] == 3
+
+
+def test_ancestral_states_sum_array(tdata):
+    # spatial tree1: B=[0,4], D=[1,1], E=[2,1]
+    # C sum = [1+2, 1+1] = [3, 2]; root sum = [0+3, 4+2] = [3, 6]
+    states = ancestral_states(tdata, "spatial", method="sum", copy=True)
+    assert tdata.obst["tree1"].nodes["C"]["spatial"] == [3, 2]
+    assert tdata.obst["tree1"].nodes["root"]["spatial"] == [3, 6]
+    assert states is not None
+    assert states.loc[("tree1", "root"), "spatial"] == [3, 6]
+
+
+def test_ancestral_states_sum_fixed_nodes(nodes_tdata):
+    # C=5 (fixed), so C is treated as a leaf for reconstruction
+    # root sum = B(0) + C(5) = 5
+    ancestral_states(nodes_tdata, "value", method="sum", copy=False)
+    tree = nodes_tdata.obst["tree"]
+    assert tree.nodes["C"]["value"] == 5  # fixed, unchanged
+    assert tree.nodes["root"]["value"] == pytest.approx(5.0)
+
+
 def test_ancestral_states_invalid(tdata):
     with pytest.raises(ValueError):
         ancestral_states(tdata, "characters", method="sankoff")

@@ -181,6 +181,18 @@ def _reconstruct_sankoff(
             del tree.nodes[node]["_pointers"]
 
 
+def _reconstruct_sum(tree: nx.DiGraph, key: str, index: int | None, fixed_nodes: set | None = None) -> None:
+    """Reconstructs ancestral states by summing leaf values with an iterative bottom-up traversal."""
+    for node in reversed(list(nx.topological_sort(tree))):
+        val = _get_node_value(tree, node, key, index)
+        is_fixed = fixed_nodes is not None and node in fixed_nodes and val is not None
+        if tree.out_degree(node) == 0 or is_fixed:
+            continue
+        children_values = [_get_node_value(tree, child, key, index) for child in tree.successors(node)]
+        valid = [v for v in children_values if v is not None]
+        _set_node_value(tree, node, key, sum(valid) if valid else None, index)
+
+
 def _reconstruct_mean(tree: nx.DiGraph, key: str, index: int | None, fixed_nodes: set | None = None) -> None:
     """Reconstructs ancestral by averaging the values of the children."""
 
@@ -243,6 +255,8 @@ def _ancestral_states(
         _reconstruct_fitch_hartigan(tree, key, missing, index, fixed_nodes)
     elif method == "mean":
         _reconstruct_mean(tree, key, index, fixed_nodes)
+    elif method == "sum":
+        _reconstruct_sum(tree, key, index, fixed_nodes)
     elif method == "mode":
         _reconstruct_list(tree, key, _most_common, index, fixed_nodes)
     elif callable(method):
@@ -308,6 +322,7 @@ def ancestral_states(
         Method to reconstruct ancestral states:
 
         * 'mean' : The mean of leaves in subtree.
+        * 'sum' : The sum of leaves in subtree (iterative bottom-up traversal).
         * 'mode' : The most common value in the subtree.
         * 'fitch_hartigan' : The Fitch-Hartigan algorithm.
         * 'sankoff' : The Sankoff algorithm with specified costs.
@@ -365,7 +380,7 @@ def ancestral_states(
             if method in ["fitch_hartigan", "sankoff"]:
                 raise ValueError(f"Method {method} requires categorical data.")
         if dtypes.intersection({"O", "S"}):
-            if method in ["mean"]:
+            if method in ["mean", "sum"]:
                 raise ValueError(f"Method {method} requires numeric data.")
         # Determine fixed internal nodes for nodes/subset alignment
         leaves_set = set(get_leaves(t))
