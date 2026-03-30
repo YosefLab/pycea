@@ -669,3 +669,106 @@ def test_symmetrize_invalid_raises():
 
     with pytest.raises(ValueError, match="symmetrize"):
         tl.ancestral_linkage(tdata, groupby="ct", symmetrize="meen")
+
+
+# ── normalize parameter tests ──────────────────────────────────────────────────
+
+
+def test_pairwise_normalize_stores_value_minus_permuted(balanced_tdata):
+    """normalize=True stores observed - permuted_mean in the pairwise linkage matrix."""
+    tdata = balanced_tdata
+    tl.ancestral_linkage(
+        tdata, groupby="celltype", test="permutation", normalize=True,
+        n_permutations=20, random_state=0,
+    )
+    linkage = tdata.uns["celltype_linkage"]
+    stats = tdata.uns["celltype_linkage_stats"]
+    for _, row in stats.iterrows():
+        expected = row["value"] - row["permuted_value"]
+        assert linkage.loc[row["source"], row["target"]] == pytest.approx(expected, abs=1e-9)
+
+
+def test_pairwise_no_normalize_stores_raw_linkage(balanced_tdata):
+    """normalize=False (default) stores raw linkage even when test='permutation'."""
+    tdata = balanced_tdata
+    tl.ancestral_linkage(
+        tdata, groupby="celltype", test="permutation", normalize=False,
+        n_permutations=20, random_state=0,
+    )
+    linkage = tdata.uns["celltype_linkage"]
+    stats = tdata.uns["celltype_linkage_stats"]
+    for _, row in stats.iterrows():
+        assert linkage.loc[row["source"], row["target"]] == pytest.approx(row["value"], abs=1e-9)
+
+
+def test_single_target_normalize_overwrites_linkage(balanced_tdata):
+    """normalize=True replaces _linkage in obs with score - category_permuted_mean."""
+    tdata = balanced_tdata
+    # Raw linkage without normalize
+    tl.ancestral_linkage(tdata, groupby="celltype", target="B", test="permutation",
+                         normalize=False, n_permutations=30, random_state=1)
+    raw = tdata.obs["B_linkage"].copy()
+
+    # Normalized linkage
+    tl.ancestral_linkage(tdata, groupby="celltype", target="B", test="permutation",
+                         normalize=True, n_permutations=30, random_state=1)
+    norm = tdata.obs["B_linkage"].copy()
+    test_df = tdata.uns["celltype_test"]
+
+    # Normalized values should differ from raw (permuted_mean is non-trivial)
+    # And for each cell: norm = raw - cat_permuted_mean
+    for cell in ["a1", "a2", "b1", "b2"]:
+        cat = tdata.obs.loc[cell, "celltype"]
+        perm_val = test_df.loc[test_df["source"] == cat, "permuted_value"].iloc[0]
+        assert norm[cell] == pytest.approx(raw[cell] - perm_val, abs=1e-9)
+
+    assert "B_norm_linkage" not in tdata.obs.columns
+
+
+def test_single_target_no_normalize_keeps_raw(balanced_tdata):
+    """normalize=False (default) does not overwrite _linkage in obs."""
+    tdata = balanced_tdata
+    tl.ancestral_linkage(tdata, groupby="celltype", target="B", test="permutation",
+                         normalize=False, n_permutations=20, random_state=2)
+    # With normalize=False, a1 (category A, not in B) has raw min-path score 2.0
+    assert tdata.obs.loc["a1", "B_linkage"] == pytest.approx(2.0)
+
+
+def test_single_target_by_tree_permutation(three_cat_tdata):
+    """by_tree=True with single target + permutation runs per-tree (stats has tree column)."""
+    tdata = three_cat_tdata
+    tl.ancestral_linkage(
+        tdata, groupby="celltype", target="A", test="permutation", by_tree=True,
+        n_permutations=20, random_state=7,
+    )
+    assert "A_linkage" in tdata.obs.columns
+    assert "A_norm_linkage" not in tdata.obs.columns
+    test_df = tdata.uns["celltype_test"]
+    assert "tree" in test_df.columns
+    for tree_key in tdata.obst:
+        assert tree_key in test_df["tree"].values
+
+
+def test_single_target_by_tree_normalize(three_cat_tdata):
+    """by_tree=True + normalize=True normalizes each cell using its own tree's null distribution."""
+    tdata = three_cat_tdata
+    tl.ancestral_linkage(
+        tdata, groupby="celltype", target="A", test="permutation",
+        by_tree=True, normalize=True, n_permutations=20, random_state=7,
+    )
+    assert "A_linkage" in tdata.obs.columns
+    assert "A_norm_linkage" not in tdata.obs.columns
+    # _linkage values should be finite for leaves with valid scores
+    assert tdata.obs["A_linkage"].notna().any()
+
+
+def test_single_target_by_tree_perm_non_target(balanced_tdata):
+    """by_tree + permutation_mode='non_target' in single-target mode produces tree column in stats."""
+    tdata = balanced_tdata
+    tl.ancestral_linkage(
+        tdata, groupby="celltype", target="B", test="permutation",
+        by_tree=True, permutation_mode="non_target", n_permutations=20, random_state=3,
+    )
+    assert "B_norm_linkage" not in tdata.obs.columns
+    test_df = tdata.uns["celltype_test"]
+    assert "tree" in test_df.columns
