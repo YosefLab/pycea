@@ -124,10 +124,11 @@ def palette(
         np.random.seed(random_state)
     data, is_array, is_square = get_keyed_obs_data(tdata, [key], sort=sort)
     if is_array:
-        all_values = pd.Series(data.values.ravel())
-        categories = _get_categories(all_values, sort)
-        categorical_type = pd.CategoricalDtype(categories=categories, ordered=True)
-        data = data.apply(lambda col: col.astype(categorical_type))
+        if isinstance(data.iloc[:, 0].dtype, pd.CategoricalDtype):
+            all_values = pd.Series(data.values.ravel())
+            categories = _get_categories(all_values, sort)
+            categorical_type = pd.CategoricalDtype(categories=categories, ordered=True)
+            data = data.apply(lambda col: col.astype(categorical_type))
         key = data.columns[0]
     if len(data.select_dtypes(exclude="category").columns) > 0:
         raise ValueError(f"Data for key '{key}' cannot be converted to categorical.")
