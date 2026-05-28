@@ -134,7 +134,7 @@ def palette(
         colors = _colors_from_cmap(cmap, data[key].cat.categories.tolist(), False)
     # Create palette from defaults
     else:
-        colors = _get_categorical_colors(tdata, key, data[key], save=False)
+        colors = _get_categorical_colors(tdata, key, data[key], save=False, subset=False)
     if priors is not None:
         colors = _adjust_colors_for_priors(colors, priors)
     if custom is not None:

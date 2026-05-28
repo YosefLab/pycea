@@ -40,7 +40,7 @@ def branches(
     angle_range: tuple[float, float] = (0, 360),
     color: str = "black",
     linewidth: float | str = 0.5,
-    depth_key: str = "depth",
+    depth_key: str | None = None,
     legend: bool | None = None,
     tree: str | Sequence[str] | None = None,
     cmap: str | mcolors.Colormap = "viridis",
@@ -125,6 +125,8 @@ def branches(
     """  # noqa: D205
     # Setup
     tdata._sanitize()
+    if depth_key is None:
+        depth_key = tdata.uns.get("default_depth", "depth")
     tree_keys = tree
     _check_tree_overlap(tdata, tree_keys)
     if ax is None:
@@ -687,7 +689,7 @@ def tree(
     extend_branches: bool = False,
     angled_branches: bool = False,
     angle_range: tuple[float, float] = (0, 360),
-    depth_key: str = "depth",
+    depth_key: str | None = None,
     branch_color: str = "black",
     branch_linewidth: float | str = 0.5,
     node_color: str = "black",
@@ -771,6 +773,8 @@ def tree(
     >>> py.pl.tree(tdata, nodes="all", node_color="elt-2", keys="elt-2", depth_key="time")
     """  # noqa: D205
     # Setup
+    if depth_key is None:
+        depth_key = tdata.uns.get("default_depth", "depth")
     branch_legend = legend.get("branch", None) if isinstance(legend, Mapping) else legend
     node_legend = legend.get("node", None) if isinstance(legend, Mapping) else legend
     annotation_legend = legend.get("annotation", None) if isinstance(legend, Mapping) else legend

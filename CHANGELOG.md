@@ -14,8 +14,10 @@ and this project adheres to [Semantic Versioning][].
 
 ### Changed
 - `pycea.tl.clades` now resets `tdata.uns["clade_colors"]` when number of clades differs from number of colors (#45)
+- `pycea.pl.branches` and `pycea.pl.tree` now default `depth_key` to `None`, resolving to `tdata.uns["default_depth"]` if present, otherwise `"depth"`
 
 ### Fixed
+- `pycea.get.palette` now correctly collects unique categories across all columns of array data, not just the first column
 - Legend placement now works with tight and constrained layouts (#45)
 
 ## [0.2.0] - 2025-11-14
