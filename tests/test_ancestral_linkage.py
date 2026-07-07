@@ -1,5 +1,7 @@
 """Tests for tl.ancestral_linkage."""
 
+from collections import defaultdict
+
 import networkx as nx
 import numpy as np
 import pandas as pd
@@ -221,6 +223,66 @@ def test_pairwise_key_added(balanced_tdata):
     assert "mykey_linkage" in tdata.uns
     assert "mykey_linkage_params" in tdata.uns
     assert "mykey_linkage_stats" in tdata.uns
+
+
+# ── min_size tests ────────────────────────────────────────────────────────────
+
+
+def test_min_size_excludes_small_categories(three_cat_tdata):
+    """Categories with fewer than min_size cells are dropped from the pairwise matrix."""
+    tdata = three_cat_tdata
+    # Give category C a single cell by relabeling c2 → B; C now has 1 cell.
+    tdata.obs["celltype"] = ["A", "A", "B", "B", "C", "B"]
+    tl.ancestral_linkage(tdata, groupby="celltype", min_size=2)
+    mat = tdata.uns["celltype_linkage"]
+    assert "C" not in mat.index
+    assert "C" not in mat.columns
+    assert set(mat.index) == {"A", "B"}
+    # Stats table also excludes C
+    stats = tdata.uns["celltype_linkage_stats"]
+    assert "C" not in stats["source"].values
+    assert "C" not in stats["target"].values
+
+
+def test_min_size_default_keeps_all(three_cat_tdata):
+    """min_size=1 (default) keeps every category."""
+    tdata = three_cat_tdata
+    tl.ancestral_linkage(tdata, groupby="celltype", min_size=1)
+    mat = tdata.uns["celltype_linkage"]
+    assert set(mat.index) == {"A", "B", "C"}
+
+
+def test_min_size_stored_in_params(balanced_tdata):
+    """min_size is recorded in the linkage params dict."""
+    tdata = balanced_tdata
+    tl.ancestral_linkage(tdata, groupby="celltype", min_size=2)
+    assert tdata.uns["celltype_linkage_params"]["min_size"] == 2
+
+
+def test_min_size_invalid_raises(balanced_tdata):
+    """Non-positive or non-integer min_size raises ValueError."""
+    with pytest.raises(ValueError, match="min_size"):
+        tl.ancestral_linkage(balanced_tdata, groupby="celltype", min_size=0)
+
+
+def test_min_size_all_excluded_raises(three_cat_tdata):
+    """If no category meets min_size, a ValueError is raised."""
+    tdata = three_cat_tdata
+    with pytest.raises(ValueError, match="min_size"):
+        tl.ancestral_linkage(tdata, groupby="celltype", min_size=100)
+
+
+def test_min_size_with_permutation(three_cat_tdata):
+    """min_size works together with a permutation test."""
+    tdata = three_cat_tdata
+    tdata.obs["celltype"] = ["A", "A", "B", "B", "C", "B"]
+    tl.ancestral_linkage(
+        tdata, groupby="celltype", min_size=2, test="permutation",
+        n_permutations=20, random_state=0,
+    )
+    stats = tdata.uns["celltype_linkage_stats"]
+    assert set(stats["source"]) == {"A", "B"}
+    assert (stats["p_value"].between(0, 1)).all()
 
 
 # ── symmetrize tests ──────────────────────────────────────────────────────────
@@ -638,24 +700,140 @@ def test_custom_callable_aggregate(balanced_tdata):
 # ── bug-fix regression tests ──────────────────────────────────────────────────
 
 
-def test_lca_max_non_ultrametric_raises():
-    """aggregate='max' + metric='lca' on a non-ultrametric tree must raise ValueError."""
+@pytest.fixture
+def non_ultrametric_tdata():
+    """Tree with leaves at unequal depths (non-ultrametric), two categories A and B.
+
+        root(0.0)
+        ├── n1(0.3)
+        │   ├── a1(0.5)   A
+        │   └── a2(2.0)   A
+        └── n2(0.6)
+            ├── b1(1.0)   B
+            └── b2(1.5)   B
+
+    LCA depths (deepest common ancestor):
+        LCA(a1, a2) = n1 = 0.3   LCA(b1, b2) = n2 = 0.6
+        LCA(a*, b*) = root = 0.0
+    """
     t = nx.DiGraph()
     for node, depth in [
-        ("root", 0.0), ("n1", 0.8), ("n2", 0.1),
-        ("a1", 1.0), ("b1", 0.2), ("b2", 0.9),
+        ("root", 0.0), ("n1", 0.3), ("n2", 0.6),
+        ("a1", 0.5), ("a2", 2.0), ("b1", 1.0), ("b2", 1.5),
     ]:
         t.add_node(node, depth=depth)
     t.add_edges_from([
         ("root", "n1"), ("root", "n2"),
-        ("n1", "a1"), ("n1", "b2"),
-        ("n2", "b1"),
+        ("n1", "a1"), ("n1", "a2"),
+        ("n2", "b1"), ("n2", "b2"),
     ])
-    obs = pd.DataFrame({"ct": ["A", "B", "B"]}, index=["a1", "b1", "b2"])
-    tdata = td.TreeData(obs=obs, obst={"tree": t})
+    obs = pd.DataFrame({"celltype": ["A", "A", "B", "B"]}, index=["a1", "a2", "b1", "b2"])
+    return td.TreeData(obs=obs, obst={"tree": t})
 
-    with pytest.raises(ValueError, match="ultrametric"):
-        tl.ancestral_linkage(tdata, groupby="ct", aggregate="max", metric="lca")
+
+def _bruteforce_lca_max(tdata, groupby="celltype"):
+    """Reference pairwise max-LCA-depth linkage via explicit LCA on the tree."""
+    t = list(tdata.obst.values())[0]
+    depth = dict(t.nodes(data="depth"))
+    cats = defaultdict(list)
+    for leaf, c in tdata.obs[groupby].items():
+        cats[c].append(leaf)
+
+    def lca_depth(i, j):
+        anc_i = nx.ancestors(t, i) | {i}
+        anc_j = nx.ancestors(t, j) | {j}
+        return max(depth[a] for a in anc_i & anc_j)
+
+    out = {}
+    for s in cats:
+        row = {}
+        for tcat in cats:
+            per_cell = [max(depth[a] if a == b else lca_depth(a, b) for b in cats[tcat]) for a in cats[s]]
+            row[tcat] = float(np.mean(per_cell))
+        out[s] = row
+    return pd.DataFrame(out).T
+
+
+def _bruteforce_path_min(tdata, groupby="celltype"):
+    """Reference pairwise min-path-distance linkage via explicit LCA on the tree."""
+    t = list(tdata.obst.values())[0]
+    depth = dict(t.nodes(data="depth"))
+    cats = defaultdict(list)
+    for leaf, c in tdata.obs[groupby].items():
+        cats[c].append(leaf)
+
+    def path(i, j):
+        if i == j:
+            return 0.0
+        anc_i = nx.ancestors(t, i) | {i}
+        anc_j = nx.ancestors(t, j) | {j}
+        lca = max(depth[a] for a in anc_i & anc_j)
+        return depth[i] + depth[j] - 2 * lca
+
+    out = {}
+    for s in cats:
+        row = {}
+        for tcat in cats:
+            per_cell = [min(path(a, b) for b in cats[tcat]) for a in cats[s]]
+            row[tcat] = float(np.mean(per_cell))
+        out[s] = row
+    return pd.DataFrame(out).T
+
+
+def test_path_min_ultrametric_matches_bruteforce(three_cat_tdata):
+    """Ultrametric path+min (walk-up transform) matches explicit min-path brute force."""
+    tdata = three_cat_tdata
+    mat = tl.ancestral_linkage(tdata, groupby="celltype", aggregate="min", metric="path", copy=True)
+    ref = _bruteforce_path_min(tdata)
+    pd.testing.assert_frame_equal(mat, ref.loc[mat.index, mat.columns])
+
+
+def test_path_min_non_ultrametric_matches_bruteforce(non_ultrametric_tdata):
+    """Non-ultrametric path+min (Dijkstra) matches explicit min-path brute force."""
+    tdata = non_ultrametric_tdata
+    mat = tl.ancestral_linkage(tdata, groupby="celltype", aggregate="min", metric="path", copy=True)
+    ref = _bruteforce_path_min(tdata)
+    pd.testing.assert_frame_equal(mat, ref.loc[mat.index, mat.columns])
+
+
+def test_lca_max_non_ultrametric_known_values(non_ultrametric_tdata):
+    """aggregate='max' + metric='lca' on a non-ultrametric tree computes exact LCA depths."""
+    tdata = non_ultrametric_tdata
+    mat = tl.ancestral_linkage(tdata, groupby="celltype", aggregate="max", metric="lca", copy=True)
+    # Within-A: max LCA per cell is its own depth (self) -> mean(0.5, 2.0) = 1.25
+    assert np.isclose(mat.loc["A", "A"], 1.25)
+    # Within-B: mean(1.0, 1.5) = 1.25
+    assert np.isclose(mat.loc["B", "B"], 1.25)
+    # Between: best A<->B LCA is the root, depth 0.0
+    assert np.isclose(mat.loc["A", "B"], 0.0)
+    assert np.isclose(mat.loc["B", "A"], 0.0)
+
+
+def test_lca_max_non_ultrametric_matches_bruteforce(non_ultrametric_tdata):
+    """Non-ultrametric lca+max matches an explicit LCA brute-force computation."""
+    tdata = non_ultrametric_tdata
+    mat = tl.ancestral_linkage(tdata, groupby="celltype", aggregate="max", metric="lca", copy=True)
+    ref = _bruteforce_lca_max(tdata)
+    pd.testing.assert_frame_equal(mat, ref.loc[mat.index, mat.columns])
+
+
+def test_lca_max_ultrametric_matches_bruteforce(three_cat_tdata):
+    """On an ultrametric tree the Dijkstra shortcut matches brute force (and walk-up)."""
+    tdata = three_cat_tdata
+    mat = tl.ancestral_linkage(tdata, groupby="celltype", aggregate="max", metric="lca", copy=True)
+    ref = _bruteforce_lca_max(tdata)
+    pd.testing.assert_frame_equal(mat, ref.loc[mat.index, mat.columns])
+
+
+def test_lca_max_non_ultrametric_with_permutation(non_ultrametric_tdata):
+    """Non-ultrametric lca+max works end-to-end with a permutation test."""
+    tdata = non_ultrametric_tdata
+    tl.ancestral_linkage(
+        tdata, groupby="celltype", aggregate="max", metric="lca",
+        test="permutation", n_permutations=20, random_state=0,
+    )
+    stats = tdata.uns["celltype_linkage_stats"]
+    assert (stats["p_value"].between(0, 1)).all()
 
 
 def test_symmetrize_invalid_raises():

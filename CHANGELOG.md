@@ -11,8 +11,11 @@ and this project adheres to [Semantic Versioning][].
 ## Unreleased
 
 ### Added
+- `pycea.tl.ancestral_linkage` gained a `min_size` parameter; in pairwise mode, categories with fewer than `min_size` cells are excluded from the linkage matrix
+- `pycea.tl.ancestral_linkage` now supports `aggregate='max'` with `metric='lca'` on non-ultrametric trees via an exact subtree walk-up (previously raised a `ValueError`)
 
 ### Changed
+- `pycea.tl.ancestral_linkage` closest-target linkage (`min`/`path` and `max`/`lca`) is now computed with a subtree walk-up rather than per-category Dijkstra, making it substantially faster (single bottom-up pass regardless of category count)
 - `pycea.tl.clades` now resets `tdata.uns["clade_colors"]` when number of clades differs from number of colors (#45)
 - `pycea.pl.branches` and `pycea.pl.tree` now default `depth_key` to `None`, resolving to `tdata.uns["default_depth"]` if present, otherwise `"depth"`
 

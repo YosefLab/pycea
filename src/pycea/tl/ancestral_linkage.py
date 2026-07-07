@@ -29,16 +29,13 @@ def _dijkstra_min_scores(
     target_cats: list,
     cat_to_leaves_in_tree: dict,
     depth_key: str,
-    metric: str,
 ) -> dict:
-    """Per-leaf 'closest target' score for each category via multi-source Dijkstra.
+    """Per-leaf minimum path distance to each target category via multi-source Dijkstra.
 
-    Uses ``|depth[u] - depth[v]|`` as edge weights to compute path distances.
-    For ``metric='lca'``, converts path distance to LCA depth via the identity:
-
-        lca(i, j) = (depth[i] + depth[j] - path_dist(i, j)) / 2
-
-    Self-distances are excluded for within-category scoring.
+    Uses ``|depth[u] - depth[v]|`` as edge weights, which sums along any root-to-leaf
+    path to the correct tree path distance :math:`d_i + d_j - 2\\,d_{LCA(i,j)}` on any
+    tree (ultrametric or not).  Self-distances are zero, so a source leaf in the target
+    category scores 0 (its own closest target is itself).
     """
     G = nx.Graph(tree)
 
@@ -52,17 +49,71 @@ def _dijkstra_min_scores(
         if not target_leaves:
             continue
 
-        if metric == "lca":
-            dists, paths = nx.multi_source_dijkstra(G, target_leaves, weight=_weight)
-            for leaf in source_leaves:
-                if leaf in dists:
-                    nearest = paths[leaf][0]  # path goes source → ... → leaf
-                    scores[leaf][cat] = (G.nodes[leaf][depth_key] + G.nodes[nearest][depth_key] - dists[leaf]) / 2
-        else:
-            dists = nx.multi_source_dijkstra_path_length(G, target_leaves, weight=_weight)
-            for leaf in source_leaves:
-                if leaf in dists:
-                    scores[leaf][cat] = dists[leaf]
+        dists = nx.multi_source_dijkstra_path_length(G, target_leaves, weight=_weight)
+        for leaf in source_leaves:
+            if leaf in dists:
+                scores[leaf][cat] = dists[leaf]
+
+    return scores
+
+
+def _max_lca_depth_scores(
+    tree: nx.DiGraph,
+    source_leaves: list,
+    target_cats: list,
+    cat_to_leaves_in_tree: dict,
+    depth_key: str,
+) -> dict:
+    """Per-leaf maximum LCA depth to each target category (exact for any tree).
+
+    This is the shared "closest relative" primitive for both closest-target aggregates:
+    ``lca`` + ``max`` uses it directly, and on an ultrametric tree ``path`` + ``min`` is
+    the affine transform ``2D - 2 * score`` of it (see :func:`_compute_scores`).
+
+    For a source leaf ``i``, the deepest (most recent) common ancestor it shares with
+    *any* leaf ``j`` of category ``c`` is the deepest ancestor of ``i`` whose subtree
+    still contains a ``c`` leaf.  Its depth is therefore :math:`\\max_j d_{LCA(i, j)}`.
+    Unlike the path-distance Dijkstra shortcut, this holds regardless of whether the
+    tree is ultrametric, so it is exact on non-ultrametric trees too.
+
+    The subtree category membership is built with a single bottom-up pass (reversed
+    topological order visits every child before its parent); each source leaf then
+    walks up its ancestor chain, recording the first — hence deepest — ancestor that
+    covers each still-unresolved category.  A leaf is its own subtree, so a source leaf
+    belonging to ``c`` scores its own depth (the maximal possible LCA depth).
+    """
+    # Map each target leaf to its category (only target categories are relevant).
+    leaf_cat: dict = {}
+    for cat in target_cats:
+        for leaf in cat_to_leaves_in_tree.get(cat, []):
+            leaf_cat[leaf] = cat
+
+    # Bottom-up: set of target categories present in each node's subtree.
+    subtree_cats: dict = {}
+    for node in reversed(list(nx.topological_sort(tree))):
+        cats: set = set()
+        for child in tree.successors(node):
+            cats |= subtree_cats[child]
+        own = leaf_cat.get(node)
+        if own is not None:
+            cats.add(own)
+        subtree_cats[node] = cats
+
+    # Walk up from each source leaf; the first ancestor whose subtree contains a
+    # category (deepest, since we ascend) gives the maximum LCA depth to that category.
+    scores: dict = {leaf: {} for leaf in source_leaves}
+    for leaf in source_leaves:
+        remaining = set(target_cats)
+        node = leaf
+        while node is not None and remaining:
+            present = subtree_cats[node] & remaining
+            if present:
+                depth = tree.nodes[node][depth_key]
+                for cat in present:
+                    scores[leaf][cat] = depth
+                remaining -= present
+            preds = list(tree.predecessors(node))
+            node = preds[0] if preds else None
 
     return scores
 
@@ -124,35 +175,35 @@ def _compute_scores(
         for l in t_leaves:
             cat_to_leaves_by_tree[tree_key][leaf_to_cat[l]].append(l)
 
-    # Choose strategy: Dijkstra handles the natural "closest" direction for each metric.
-    # NOTE: the lca+max Dijkstra shortcut is only correct for ultrametric trees (all
-    # leaves at equal depth).  On non-ultrametric trees, the nearest-path target is not
-    # always the deepest-LCA target, so Dijkstra can underestimate linkage.
-    # TODO: add a fast non-ultrametric path for lca+max.
+    # Choose strategy for the "closest target" aggregates, computed exactly and without an
+    # all-pairs distance matrix:
+    #   - max+lca  : deepest ancestor whose subtree covers each category (subtree walk-up).
+    #     Exact on any tree and faster than Dijkstra (one bottom-up pass regardless of the
+    #     category count), so it is used for all trees.
+    #   - min+path : on an ultrametric tree (leaf depth D) path = 2D - 2*lca, so min path =
+    #     2D - 2*(max lca): reuse the fast walk-up and apply the affine transform.  On a
+    #     non-ultrametric tree leaves differ in depth and this identity fails, so fall back
+    #     to multi-source Dijkstra on |Δdepth| edge weights.
     is_named = isinstance(aggregate, str)
-    use_dijkstra = is_named and ((aggregate == "min" and metric == "path") or (aggregate == "max" and metric == "lca"))
+    use_path_min = is_named and aggregate == "min" and metric == "path"
+    use_lca_max = is_named and aggregate == "max" and metric == "lca"
 
-    if use_dijkstra:
-        if metric == "lca":
-            for tree_key, t in trees.items():
-                t_leaves = source_leaves_by_tree[tree_key]
-                depths = [t.nodes[l][depth_key] for l in t_leaves]
-                if depths and not np.allclose(depths, depths[0]):
-                    raise ValueError(
-                        f"Tree '{tree_key}' is not ultrametric (leaves have unequal depths). "
-                        "aggregate='max' with metric='lca' requires an ultrametric tree. "
-                        "Use aggregate='mean' or metric='path' for non-ultrametric trees."
-                    )
+    if use_path_min or use_lca_max:
         all_scores: dict = {}
         for tree_key, t in trees.items():
-            tree_scores = _dijkstra_min_scores(
-                t,
-                source_leaves_by_tree[tree_key],
-                target_cats,
-                cat_to_leaves_by_tree[tree_key],
-                depth_key,
-                metric,
-            )
+            t_leaves = source_leaves_by_tree[tree_key]
+            ctl = cat_to_leaves_by_tree[tree_key]
+            depths = [t.nodes[l][depth_key] for l in t_leaves]
+            ultrametric = (not depths) or np.allclose(depths, depths[0])
+            if use_lca_max:
+                tree_scores = _max_lca_depth_scores(t, t_leaves, target_cats, ctl, depth_key)
+            elif ultrametric:
+                # min path = 2D - 2*(max lca); reuse the walk-up and transform.
+                D = depths[0]
+                lca_scores = _max_lca_depth_scores(t, t_leaves, target_cats, ctl, depth_key)
+                tree_scores = {leaf: {c: 2 * D - 2 * v for c, v in s.items()} for leaf, s in lca_scores.items()}
+            else:
+                tree_scores = _dijkstra_min_scores(t, t_leaves, target_cats, ctl, depth_key)
             all_scores.update(tree_scores)
         return all_scores
 
@@ -222,8 +273,13 @@ def _perm_pairwise_worker(seed: int) -> np.ndarray:
     perm_cats = rng.permutation(d["all_cat_vals"])
     perm_leaf_to_cat = dict(zip(d["all_leaves"], perm_cats))
     perm_scores = _compute_scores(
-        d["tdata"], d["trees"], perm_leaf_to_cat,
-        d["target_cats"], d["aggregate"], d["metric"], d["depth_key"],
+        d["tdata"],
+        d["trees"],
+        perm_leaf_to_cat,
+        d["target_cats"],
+        d["aggregate"],
+        d["metric"],
+        d["depth_key"],
     )
     perm_cat_to_leaves: dict = defaultdict(list)
     for leaf, cat in perm_leaf_to_cat.items():
@@ -239,8 +295,13 @@ def _perm_single_target_worker(seed: int) -> dict:
     perm = rng.permutation(d["all_cat_vals"])
     perm_leaf_to_cat = dict(zip(d["all_leaves"], perm))
     perm_scores = _compute_scores(
-        d["tdata"], d["trees"], perm_leaf_to_cat,
-        [d["target"]], d["single_agg"], d["metric"], d["depth_key"],
+        d["tdata"],
+        d["trees"],
+        perm_leaf_to_cat,
+        [d["target"]],
+        d["single_agg"],
+        d["metric"],
+        d["depth_key"],
     )
     perm_score_map = {leaf: s.get(d["target"], np.nan) for leaf, s in perm_scores.items()}
     perm_cat_to_leaves: dict = defaultdict(list)
@@ -270,9 +331,15 @@ def _perm_pairwise_non_target_worker(seed: int) -> np.ndarray:
     d = _PERM_NON_TARGET_PAIRWISE_DATA
     idx = d["index"]
     result = np.full((len(idx), len(d["fixed_scores"])), np.nan)
-    for j, (score_map, nt_leaves, nt_cats, tgt_cat, tgt_leaves) in enumerate(zip(
-        d["fixed_scores"], d["nt_leaves"], d["nt_cats"], d["columns"], d["target_leaves"],
-    )):
+    for j, (score_map, nt_leaves, nt_cats, tgt_cat, tgt_leaves) in enumerate(
+        zip(
+            d["fixed_scores"],
+            d["nt_leaves"],
+            d["nt_cats"],
+            d["columns"],
+            d["target_leaves"],
+        )
+    ):
         rng = np.random.default_rng([seed, j])
         perm_cats = rng.permutation(nt_cats)
         perm_cat_to_leaves: dict = defaultdict(list)
@@ -281,8 +348,11 @@ def _perm_pairwise_non_target_worker(seed: int) -> np.ndarray:
         for l, c in zip(nt_leaves, perm_cats):
             perm_cat_to_leaves[c].append(l)
         for i, src_cat in enumerate(idx):
-            vals = [score_map[l] for l in perm_cat_to_leaves.get(src_cat, [])
-                    if l in score_map and not np.isnan(score_map[l])]
+            vals = [
+                score_map[l]
+                for l in perm_cat_to_leaves.get(src_cat, [])
+                if l in score_map and not np.isnan(score_map[l])
+            ]
             result[i, j] = float(np.mean(vals)) if vals else np.nan
     return result
 
@@ -304,8 +374,7 @@ def _perm_single_non_target_worker(seed: int) -> dict:
     score_map = d["fixed_scores"]
     result: dict = {}
     for cat in d["all_cats"]:
-        vals = [score_map[l] for l in perm_cat_to_leaves.get(cat, [])
-                if l in score_map and not np.isnan(score_map[l])]
+        vals = [score_map[l] for l in perm_cat_to_leaves.get(cat, []) if l in score_map and not np.isnan(score_map[l])]
         result[cat] = float(np.mean(vals)) if vals else np.nan
     return result
 
@@ -363,19 +432,21 @@ def _run_permutation_test(
     perm_seeds = np.random.randint(0, 2**31, size=n_permutations)
 
     _PERM_PAIRWISE_DATA.clear()
-    _PERM_PAIRWISE_DATA.update({
-        "tdata": tdata,
-        "trees": trees,
-        "all_leaves": all_leaves,
-        "all_cat_vals": [leaf_to_cat[l] for l in all_leaves],
-        "target_cats": target_cats,
-        "all_cats": all_cats,
-        "aggregate": aggregate,
-        "metric": metric,
-        "depth_key": depth_key,
-        "index": observed_df.index,
-        "columns": observed_df.columns,
-    })
+    _PERM_PAIRWISE_DATA.update(
+        {
+            "tdata": tdata,
+            "trees": trees,
+            "all_leaves": all_leaves,
+            "all_cat_vals": [leaf_to_cat[l] for l in all_leaves],
+            "target_cats": target_cats,
+            "all_cats": all_cats,
+            "aggregate": aggregate,
+            "metric": metric,
+            "depth_key": depth_key,
+            "index": observed_df.index,
+            "columns": observed_df.columns,
+        }
+    )
 
     null_matrices = _run_parallel(_perm_pairwise_worker, perm_seeds, n_threads)
 
@@ -437,14 +508,16 @@ def _run_permutation_test_non_target(
         target_leaves_per_col.append(list(t_leaves))
 
     _PERM_NON_TARGET_PAIRWISE_DATA.clear()
-    _PERM_NON_TARGET_PAIRWISE_DATA.update({
-        "fixed_scores": fixed_scores,
-        "nt_leaves": nt_leaves_per_col,
-        "nt_cats": nt_cats_per_col,
-        "target_leaves": target_leaves_per_col,
-        "index": observed_df.index.tolist(),
-        "columns": cols,
-    })
+    _PERM_NON_TARGET_PAIRWISE_DATA.update(
+        {
+            "fixed_scores": fixed_scores,
+            "nt_leaves": nt_leaves_per_col,
+            "nt_cats": nt_cats_per_col,
+            "target_leaves": target_leaves_per_col,
+            "index": observed_df.index.tolist(),
+            "columns": cols,
+        }
+    )
 
     perm_seeds = np.random.randint(0, 2**31, size=n_permutations)
     null_matrices = _run_parallel(_perm_pairwise_non_target_worker, perm_seeds, n_threads)
@@ -476,6 +549,7 @@ def ancestral_linkage(
     aggregate: Literal["min", "max", "mean"] | Callable | None = None,
     metric: _TreeMetric = "path",
     symmetrize: Literal["mean", "max", "min", None] = None,
+    min_size: int = 1,
     test: Literal["permutation", None] = None,
     normalize: bool = False,
     alternative: Literal["two-sided", None] = None,
@@ -499,6 +573,7 @@ def ancestral_linkage(
     aggregate: Literal["min", "max", "mean"] | Callable | None = None,
     metric: _TreeMetric = "path",
     symmetrize: Literal["mean", "max", "min", None] = None,
+    min_size: int = 1,
     test: Literal["permutation", None] = None,
     normalize: bool = False,
     alternative: Literal["two-sided", None] = None,
@@ -520,6 +595,7 @@ def ancestral_linkage(
     target: str | None = None,
     metric: _TreeMetric = "path",
     symmetrize: Literal["mean", "max", "min", None] = None,
+    min_size: int = 1,
     test: Literal["permutation", None] = None,
     normalize: bool = False,
     alternative: Literal["two-sided", None] = None,
@@ -575,6 +651,11 @@ def ancestral_linkage(
 
         - ``'mean'``: average of :math:`M[i,j]` and :math:`M[j,i]`.
         - ``'max'`` / ``'min'``: element-wise maximum / minimum.
+    min_size
+        Minimum number of cells a category must have to be included (pairwise mode only).
+        Categories with fewer than ``min_size`` cells are dropped before the linkage matrix
+        is computed, so they appear as neither source rows nor target columns and their
+        cells do not contribute to any score.  Defaults to ``1`` (no filtering).
     test
         Optional significance test:
 
@@ -622,7 +703,7 @@ def ancestral_linkage(
         select the nearest relative:
 
         - ``'min'``: distance to the closest target cell (natural for ``'path'``).
-        - ``'max'``: depth of the shallowest LCA across target cells (natural for ``'lca'``).
+        - ``'max'``: depth of the deepest (most recent) LCA across target cells (natural for ``'lca'``).
         - ``'mean'``: mean distance across all target cells.
         - A callable ``f(array) -> float`` for custom aggregation.
     depth_key
@@ -685,6 +766,9 @@ def ancestral_linkage(
     if isinstance(aggregate, str) and aggregate not in ("min", "max", "mean"):
         raise ValueError(f"aggregate must be 'min', 'max', 'mean', or a callable; got '{aggregate}'.")
 
+    if not isinstance(min_size, int) or min_size < 1:
+        raise ValueError(f"min_size must be a positive integer; got {min_size!r}.")
+
     # Warn about misleading aggregate only in pairwise mode (aggregate is ignored for single target)
     if target is None and metric == "lca" and isinstance(aggregate, str) and aggregate == "min":
         warnings.warn(
@@ -713,6 +797,17 @@ def ancestral_linkage(
     for l, c in leaf_to_cat.items():
         cat_to_leaves[c].append(l)
 
+    # ── exclude small categories (pairwise mode only) ──────────────────────────
+    if target is None and min_size > 1:
+        kept_cats = {c for c in all_cats if len(cat_to_leaves[c]) >= min_size}
+        if not kept_cats:
+            raise ValueError(f"No categories in '{groupby}' have at least min_size={min_size} cells.")
+        leaf_to_cat = {l: c for l, c in leaf_to_cat.items() if c in kept_cats}
+        all_cats = sorted(kept_cats)
+        cat_to_leaves = defaultdict(list)
+        for l, c in leaf_to_cat.items():
+            cat_to_leaves[c].append(l)
+
     # ── single-target mode ────────────────────────────────────────────────────
     if target is not None:
         if target not in all_cats:
@@ -737,28 +832,32 @@ def ancestral_linkage(
                 t_set = set(t_lv)
                 nt_lv = [l for l in tree_leaf_list if l not in t_set]
                 _PERM_SINGLE_NON_TARGET_DATA.clear()
-                _PERM_SINGLE_NON_TARGET_DATA.update({
-                    "fixed_scores": tree_sm,
-                    "target_leaves": list(t_lv),
-                    "nt_leaves": nt_lv,
-                    "nt_cats": [tree_lc[l] for l in nt_lv],
-                    "target": target,
-                    "all_cats": all_cats,
-                })
+                _PERM_SINGLE_NON_TARGET_DATA.update(
+                    {
+                        "fixed_scores": tree_sm,
+                        "target_leaves": list(t_lv),
+                        "nt_leaves": nt_lv,
+                        "nt_cats": [tree_lc[l] for l in nt_lv],
+                        "target": target,
+                        "all_cats": all_cats,
+                    }
+                )
                 null_results = _run_parallel(_perm_single_non_target_worker, perm_seeds, n_threads)
             else:
                 _PERM_SINGLE_DATA.clear()
-                _PERM_SINGLE_DATA.update({
-                    "tdata": tdata,
-                    "trees": single_tree,
-                    "all_leaves": tree_leaf_list,
-                    "all_cat_vals": [tree_lc[l] for l in tree_leaf_list],
-                    "target": target,
-                    "single_agg": single_agg,
-                    "metric": metric,
-                    "depth_key": depth_key,
-                    "all_cats": all_cats,
-                })
+                _PERM_SINGLE_DATA.update(
+                    {
+                        "tdata": tdata,
+                        "trees": single_tree,
+                        "all_leaves": tree_leaf_list,
+                        "all_cat_vals": [tree_lc[l] for l in tree_leaf_list],
+                        "target": target,
+                        "single_agg": single_agg,
+                        "metric": metric,
+                        "depth_key": depth_key,
+                        "all_cats": all_cats,
+                    }
+                )
                 null_results = _run_parallel(_perm_single_target_worker, perm_seeds, n_threads)
 
             null_cat: dict = defaultdict(list)
@@ -784,8 +883,14 @@ def ancestral_linkage(
                 else:
                     perm_val, null_std, z, p = np.nan, 0.0, np.nan, np.nan
                 cat_null_mean[cat] = perm_val
-                row: dict = {"source": cat, "target": target, "value": obs_val,
-                             "permuted_value": perm_val, "z_score": z, "p_value": p}
+                row: dict = {
+                    "source": cat,
+                    "target": target,
+                    "value": obs_val,
+                    "permuted_value": perm_val,
+                    "z_score": z,
+                    "p_value": p,
+                }
                 if extra_row_fields:
                     row.update(extra_row_fields)
                 rows.append(row)
@@ -806,14 +911,13 @@ def ancestral_linkage(
                 for l, c in tree_lc.items():
                     tree_cl[c].append(l)
 
-                tree_all_scores = _compute_scores(
-                    tdata, single_tree, tree_lc, [target], single_agg, metric, depth_key
-                )
+                tree_all_scores = _compute_scores(tdata, single_tree, tree_lc, [target], single_agg, metric, depth_key)
                 tree_sm: dict = {l: s.get(target, np.nan) for l, s in tree_all_scores.items()}
                 merged_score_map.update(tree_sm)
 
-                rows, cat_null_mean = _run_single_perm(single_tree, tree_lc, tree_sm, tree_cl,
-                                                       extra_row_fields={"tree": tree_key})
+                rows, cat_null_mean = _run_single_perm(
+                    single_tree, tree_lc, tree_sm, tree_cl, extra_row_fields={"tree": tree_key}
+                )
                 all_rows.extend(rows)
                 if normalize:
                     for leaf, score in tree_sm.items():
@@ -840,7 +944,8 @@ def ancestral_linkage(
                 if normalize:
                     norm_map = {
                         leaf: (score - cat_null_mean.get(leaf_to_cat.get(leaf), np.nan))
-                        if not np.isnan(score) else np.nan
+                        if not np.isnan(score)
+                        else np.nan
                         for leaf, score in score_map.items()
                     }
                     tdata.obs[f"{target}_linkage"] = tdata.obs.index.map(pd.Series(norm_map, dtype=float))
@@ -851,7 +956,10 @@ def ancestral_linkage(
 
             if copy:
                 result_series = pd.Series(
-                    {cat: float(np.nanmean([score_map.get(l, np.nan) for l in cat_to_leaves[cat]])) for cat in all_cats},
+                    {
+                        cat: float(np.nanmean([score_map.get(l, np.nan) for l in cat_to_leaves[cat]]))
+                        for cat in all_cats
+                    },
                     name=f"{target}_linkage",
                 )
                 return result_series.to_frame()
@@ -869,13 +977,32 @@ def ancestral_linkage(
         if test == "permutation":
             if permutation_mode == "non_target":
                 global_z_df, global_p_df, global_null_mean_df = _run_permutation_test_non_target(
-                    tdata, trees, leaf_to_cat, all_cats,
-                    linkage_df, aggregate, metric, depth_key, n_permutations, n_threads, alternative,
+                    tdata,
+                    trees,
+                    leaf_to_cat,
+                    all_cats,
+                    linkage_df,
+                    aggregate,
+                    metric,
+                    depth_key,
+                    n_permutations,
+                    n_threads,
+                    alternative,
                 )
             else:
                 global_z_df, global_p_df, global_null_mean_df = _run_permutation_test(
-                    tdata, trees, leaf_to_cat, all_cats, all_cats,
-                    linkage_df, aggregate, metric, depth_key, n_permutations, n_threads, alternative,
+                    tdata,
+                    trees,
+                    leaf_to_cat,
+                    all_cats,
+                    all_cats,
+                    linkage_df,
+                    aggregate,
+                    metric,
+                    depth_key,
+                    n_permutations,
+                    n_threads,
+                    alternative,
                 )
 
         # Build stats rows (long format, never symmetrized)
@@ -900,13 +1027,32 @@ def ancestral_linkage(
                 if test == "permutation":
                     if permutation_mode == "non_target":
                         tree_z_df, tree_p_df, tree_null_mean_df = _run_permutation_test_non_target(
-                            tdata, single_tree, tree_leaf_to_cat, all_cats,
-                            tree_linkage_df, aggregate, metric, depth_key, n_permutations, n_threads, alternative,
+                            tdata,
+                            single_tree,
+                            tree_leaf_to_cat,
+                            all_cats,
+                            tree_linkage_df,
+                            aggregate,
+                            metric,
+                            depth_key,
+                            n_permutations,
+                            n_threads,
+                            alternative,
                         )
                     else:
                         tree_z_df, tree_p_df, tree_null_mean_df = _run_permutation_test(
-                            tdata, single_tree, tree_leaf_to_cat, all_cats, all_cats,
-                            tree_linkage_df, aggregate, metric, depth_key, n_permutations, n_threads, alternative,
+                            tdata,
+                            single_tree,
+                            tree_leaf_to_cat,
+                            all_cats,
+                            all_cats,
+                            tree_linkage_df,
+                            aggregate,
+                            metric,
+                            depth_key,
+                            n_permutations,
+                            n_threads,
+                            alternative,
                         )
 
                 for src_cat in all_cats:
@@ -941,7 +1087,9 @@ def ancestral_linkage(
                     stats_rows.append(row)
 
         # uns[linkage] = observed - permuted_mean if normalize, else raw linkage (both symmetrized if requested)
-        output_df: pd.DataFrame = (linkage_df - global_null_mean_df) if (test == "permutation" and normalize) else linkage_df
+        output_df: pd.DataFrame = (
+            (linkage_df - global_null_mean_df) if (test == "permutation" and normalize) else linkage_df
+        )
         if symmetrize is not None:
             output_df = _symmetrize_matrix(output_df, symmetrize)
 
@@ -950,6 +1098,7 @@ def ancestral_linkage(
             "aggregate": aggregate,
             "metric": metric,
             "symmetrize": symmetrize,
+            "min_size": min_size,
             "test": test,
             "normalize": normalize,
             "by_tree": by_tree,
