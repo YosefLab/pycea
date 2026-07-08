@@ -50,6 +50,7 @@
     pl.nodes
     pl.annotation
     pl.n_extant
+    pl.ancestral_linkage
 ```
 
 ## Getting elements

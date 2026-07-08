@@ -184,7 +184,14 @@ def get_keyed_obs_data(
             data.append(tdata.obs[key])
             column_keys = True
         elif key in tdata.var_names and (slot is None or slot == "X"):
-            data.append(pd.Series(tdata.obs_vector(key, layer=layer), index=tdata.obs_names))
+            # Index the var column directly rather than via `obs_vector`, which breaks for
+            # TreeData under anndata>=0.13 (string var keys are no longer accepted on X/layers).
+            col = tdata.var_names.get_loc(key)
+            matrix = tdata.X if layer is None else tdata.layers[layer]
+            vec = matrix[:, col]
+            if sp.sparse.issparse(vec):
+                vec = vec.toarray()
+            data.append(pd.Series(np.asarray(vec).ravel(), index=tdata.obs_names))
             column_keys = True
         elif "obsm" in dir(tdata) and key in tdata.obsm.keys() and (slot is None or slot == "obsm"):
             if sp.sparse.issparse(tdata.obsm[key]):

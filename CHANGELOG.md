@@ -11,13 +11,20 @@ and this project adheres to [Semantic Versioning][].
 ## Unreleased
 
 ### Added
+- `pycea.pl.ancestral_linkage` for plotting the pairwise linkage matrix as a clustered heatmap (#58)
+- Added fast `"sum"` method to `pycea.tl.ancestral_states` (#54, #56)
+- Added additional node ploting customization - `outline_width` and option to directly specify color with hex code (#53)
+- `pycea.tl.ancestral_linkage` for computing relatedness of cells in different categories, with options for pairwise or target-category linkage permutation testing, and normalization. (#52, #55, #58)
+- Added `angle_range` parameter for plotting polar trees with `pycea.pl.tree` and `pycea.pl.branches` (#51)
 
 ### Changed
-- `pycea.tl.clades` now resets `tdata.uns["clade_colors"]` when number of clades differs from number of colors (#45)
-- `pycea.pl.branches` and `pycea.pl.tree` now default `depth_key` to `None`, resolving to `tdata.uns["default_depth"]` if present, otherwise `"depth"`
+- Added support for `tdata.alignment != 'leaves'` to relevant functions in `pycea.pl` and `pycea.tl` (#50)
+- Vectorized continuous color computation in `pycea.pl.tree` and `pycea.pl.branches` for improved node plotting performance (#48)
 
 ### Fixed
-- `pycea.get.palette` now correctly collects unique categories across all columns of array data, not just the first column
+- Fixed `IndexError` retrieving `var_names`/layer data under `anndata>=0.13` by indexing the column directly instead of via the deprecated `obs_vector` (#58)
+- `pycea.get.palette` now correctly collects unique categories across all columns of array data, not just the first column (#57)
+- Fixed bug in LCA distance computation when for non-ultrametric tree (#49)
 - Legend placement now works with tight and constrained layouts (#45)
 
 ## [0.2.0] - 2025-11-14
