@@ -13,9 +13,18 @@ and this project adheres to [Semantic Versioning][].
 ### Added
 - `pycea.tl.ancestral_linkage` gained a `min_size` parameter; in pairwise mode, categories with fewer than `min_size` cells are excluded from the linkage matrix
 - `pycea.tl.ancestral_linkage` now supports `aggregate='max'` with `metric='lca'` on non-ultrametric trees via an exact subtree walk-up (previously raised a `ValueError`)
+- `pycea.pl.ancestral_linkage` for plotting the pairwise linkage matrix as a clustered heatmap, with options to symmetrize (`mean`/`max`/`min`) and normalize to `permuted_value` or `z_score`
+- `pycea.pl.ancestral_linkage` gained a `cluster_mode` parameter (`'similarity'`/`'dissimilarity'`/`None`) controlling whether values are negated before clustering; `None` infers it from the recorded `metric` (`'dissimilarity'` for `metric='path'`, `'similarity'` otherwise)
 
 ### Changed
 - `pycea.tl.ancestral_linkage` closest-target linkage (`min`/`path` and `max`/`lca`) is now computed with a subtree walk-up rather than per-category Dijkstra, making it substantially faster (single bottom-up pass regardless of category count)
+- `pycea.tl.ancestral_linkage` now always runs at least one permutation, so `permuted_value` is available and `normalize=True` works even when `test=None`; `z_score`/`p_value` are still only computed with `test='permutation'`
+- `pycea.tl.ancestral_linkage` now warns and lists categories with fewer than 10 cells (whose linkage is noisy), suggesting `min_size` to exclude them
+- `pycea.tl.ancestral_linkage` default `permutation_mode` is now `'non_target'`
+- `pycea.tl.ancestral_linkage` `permutation_mode='non_target'` permutations are vectorized with `numpy.bincount` (identical results, ~3–9× faster), making it faster than `'all'` again
+- `pycea.tl.ancestral_linkage` defaults changed: `metric='lca'` and `normalize=True`
+- `pycea.tl.ancestral_linkage` `symmetrize` now uses `False` to disable symmetrization instead of `None`, and defaults to `'mean'`
+- `pycea.pl.ancestral_linkage` `normalize` and `symmetrize` default to `None`, inheriting the values used by `pycea.tl.ancestral_linkage` (recorded in `tdata.uns`) so the plot matches the stored matrix
 - `pycea.tl.clades` now resets `tdata.uns["clade_colors"]` when number of clades differs from number of colors (#45)
 - `pycea.pl.branches` and `pycea.pl.tree` now default `depth_key` to `None`, resolving to `tdata.uns["default_depth"]` if present, otherwise `"depth"`
 
