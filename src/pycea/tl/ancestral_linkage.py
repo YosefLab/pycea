@@ -957,6 +957,8 @@ def ancestral_linkage(
             tdata.obs[f"{target}_linkage"] = tdata.obs.index.map(pd.Series(merged_score_map, dtype=float))
             if normalize:
                 tdata.obs[f"{target}_linkage"] = tdata.obs.index.map(pd.Series(merged_norm_map, dtype=float))
+            # Return per-category means from whichever map was written to obs.
+            linkage_map = merged_norm_map if normalize else merged_score_map
             if test == "permutation":
                 test_df = pd.DataFrame(all_rows)
                 tdata.uns[f"{key_added}_test"] = test_df
@@ -966,7 +968,7 @@ def ancestral_linkage(
             if copy:
                 result_series = pd.Series(
                     {
-                        cat: float(np.nanmean([merged_score_map.get(l, np.nan) for l in cat_to_leaves[cat]]))
+                        cat: float(np.nanmean([linkage_map.get(l, np.nan) for l in cat_to_leaves[cat]]))
                         for cat in all_cats
                     },
                     name=f"{target}_linkage",
@@ -982,13 +984,15 @@ def ancestral_linkage(
             if run_perm:
                 rows, cat_null_mean = _run_single_perm(trees, leaf_to_cat, score_map, cat_to_leaves)
                 if normalize:
-                    norm_map = {
+                    # Replace raw scores with normalized (score - category permuted mean) so the
+                    # obs column and the copy=True per-category means below are consistent.
+                    score_map = {
                         leaf: (score - cat_null_mean.get(leaf_to_cat.get(leaf), np.nan))
                         if not np.isnan(score)
                         else np.nan
                         for leaf, score in score_map.items()
                     }
-                    tdata.obs[f"{target}_linkage"] = tdata.obs.index.map(pd.Series(norm_map, dtype=float))
+                    tdata.obs[f"{target}_linkage"] = tdata.obs.index.map(pd.Series(score_map, dtype=float))
                 if test == "permutation":
                     test_df = pd.DataFrame(rows)
                     tdata.uns[f"{key_added}_test"] = test_df

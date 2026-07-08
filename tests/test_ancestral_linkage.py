@@ -983,6 +983,34 @@ def test_single_target_normalize_overwrites_linkage(balanced_tdata):
     assert "B_norm_linkage" not in tdata.obs.columns
 
 
+def test_single_target_normalize_copy_matches_obs(balanced_tdata):
+    """copy=True per-category means match the normalized obs column (test=None default path)."""
+    tdata = balanced_tdata
+    result = tl.ancestral_linkage(
+        tdata, groupby="celltype", target="B", metric="path",
+        normalize=True, random_state=1, copy=True,  # test=None -> single-permutation normalization
+    )
+    obs = tdata.obs
+    for cat in ["A", "B"]:
+        cells = obs.index[obs["celltype"] == cat]
+        expected = float(np.nanmean(obs.loc[cells, "B_linkage"]))
+        assert result.loc[cat, "B_linkage"] == pytest.approx(expected, abs=1e-9)
+
+
+def test_single_target_by_tree_normalize_copy_matches_obs(three_cat_tdata):
+    """by_tree copy=True per-category means match the normalized obs column (test=None)."""
+    tdata = three_cat_tdata
+    result = tl.ancestral_linkage(
+        tdata, groupby="celltype", target="A", metric="path",
+        normalize=True, by_tree=True, random_state=1, copy=True,
+    )
+    obs = tdata.obs
+    for cat in ["A", "B", "C"]:
+        cells = obs.index[obs["celltype"] == cat]
+        expected = float(np.nanmean(obs.loc[cells, "A_linkage"]))
+        assert result.loc[cat, "A_linkage"] == pytest.approx(expected, abs=1e-9)
+
+
 def test_single_target_no_normalize_keeps_raw(balanced_tdata):
     """normalize=False does not overwrite _linkage in obs."""
     tdata = balanced_tdata
