@@ -44,6 +44,52 @@ def _remove_node_attributes(tree: nx.DiGraph, key: str) -> None:
             del tree.nodes[node][key]
 
 
+def _fitch_hartigan_downpass(
+    tree: nx.DiGraph,
+    key: str,
+    missing: str | None = None,
+    index: int | None = None,
+    fixed_nodes: set | None = None,
+    set_key: str = "value_set",
+) -> None:
+    """Populate ``tree.nodes[node][set_key]`` with Fitch-Hartigan state sets (down-pass).
+
+    Each node is annotated with the set of states it may take on in an
+    equally-parsimonious solution. Nodes for which all descendants are missing are
+    annotated with the ``missing`` sentinel instead of a set.
+    """
+
+    def _is_fixed(node, value):
+        return fixed_nodes is not None and node in fixed_nodes and value is not None and value != missing
+
+    def downpass(node):
+        value = _get_node_value(tree, node, key, index)
+        # Base case: leaf or fixed observed internal node
+        if tree.out_degree(node) == 0 or _is_fixed(node, value):
+            if value == missing:
+                tree.nodes[node][set_key] = missing
+            else:
+                tree.nodes[node][set_key] = {value}
+        # Recursive case: internal node
+        else:
+            value_sets = []
+            for child in tree.successors(node):
+                downpass(child)
+                value_set = tree.nodes[child][set_key]
+                if value_set != missing:
+                    value_sets.append(value_set)
+            if len(value_sets) > 0:
+                intersection = set.intersection(*value_sets)
+                if intersection:
+                    tree.nodes[node][set_key] = intersection
+                else:
+                    tree.nodes[node][set_key] = set.union(*value_sets)
+            else:
+                tree.nodes[node][set_key] = missing
+
+    downpass(get_root(tree))
+
+
 def _reconstruct_fitch_hartigan(
     tree: nx.DiGraph, key: str, missing: str | None = None, index: int | None = None, fixed_nodes: set | None = None
 ) -> None:
@@ -51,32 +97,6 @@ def _reconstruct_fitch_hartigan(
 
     def _is_fixed(node, value):
         return fixed_nodes is not None and node in fixed_nodes and value is not None and value != missing
-
-    # Recursive function to calculate the downpass
-    def downpass(node):
-        value = _get_node_value(tree, node, key, index)
-        # Base case: leaf or fixed observed internal node
-        if tree.out_degree(node) == 0 or _is_fixed(node, value):
-            if value == missing:
-                tree.nodes[node]["value_set"] = missing
-            else:
-                tree.nodes[node]["value_set"] = {value}
-        # Recursive case: internal node
-        else:
-            value_sets = []
-            for child in tree.successors(node):
-                downpass(child)
-                value_set = tree.nodes[child]["value_set"]
-                if value_set != missing:
-                    value_sets.append(value_set)
-            if len(value_sets) > 0:
-                intersection = set.intersection(*value_sets)
-                if intersection:
-                    tree.nodes[node]["value_set"] = intersection
-                else:
-                    tree.nodes[node]["value_set"] = set.union(*value_sets)
-            else:
-                tree.nodes[node]["value_set"] = missing
 
     # Recursive function to calculate the uppass
     def uppass(node, parent_state=None):
@@ -100,7 +120,7 @@ def _reconstruct_fitch_hartigan(
 
     # Run the algorithm
     root = get_root(tree)
-    downpass(root)
+    _fitch_hartigan_downpass(tree, key, missing, index, fixed_nodes)
     uppass(root)
     # Clean up
     for node in tree.nodes:

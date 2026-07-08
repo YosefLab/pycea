@@ -34,6 +34,8 @@
     tl.fitness
     tl.partition_test
     tl.expansion_test
+    tl.parsimony
+    tl.fitch_count
 ```
 
 ## Plotting

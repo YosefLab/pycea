@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning][].
 ## Unreleased
 
 ### Added
+- `pycea.tl.parsimony` and `pycea.tl.fitch_count` for small-parsimony scoring and the FitchCount transition-count algorithm (migrated from Cassiopeia)
 - `pycea.pl.ancestral_linkage` for plotting the pairwise linkage matrix as a clustered heatmap (#58)
 - Added fast `"sum"` method to `pycea.tl.ancestral_states` (#54, #56)
 - Added additional node ploting customization - `outline_width` and option to directly specify color with hex code (#53)

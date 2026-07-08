@@ -6,6 +6,7 @@ from .distance import compare_distance, distance
 from .fitness import fitness
 from .n_extant import n_extant
 from .neighbor_distance import neighbor_distance
+from .parsimony import fitch_count, parsimony
 from .partition_test import partition_test
 from .sort import sort
 from .topology import expansion_test
