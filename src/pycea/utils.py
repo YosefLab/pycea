@@ -230,11 +230,15 @@ def get_keyed_obs_data(
     data = cast(pd.DataFrame, data)
     if array_keys and len(set(data.dtypes)) > 1:
         raise ValueError("Cannot use arrays with mixed dtypes.")
-    if array_keys and data.iloc[:, 0].dtype.kind in ["b", "O", "S"]:
-        long_data = data.values.ravel()
-        categories = _get_categories(pd.Series(long_data), sort)
-        categorical_type = pd.CategoricalDtype(categories=categories, ordered=True)
-        data = data.apply(lambda col: col.astype(categorical_type))
+    if array_keys:
+        dtype = data.iloc[:, 0].dtype
+        if isinstance(dtype, pd.CategoricalDtype):
+            pass
+        elif dtype.kind in ["b", "O", "S"]:
+            long_data = data.values.ravel()
+            categories = _get_categories(pd.Series(long_data), sort)
+            categorical_type = pd.CategoricalDtype(categories=categories, ordered=True)
+            data = data.apply(lambda col: col.astype(categorical_type))
     return data, array_keys, is_square
 
 

@@ -87,6 +87,11 @@ nb_output_stderr = "remove"
 nb_execution_mode = "off"
 nb_merge_streams = True
 typehints_defaults = "braces"
+# Render @typing.overload'd functions as a single entry (the implementation).
+# Otherwise sphinx-autodoc-typehints emits every overload signature, which both
+# drops the short description from the API summary table and clutters each
+# function's page with the (copy-only) overload stubs.
+typehints_document_overloads = False
 
 source_suffix = {
     ".rst": "restructuredtext",

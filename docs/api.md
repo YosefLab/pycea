@@ -22,6 +22,7 @@
     :toctree: generated
 
     tl.ancestral_states
+    tl.ancestral_linkage
     tl.autocorr
     tl.clades
     tl.compare_distance
@@ -34,6 +35,8 @@
     tl.fitness
     tl.partition_test
     tl.expansion_test
+    tl.parsimony
+    tl.fitch_count
 ```
 
 ## Plotting

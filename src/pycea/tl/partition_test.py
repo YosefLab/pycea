@@ -14,7 +14,7 @@ from sklearn.metrics import DistanceMetric
 from pycea.utils import _check_tree_overlap, _get_descendant_leaves, get_keyed_obs_data, get_trees
 
 from ._aggregators import _Aggregator, _AggregatorFn, _get_aggregator
-from ._metrics import MeanDiffMetric, _Metric, _MetricFn
+from ._metrics import MeanDiffMetric, _CallableMetric, _Metric, _MetricFn
 from ._utils import _set_random_state
 
 
@@ -22,7 +22,7 @@ def _run_permutations(
     data: pd.DataFrame,
     n_permutations: int,
     aggregate_fn: _AggregatorFn,
-    metric_fn: _MetricFn,
+    metric_fn: MeanDiffMetric | _CallableMetric | DistanceMetric,
     n_right: int,
     n_left: int,
 ) -> np.ndarray:
@@ -66,7 +66,12 @@ def _run_permutations(
         left_stat = aggregate_fn(left_df.to_numpy())
         right_stat = aggregate_fn(right_df.to_numpy())
 
-        permutation_vals[i] = np.squeeze(metric_fn.pairwise(left_stat.reshape(1, -1), right_stat.reshape(1, -1)))
+        permutation_vals[i] = np.squeeze(
+            metric_fn.pairwise(
+                np.atleast_2d(left_stat),
+                np.atleast_2d(right_stat),
+            )
+        )
 
     return permutation_vals
 
@@ -249,6 +254,8 @@ def partition_test(
 
     if metric == "mean_difference":
         metric_fn = MeanDiffMetric()
+    elif callable(metric):
+        metric_fn = _CallableMetric(metric)
     else:
         metric_fn = DistanceMetric.get_metric(metric, **(metric_kwds or {}))
 
@@ -321,7 +328,7 @@ def partition_test(
 
                     left_stat = aggregate_fn(left_data.to_numpy())
                     right_stat = aggregate_fn(right_data.to_numpy())
-                    split_stat = metric_fn.pairwise(left_stat.reshape(1, -1), right_stat.reshape(1, -1))
+                    split_stat = metric_fn.pairwise(np.atleast_2d(left_stat), np.atleast_2d(right_stat))
 
                     nx.set_node_attributes(t, {child: {f"{key_added}_value": left_stat}})
 
@@ -355,7 +362,10 @@ def partition_test(
 
                             elif test == "t-test":
                                 _, two_sided_pval = ttest_ind(
-                                    left_data.to_numpy(), right_data.to_numpy(), axis=None, equal_var=equal_var
+                                    left_data.to_numpy(),
+                                    right_data.to_numpy(),
+                                    axis=None,  # type: ignore
+                                    equal_var=equal_var,
                                 )
 
                             nx.set_edge_attributes(t, {(parent, child): {f"{key_added}_pval": two_sided_pval}})

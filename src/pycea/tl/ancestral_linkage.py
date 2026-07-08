@@ -4,7 +4,7 @@ import multiprocessing as mp
 import sys
 import warnings
 from collections import defaultdict
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from typing import Literal, overload
 
 import networkx as nx
@@ -123,7 +123,7 @@ def _max_lca_depth_scores(
 
 def _all_pairs_scores(
     tdata: td.TreeData,
-    trees: dict,
+    trees: dict | Mapping,
     source_leaves_by_tree: dict,
     target_cats: list,
     cat_to_leaves_by_tree: dict,
@@ -135,7 +135,7 @@ def _all_pairs_scores(
     from pycea.tl.tree_distance import tree_distance as _td
 
     tree_keys = list(trees.keys())
-    result = _td(tdata, depth_key=depth_key, metric=metric, tree=tree_keys, copy=True)
+    result = _td(tdata, depth_key=depth_key, metric=metric, tree=tree_keys, copy=True)  # type: ignore
     precomputed = result.toarray() if sp.sparse.issparse(result) else result
 
     scores: dict = {}
@@ -160,7 +160,7 @@ def _all_pairs_scores(
 
 def _compute_scores(
     tdata: td.TreeData,
-    trees: dict,
+    trees: dict | Mapping,
     leaf_to_cat: dict,
     target_cats: list,
     aggregate: str | Callable,
@@ -416,7 +416,7 @@ def _compute_p_values(
 
 def _run_permutation_test(
     tdata: td.TreeData,
-    trees: dict,
+    trees: dict | Mapping,
     leaf_to_cat: dict,
     all_cats: list,
     target_cats: list,
@@ -470,7 +470,7 @@ def _run_permutation_test(
 
 def _run_permutation_test_non_target(
     tdata: td.TreeData,
-    trees: dict,
+    trees: dict | Mapping,
     leaf_to_cat: dict,
     all_cats: list,
     observed_df: pd.DataFrame,
@@ -954,9 +954,9 @@ def ancestral_linkage(
                         perm_val = cat_null_mean.get(cat, np.nan) if cat is not None else np.nan
                         merged_norm_map[leaf] = (score - perm_val) if not np.isnan(score) else np.nan
 
-            tdata.obs[f"{target}_linkage"] = tdata.obs.index.map(pd.Series(merged_score_map, dtype=float))
+            tdata.obs[f"{target}_linkage"] = tdata.obs.index.map(pd.Series(merged_score_map, dtype=float).to_dict())
             if normalize:
-                tdata.obs[f"{target}_linkage"] = tdata.obs.index.map(pd.Series(merged_norm_map, dtype=float))
+                tdata.obs[f"{target}_linkage"] = tdata.obs.index.map(pd.Series(merged_norm_map, dtype=float).to_dict())
             # Return per-category means from whichever map was written to obs.
             linkage_map = merged_norm_map if normalize else merged_score_map
             if test == "permutation":
@@ -977,9 +977,9 @@ def ancestral_linkage(
 
         else:
             # Global (non-by_tree) path
-            all_scores = _compute_scores(tdata, trees, leaf_to_cat, [target], single_agg, metric, depth_key)
+            all_scores = _compute_scores(tdata, trees, leaf_to_cat, [target], single_agg, metric, depth_key)  # type: ignore
             score_map = {leaf: scores.get(target, np.nan) for leaf, scores in all_scores.items()}
-            tdata.obs[f"{target}_linkage"] = tdata.obs.index.map(pd.Series(score_map, dtype=float))
+            tdata.obs[f"{target}_linkage"] = tdata.obs.index.map(pd.Series(score_map, dtype=float).to_dict())
 
             if run_perm:
                 rows, cat_null_mean = _run_single_perm(trees, leaf_to_cat, score_map, cat_to_leaves)
@@ -992,7 +992,7 @@ def ancestral_linkage(
                         else np.nan
                         for leaf, score in score_map.items()
                     }
-                    tdata.obs[f"{target}_linkage"] = tdata.obs.index.map(pd.Series(score_map, dtype=float))
+                    tdata.obs[f"{target}_linkage"] = tdata.obs.index.map(pd.Series(score_map, dtype=float).to_dict())
                 if test == "permutation":
                     test_df = pd.DataFrame(rows)
                     tdata.uns[f"{key_added}_test"] = test_df

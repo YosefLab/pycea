@@ -18,6 +18,12 @@ import pycea.tl as tl
 
 plot_path = Path(__file__).parent / "plots"
 
+# Expected warnings from intentionally small test fixtures / parallel workers.
+pytestmark = [
+    pytest.mark.filterwarnings("ignore:Categories with fewer than 10 cells"),
+    pytest.mark.filterwarnings("ignore:This process .* is multi-threaded"),
+]
+
 
 @pytest.fixture
 def tdata():

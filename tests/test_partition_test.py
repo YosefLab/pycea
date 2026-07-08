@@ -264,5 +264,24 @@ def test_nonbinary_negative_control_middle_vs_rest_p_near_one():
     assert pytest.approx(pval, rel=0, abs=1e-12) == 1.0
 
 
+def test_callable_metric_matches_builtin():
+    """A custom callable metric runs (has a working .pairwise) and matches mean_difference."""
+    G = _three_way_root_tree(k_per_child=100)
+    obs = _obs_for_three_way(G, left_val=1.0, middle_val=1.0, right_val=0.0)
+    tdata = td.TreeData(obs=obs, obst={"tri": G})
+
+    def mean_diff(a, b):
+        return np.mean(a - b)
+
+    builtin = partition_test(tdata, keys="x", aggregate="mean", metric="mean_difference",
+                             test="permutation", n_permutations=50, tree="tri",
+                             random_state=0, copy=True)
+    custom = partition_test(tdata, keys="x", aggregate="mean", metric=mean_diff,
+                            test="permutation", n_permutations=50, tree="tri",
+                            random_state=0, copy=True)
+    assert custom is not None
+    pd.testing.assert_frame_equal(builtin, custom)
+
+
 if __name__ == "__main__":
     pytest.main(["-v", __file__])
