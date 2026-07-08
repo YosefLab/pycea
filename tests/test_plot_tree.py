@@ -9,6 +9,9 @@ import pycea
 
 plot_path = Path(__file__).parent / "plots"
 
+# Hex-color tests plot without labels, which matplotlib warns about; expected here.
+pytestmark = pytest.mark.filterwarnings("ignore:No artists with labels found to put in legend")
+
 
 @pytest.fixture
 def tdata() -> td.TreeData:
