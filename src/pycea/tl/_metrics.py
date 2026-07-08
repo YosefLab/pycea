@@ -40,6 +40,19 @@ class MeanDiffMetric:
     def pairwise(self, X, Y):
         return pairwise_distances(X, Y, metric=self.__call__)
 
+
+class _CallableMetric:
+    """Adapts a plain ``metric(a, b) -> float`` callable to the ``.pairwise`` API."""
+
+    def __init__(self, func: _MetricFn):
+        self.func = func
+
+    def __call__(self, a, b):
+        return self.func(a, b)
+
+    def pairwise(self, X, Y):
+        return pairwise_distances(X, Y, metric=self.func)
+
 def _lca_distance(tree, depth_key, node1, node2, lca):
     """Compute the lca distance between two nodes in a tree."""
     if node1 == node2:

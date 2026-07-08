@@ -14,7 +14,7 @@ from sklearn.metrics import DistanceMetric
 from pycea.utils import _check_tree_overlap, _get_descendant_leaves, get_keyed_obs_data, get_trees
 
 from ._aggregators import _Aggregator, _AggregatorFn, _get_aggregator
-from ._metrics import MeanDiffMetric, _Metric, _MetricFn
+from ._metrics import MeanDiffMetric, _CallableMetric, _Metric, _MetricFn
 from ._utils import _set_random_state
 
 
@@ -22,7 +22,7 @@ def _run_permutations(
     data: pd.DataFrame,
     n_permutations: int,
     aggregate_fn: _AggregatorFn,
-    metric_fn: MeanDiffMetric | _MetricFn | DistanceMetric,
+    metric_fn: MeanDiffMetric | _CallableMetric | DistanceMetric,
     n_right: int,
     n_left: int,
 ) -> np.ndarray:
@@ -255,7 +255,7 @@ def partition_test(
     if metric == "mean_difference":
         metric_fn = MeanDiffMetric()
     elif callable(metric):
-        metric_fn = metric
+        metric_fn = _CallableMetric(metric)
     else:
         metric_fn = DistanceMetric.get_metric(metric, **(metric_kwds or {}))
 

@@ -97,5 +97,15 @@ def test_fitch_count_root_requires_single_tree(tdata):
         fitch_count(tdata, "clone", root="B")
 
 
+def test_fitch_count_nan_treated_as_wildcard(tdata):
+    """A pandas NaN leaf (default missing_state) is treated as a wildcard, not a state."""
+    import numpy as np
+
+    tdata.obs["clone"] = ["x", "x", np.nan, "x", "y"]  # leaf D is missing
+    M = fitch_count(tdata, "clone", tree="tree1", copy=True)
+    assert set(M.index) == {"x", "y"}  # NaN is not a state
+    assert np.isfinite(M.values).all()
+
+
 if __name__ == "__main__":
     pytest.main(["-v", __file__])

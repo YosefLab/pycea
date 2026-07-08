@@ -228,8 +228,13 @@ def fitch_count(
         if root is not None:
             g = nx.DiGraph(g.subgraph(nx.descendants(g, root) | {root}).copy())
         actual_root = root if root is not None else get_root(g)
-        # Set leaf states then compute Fitch-Hartigan state sets
-        leaf_states = {node: values[node] for node in g.nodes if g.out_degree(node) == 0 and node in values.index}
+        # Set leaf states then compute Fitch-Hartigan state sets. Pandas NaNs are
+        # coerced to the missing sentinel so missing leaves are treated as wildcards.
+        leaf_states = {}
+        for node in g.nodes:
+            if g.out_degree(node) == 0 and node in values.index:
+                val = values[node]
+                leaf_states[node] = missing_state if pd.isna(val) else val
         nx.set_node_attributes(g, leaf_states, key)
         _fitch_hartigan_downpass(g, key, missing_state, set_key="_fitch_set")
         # Treat missing (wildcard) sets as the full state space
