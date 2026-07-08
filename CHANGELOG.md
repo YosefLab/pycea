@@ -22,7 +22,8 @@ and this project adheres to [Semantic Versioning][].
 - Vectorized continuous color computation in `pycea.pl.tree` and `pycea.pl.branches` for improved node plotting performance (#48)
 
 ### Fixed
-- `pycea.get.palette` now correctly collects unique categories across all columns of array data, not just the first column
+- Fixed `IndexError` retrieving `var_names`/layer data under `anndata>=0.13` by indexing the column directly instead of via the deprecated `obs_vector` (#58)
+- `pycea.get.palette` now correctly collects unique categories across all columns of array data, not just the first column (#57)
 - Fixed bug in LCA distance computation when for non-ultrametric tree (#49)
 - Legend placement now works with tight and constrained layouts (#45)
 
