@@ -142,8 +142,9 @@ def ancestral_linkage(
             groupby = candidates[0]
         stats = tdata.uns.get(f"{groupby}{_STATS_SUFFIX}")
         if stats is None:
+            key_added = groupby if groupby is not None else "<groupby>"
             raise KeyError(
-                f"{groupby + _STATS_SUFFIX!r} not found in tdata.uns. "
+                f"{key_added + _STATS_SUFFIX!r} not found in tdata.uns. "
                 f"Run pycea.tl.ancestral_linkage(..., key_added={groupby!r}) first."
             )
         stats = stats.copy()
@@ -256,6 +257,9 @@ def ancestral_linkage(
     ax.set_ylabel("")
 
     if cbar:
-        ax.get_figure().colorbar(mesh, ax=ax)
+        fig = ax.get_figure()
+        if fig is None:
+            raise RuntimeError("no figure associated with ax; cannot add colorbar")
+        fig.colorbar(mesh, ax=ax)
 
     return ax
