@@ -241,18 +241,27 @@ def _scores_to_linkage_matrix(
     return pd.DataFrame(matrix, dtype=float).T  # index=src, columns=tgt
 
 
+def _symmetrize_array(arr: np.ndarray, mode: str) -> np.ndarray:
+    """Symmetrize an array along its last two axes.
+
+    Works for a single square matrix ``(k, k)`` and for a stack of them
+    ``(n_permutations, k, k)`` (each permutation symmetrized independently), so the same
+    combining rule can be applied to the observed matrix and to every null draw.
+    """
+    arr = arr.astype(float)
+    arr_T = np.swapaxes(arr, -1, -2)
+    if mode == "mean":
+        return (arr + arr_T) / 2
+    elif mode == "max":
+        return np.maximum(arr, arr_T)
+    elif mode == "min":
+        return np.minimum(arr, arr_T)
+    raise ValueError(f"symmetrize must be 'mean', 'max', 'min', or None; got '{mode}'.")
+
+
 def _symmetrize_matrix(df: pd.DataFrame, mode: str) -> pd.DataFrame:
     """Symmetrize a square DataFrame in-place."""
-    arr = df.values.astype(float)
-    arr_T = arr.T
-    if mode == "mean":
-        sym = (arr + arr_T) / 2
-    elif mode == "max":
-        sym = np.maximum(arr, arr_T)
-    elif mode == "min":
-        sym = np.minimum(arr, arr_T)
-    else:
-        raise ValueError(f"symmetrize must be 'mean', 'max', 'min', or None; got '{mode}'.")
+    sym = _symmetrize_array(df.values, mode)
     return pd.DataFrame(sym, index=df.index, columns=df.columns)
 
 
@@ -427,8 +436,13 @@ def _run_permutation_test(
     n_permutations: int,
     n_threads: int | None,
     alternative: str,
-) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    """Permutation test: shuffle leaf labels, recompute linkage, return (z_score_df, p_value_df, null_mean_df)."""
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, np.ndarray]:
+    """Permutation test: shuffle leaf labels, recompute linkage.
+
+    Returns ``(z_score_df, p_value_df, null_mean_df, null_array)`` where ``null_array`` has
+    shape ``(n_permutations, k, k)`` aligned to ``observed_df`` — the raw null draws, kept
+    so the caller can derive statistics of transformed quantities (e.g. symmetrized values).
+    """
     all_leaves = list(leaf_to_cat.keys())
     perm_seeds = np.random.randint(0, 2**31, size=n_permutations)
 
@@ -465,7 +479,7 @@ def _run_permutation_test(
     z_score_df = pd.DataFrame(z_scores, index=observed_df.index, columns=observed_df.columns)
     p_value_df = pd.DataFrame(p_values, index=observed_df.index, columns=observed_df.columns)
     null_mean_df = pd.DataFrame(null_mean, index=observed_df.index, columns=observed_df.columns)
-    return z_score_df, p_value_df, null_mean_df
+    return z_score_df, p_value_df, null_mean_df, null_array
 
 
 def _run_permutation_test_non_target(
@@ -480,7 +494,7 @@ def _run_permutation_test_non_target(
     n_permutations: int,
     n_threads: int | None,
     alternative: str,
-) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, np.ndarray]:
     """Non-target permutation test: single batch of ``n_permutations`` workers.
 
     Scores to each fixed target set are precomputed once (same total Dijkstra work
@@ -545,7 +559,57 @@ def _run_permutation_test_non_target(
         pd.DataFrame(z_scores, index=observed_df.index, columns=observed_df.columns),
         pd.DataFrame(p_values, index=observed_df.index, columns=observed_df.columns),
         pd.DataFrame(null_mean, index=observed_df.index, columns=observed_df.columns),
+        null_array,
     )
+
+
+def _symmetrized_stats_rows(
+    linkage_df: pd.DataFrame,
+    null_array: np.ndarray,
+    all_cats: list,
+    cat_to_leaves: dict,
+    symmetrize: str,
+    metric: str,
+    alternative: str,
+    extra_fields: dict | None = None,
+) -> list:
+    """Build long-form stats for the *symmetrized* linkage, one row per unordered pair.
+
+    Because linkage is directional, symmetrization is applied as a transform of the
+    statistic: the observed value and every null draw are combined across the two
+    directions with the same rule (``mean``/``max``/``min``) before the null distribution
+    is summarized.  The p-value therefore tests the symmetrized value directly rather than
+    either direction alone.  Rows cover the upper triangle including the diagonal, so each
+    unordered ``{source, target}`` pair appears exactly once.
+    """
+    obs_values = linkage_df.values.astype(float)
+    sym_null = _symmetrize_array(null_array, symmetrize)  # (n_permutations, k, k)
+    sym_obs = _symmetrize_array(obs_values, symmetrize)  # (k, k)
+    sym_null_mean = np.nanmean(sym_null, axis=0)
+    sym_null_std = np.nanstd(sym_null, axis=0)
+
+    sign = 1.0 if metric == "lca" else -1.0
+    sym_z = sign * (sym_obs - sym_null_mean) / (sym_null_std + 1e-10)
+    sym_p = _compute_p_values(sym_null, sym_obs, sym_null_mean, metric, alternative)
+
+    rows: list = []
+    k = len(all_cats)
+    for i in range(k):
+        for j in range(i, k):
+            row: dict = {
+                "source": all_cats[i],
+                "target": all_cats[j],
+                "value": float(sym_obs[i, j]),
+                "source_n": len(cat_to_leaves.get(all_cats[i], [])),
+                "target_n": len(cat_to_leaves.get(all_cats[j], [])),
+                "permuted_value": float(sym_null_mean[i, j]),
+                "z_score": float(sym_z[i, j]),
+                "p_value": float(sym_p[i, j]),
+            }
+            if extra_fields:
+                row.update(extra_fields)
+            rows.append(row)
+    return rows
 
 
 # ── public API ────────────────────────────────────────────────────────────────
@@ -690,7 +754,7 @@ def ancestral_linkage(
         - ``'permutation'``: randomly shuffle cell-category labels ``n_permutations``
           times and recompute linkage each time to build a null distribution.
           Z-scores and p-values are added to the stats table.
-    non
+    alternative
         The alternative hypothesis for the permutation test (ignored when
         ``test=None``):
 
@@ -751,6 +815,12 @@ def ancestral_linkage(
         Long-form table with one row per (source, target) pair containing ``value``,
         ``source_n``, ``target_n``, and ``permuted_value`` (always, from at least one
         permutation), plus ``z_score`` and ``p_value`` when ``test='permutation'``.
+    * ``tdata.uns['{key_added}_symmetrized_linkage_stats']`` : :class:`DataFrame <pandas.DataFrame>`
+        – pairwise mode, only when ``symmetrize`` is not ``False`` and ``test='permutation'``.
+        Long-form table with one row per unordered {source, target} pair (upper triangle,
+        including the diagonal) containing the symmetrized ``value``, ``source_n``,
+        ``target_n``, ``permuted_value``, ``z_score``, and ``p_value``.  The p-value tests
+        the symmetrized linkage value against a null built by symmetrizing each permutation.
 
     Examples
     --------
@@ -1022,7 +1092,7 @@ def ancestral_linkage(
         global_z_df: pd.DataFrame | None = None
         global_p_df: pd.DataFrame | None = None
         if permutation_mode == "non_target":
-            _z_df, _p_df, global_null_mean_df = _run_permutation_test_non_target(
+            _z_df, _p_df, global_null_mean_df, global_null_array = _run_permutation_test_non_target(
                 tdata,
                 trees,
                 leaf_to_cat,
@@ -1036,7 +1106,7 @@ def ancestral_linkage(
                 alternative,
             )
         else:
-            _z_df, _p_df, global_null_mean_df = _run_permutation_test(
+            _z_df, _p_df, global_null_mean_df, global_null_array = _run_permutation_test(
                 tdata,
                 trees,
                 leaf_to_cat,
@@ -1052,6 +1122,13 @@ def ancestral_linkage(
             )
         if test == "permutation":
             global_z_df, global_p_df = _z_df, _p_df
+
+        # Symmetrized stats: one row per unordered pair, testing the symmetrized value.
+        sym_stats_rows: list = []
+        if symmetrize and test == "permutation" and not by_tree:
+            sym_stats_rows = _symmetrized_stats_rows(
+                linkage_df, global_null_array, all_cats, cat_to_leaves, symmetrize, metric, alternative
+            )
 
         # Build stats rows (long format, never symmetrized)
         stats_rows: list = []
@@ -1072,7 +1149,7 @@ def ancestral_linkage(
                 tree_z_df: pd.DataFrame | None = None
                 tree_p_df: pd.DataFrame | None = None
                 if permutation_mode == "non_target":
-                    _tz_df, _tp_df, tree_null_mean_df = _run_permutation_test_non_target(
+                    _tz_df, _tp_df, tree_null_mean_df, tree_null_array = _run_permutation_test_non_target(
                         tdata,
                         single_tree,
                         tree_leaf_to_cat,
@@ -1086,7 +1163,7 @@ def ancestral_linkage(
                         alternative,
                     )
                 else:
-                    _tz_df, _tp_df, tree_null_mean_df = _run_permutation_test(
+                    _tz_df, _tp_df, tree_null_mean_df, tree_null_array = _run_permutation_test(
                         tdata,
                         single_tree,
                         tree_leaf_to_cat,
@@ -1102,6 +1179,19 @@ def ancestral_linkage(
                     )
                 if test == "permutation":
                     tree_z_df, tree_p_df = _tz_df, _tp_df
+                    if symmetrize:
+                        sym_stats_rows.extend(
+                            _symmetrized_stats_rows(
+                                tree_linkage_df,
+                                tree_null_array,
+                                all_cats,
+                                tree_cat_to_leaves,
+                                symmetrize,
+                                metric,
+                                alternative,
+                                extra_fields={"tree": tree_key},
+                            )
+                        )
 
                 for src_cat in all_cats:
                     for tgt_cat in all_cats:
@@ -1157,6 +1247,12 @@ def ancestral_linkage(
         tdata.uns[f"{key_added}_linkage"] = output_df
         tdata.uns[f"{key_added}_linkage_params"] = params
         tdata.uns[f"{key_added}_linkage_stats"] = stats_df
+        sym_key = f"{key_added}_symmetrized_linkage_stats"
+        if sym_stats_rows:
+            tdata.uns[sym_key] = pd.DataFrame(sym_stats_rows)
+        else:
+            # Drop any stale table from a previous run (e.g. when symmetrize was truthy then).
+            tdata.uns.pop(sym_key, None)
 
         if copy:
             return stats_df if test is not None else output_df

@@ -15,6 +15,7 @@ from matplotlib.colors import Normalize, TwoSlopeNorm
 from pycea.tl.ancestral_linkage import _symmetrize_matrix
 
 _STATS_SUFFIX = "_linkage_stats"
+_SYM_STATS_SUFFIX = "_symmetrized_linkage_stats"
 _PARAMS_SUFFIX = "_linkage_params"
 
 
@@ -134,7 +135,11 @@ def ancestral_linkage(
         stats = data.copy()
     else:
         if groupby is None:
-            candidates = [k[: -len(_STATS_SUFFIX)] for k in tdata.uns if k.endswith(_STATS_SUFFIX)]
+            candidates = [
+                k[: -len(_STATS_SUFFIX)]
+                for k in tdata.uns
+                if k.endswith(_STATS_SUFFIX) and not k.endswith(_SYM_STATS_SUFFIX)
+            ]
             if not candidates:
                 raise KeyError(f"No {'*' + _STATS_SUFFIX!r} found in tdata.uns. Run pycea.tl.ancestral_linkage first.")
             if len(candidates) > 1:
