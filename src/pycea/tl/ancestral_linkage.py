@@ -902,6 +902,11 @@ def ancestral_linkage(
             stacklevel=2,
         )
 
+    # The symmetrized stats table is a pairwise-only output. Drop any stale copy from an
+    # earlier pairwise run so a later single-target run under the same key_added does not
+    # leave downstream code consuming p-values from a matrix that is no longer current.
+    tdata.uns.pop(f"{key_added}_symmetrized_linkage_stats", None)
+
     # ── single-target mode ────────────────────────────────────────────────────
     if target is not None:
         if target not in all_cats:
@@ -1247,12 +1252,9 @@ def ancestral_linkage(
         tdata.uns[f"{key_added}_linkage"] = output_df
         tdata.uns[f"{key_added}_linkage_params"] = params
         tdata.uns[f"{key_added}_linkage_stats"] = stats_df
-        sym_key = f"{key_added}_symmetrized_linkage_stats"
+        # Any stale symmetrized table was already dropped before the mode branch above.
         if sym_stats_rows:
-            tdata.uns[sym_key] = pd.DataFrame(sym_stats_rows)
-        else:
-            # Drop any stale table from a previous run (e.g. when symmetrize was truthy then).
-            tdata.uns.pop(sym_key, None)
+            tdata.uns[f"{key_added}_symmetrized_linkage_stats"] = pd.DataFrame(sym_stats_rows)
 
         if copy:
             return stats_df if test is not None else output_df
