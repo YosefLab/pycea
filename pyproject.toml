@@ -58,6 +58,7 @@ doc = [
   "ipython",
   "myst-nb>=1.1",
   "pandas",
+  "scverse-misc[sphinx]>=0.1.2", # provides scverse_misc.sphinx_ext (0.1.2+ needed for pydocstring-rs 0.4 API)
   "sphinx>=8.1",
   "sphinx-autodoc-typehints",
   "sphinx-book-theme>=1",
