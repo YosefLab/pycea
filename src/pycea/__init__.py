@@ -1,7 +1,7 @@
 from importlib.metadata import version
 
-from . import pl, pp, tl
+from . import datasets, get, pl, pp, tl, utils
 
-__all__ = ["pl", "pp", "tl"]
+__all__ = ["pl", "pp", "tl", "utils", "datasets", "get"]
 
-__version__ = version("pycea")
+__version__ = version("pycea-lineage")

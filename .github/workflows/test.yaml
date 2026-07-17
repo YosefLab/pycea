@@ -12,9 +12,6 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-permissions:
-  contents: read
-
 jobs:
   # Get the test environment from hatch as defined in pyproject.toml.
   # This ensures that the pyproject.toml is the single point of truth for test definitions and the same tests are
@@ -26,13 +23,13 @@ jobs:
     outputs:
       envs: ${{ steps.get-envs.outputs.envs }}
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@v5
         with:
           filter: blob:none
           fetch-depth: 0
           persist-credentials: false
       - name: Install uv
-        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+        uses: astral-sh/setup-uv@v7
       - name: Get test environments
         id: get-envs
         run: |
@@ -42,7 +39,8 @@ jobs:
                 | {
                     name: .key,
                     label: (if (.key | contains("pre")) then .key + " (PRE-RELEASE DEPENDENCIES)" else .key end),
-                    python: .value.python
+                    python: .value.python,
+                    allow_failure: (.key | contains("pre"))
                   }
               )')
           echo "envs=${ENVS_JSON}" | tee $GITHUB_OUTPUT
@@ -52,7 +50,6 @@ jobs:
     needs: get-environments
     permissions:
        id-token: write  # for codecov OIDC
-       contents: read
 
     strategy:
       fail-fast: false
@@ -62,16 +59,17 @@ jobs:
 
     name: ${{ matrix.env.label }}
     runs-on: ${{ matrix.os }}
-    continue-on-error: ${{ contains(matrix.env.name, 'pre') }}  # make "all-green" pass even if pre-release job fails
+
+    continue-on-error: ${{ matrix.env.allow_failure }}
 
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@v5
         with:
           filter: blob:none
           fetch-depth: 0
           persist-credentials: false
       - name: Install uv
-        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+        uses: astral-sh/setup-uv@v7
         with:
           python-version: ${{ matrix.env.python }}
       - name: create hatch environment
@@ -90,8 +88,12 @@ jobs:
           test -f .coverage || uvx hatch run ${{ matrix.env.name }}:cov-combine
           uvx hatch run ${{ matrix.env.name }}:cov-report   # report visibly
           uvx hatch run ${{ matrix.env.name }}:coverage xml # create report for upload
+          # Quick sanity check
+          grep -m1 'filename=' -n coverage.xml || { echo "coverage.xml missing filenames"; exit 1; }
       - name: Upload coverage
-        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV }}
+        uses: codecov/codecov-action@v5
         with:
           fail_ci_if_error: true
           use_oidc: true

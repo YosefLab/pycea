@@ -35,7 +35,6 @@ you need additional python packages to [run tests](#writing-tests) and [build th
 
 :::::{tab-set}
 ::::{tab-item} Hatch
-:sync: hatch
 
 On the command line, you typically interact with hatch through its command line interface (CLI).
 Running one of the following commands will automatically resolve the environments for testing and
@@ -73,7 +72,7 @@ This will list “Standalone” environments and a table of “Matrix” environ
 +------------+---------+--------------------------+----------+---------------------------------+-------------+
 | Name       | Type    | Envs                     | Features | Dependencies                    | Scripts     |
 +------------+---------+--------------------------+----------+---------------------------------+-------------+
-| hatch-test | virtual | hatch-test.py3.12-stable | dev      | coverage-enable-subprocess==1.0 | cov-combine |
+| hatch-test | virtual | hatch-test.py3.11-stable | dev      | coverage-enable-subprocess==1.0 | cov-combine |
 |            |         | hatch-test.py3.14-stable | test     | coverage[toml]~=7.4             | cov-report  |
 |            |         | hatch-test.py3.14-pre    |          | pytest-mock~=3.12               | run         |
 |            |         |                          |          | pytest-randomly~=3.15           | run-cov     |
@@ -84,7 +83,6 @@ This will list “Standalone” environments and a table of “Matrix” environ
 ```
 
 From the `Envs` column, select the environment name you want to use for development.
-As the main development environment, we recommend to use `hatch-test` with the latest supported Python version.
 In this example, it would be `hatch-test.py3.14-stable`.
 
 Next, create the environment with
@@ -105,7 +103,6 @@ and manually point it to the python binary.
 ::::
 
 ::::{tab-item} uv
-:sync: uv
 
 A popular choice for managing virtual environments is [uv][].
 The main disadvantage compared to hatch is that it supports only a single environment per project at a time,
@@ -125,7 +122,6 @@ The `.venv` directory is typically automatically discovered by IDEs such as VS C
 ::::
 
 ::::{tab-item} Pip
-:sync: pip
 
 Pip is nowadays mostly superseded by environment manager such as [hatch][].
 However, for the sake of completeness, and since it’s ubiquitously available,
@@ -197,7 +193,6 @@ Alternatively, you can run all tests from the command line by executing
 
 :::::{tab-set}
 ::::{tab-item} Hatch
-:sync: hatch
 
 ```bash
 hatch test  # test with the highest supported Python version
@@ -208,7 +203,6 @@ hatch test --all  # test with all supported Python versions
 ::::
 
 ::::{tab-item} uv
-:sync: uv
 
 ```bash
 uv run pytest
@@ -217,7 +211,6 @@ uv run pytest
 ::::
 
 ::::{tab-item} Pip
-:sync: pip
 
 ```bash
 source .venv/bin/activate
@@ -313,7 +306,6 @@ please check out [this feature request][issue-render-notebooks] in the `cookiecu
 
 :::::{tab-set}
 ::::{tab-item} Hatch
-:sync: hatch
 
 ```bash
 hatch run docs:build
@@ -323,7 +315,6 @@ hatch run docs:open
 ::::
 
 ::::{tab-item} uv
-:sync: uv
 
 ```bash
 cd docs
@@ -334,7 +325,6 @@ uv run sphinx-build -M html . _build -W
 ::::
 
 ::::{tab-item} Pip
-:sync: pip
 
 ```bash
 source .venv/bin/activate

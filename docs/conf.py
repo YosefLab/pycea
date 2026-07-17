@@ -88,7 +88,14 @@ nb_output_stderr = "remove"
 nb_execution_mode = "off"
 nb_merge_streams = True
 typehints_defaults = "braces"
-always_use_bars_union = True  # use `|` instead of `Union` in types even when building with Python ≤3.14
+always_use_bars_union = (
+    True  # use `|` instead of `Union` in types even when building with Python ≤3.14
+)
+# Render @typing.overload'd functions as a single entry (the implementation).
+# Otherwise sphinx-autodoc-typehints emits every overload signature, which both
+# drops the short description from the API summary table and clutters each
+# function's page with the (copy-only) overload stubs.
+typehints_document_overloads = False
 
 source_suffix = {
     ".rst": "restructuredtext",
@@ -97,10 +104,17 @@ source_suffix = {
 }
 
 intersphinx_mapping = {
-    "python": ("https://docs.python.org/3", None),
-    "anndata": ("https://anndata.scverse.org/en/stable/", None),
-    "scanpy": ("https://scanpy.scverse.org/en/stable/", None),
+    "anndata": ("https://anndata.readthedocs.io/en/stable/", None),
+    "cycler": ("https://matplotlib.org/cycler/", None),
+    "matplotlib": ("https://matplotlib.org/stable/", None),
     "numpy": ("https://numpy.org/doc/stable/", None),
+    "networkx": ("https://networkx.org/documentation/stable/", None),
+    "pandas": ("https://pandas.pydata.org/pandas-docs/stable/", None),
+    "python": ("https://docs.python.org/3", None),
+    "scanpy": ("https://scanpy.scverse.org/en/stable/", None),
+    "scipy": ("https://docs.scipy.org/doc/scipy/reference/", None),
+    "squidpy": ("https://squidpy.readthedocs.io/en/stable/", None),
+    "treedata": ("https://treedata.readthedocs.io/en/stable/", None),
 }
 
 # List of patterns, relative to source directory, that match files and
@@ -126,6 +140,8 @@ html_theme_options = {
     "path_to_docs": "docs/",
     "navigation_with_keys": False,
 }
+
+html_logo = "_static/img/pycea_logo.svg"
 
 pygments_style = "default"
 katex_prerender = shutil.which(katex.NODEJS_BINARY) is not None
