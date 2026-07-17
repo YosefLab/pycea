@@ -2,7 +2,7 @@
 
 # This file only contains a selection of the most common options. For a full
 # list see the documentation:
-# https://www.sphinx-doc.org/en/master/usage/configuration.html
+# https://www.sphinx-doc.org/page/usage/configuration.html
 
 # -- Path setup --------------------------------------------------------------
 import shutil
@@ -62,6 +62,7 @@ extensions = [
     "sphinx_design",
     "IPython.sphinxext.ipython_console_highlighting",
     "sphinxext.opengraph",
+    "scverse_misc.sphinx_ext",
     *[p.stem for p in (HERE / "extensions").glob("*.py")],
 ]
 
@@ -87,6 +88,9 @@ nb_output_stderr = "remove"
 nb_execution_mode = "off"
 nb_merge_streams = True
 typehints_defaults = "braces"
+always_use_bars_union = (
+    True  # use `|` instead of `Union` in types even when building with Python ≤3.14
+)
 # Render @typing.overload'd functions as a single entry (the implementation).
 # Otherwise sphinx-autodoc-typehints emits every overload signature, which both
 # drops the short description from the API summary table and clutters each
@@ -100,8 +104,6 @@ source_suffix = {
 }
 
 intersphinx_mapping = {
-    # TODO: replace `3.13` with `3` once ReadTheDocs supports building with Python 3.14
-    "python": ("https://docs.python.org/3.13", None),
     "anndata": ("https://anndata.readthedocs.io/en/stable/", None),
     "cycler": ("https://matplotlib.org/cycler/", None),
     "matplotlib": ("https://matplotlib.org/stable/", None),
@@ -109,7 +111,7 @@ intersphinx_mapping = {
     "networkx": ("https://networkx.org/documentation/stable/", None),
     "pandas": ("https://pandas.pydata.org/pandas-docs/stable/", None),
     "python": ("https://docs.python.org/3", None),
-    "scanpy": ("https://scanpy.readthedocs.io/en/stable/", None),
+    "scanpy": ("https://scanpy.scverse.org/en/stable/", None),
     "scipy": ("https://docs.scipy.org/doc/scipy/reference/", None),
     "squidpy": ("https://squidpy.readthedocs.io/en/stable/", None),
     "treedata": ("https://treedata.readthedocs.io/en/stable/", None),
