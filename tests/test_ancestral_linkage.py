@@ -289,6 +289,51 @@ def test_symmetrize(three_cat_tdata):
         tl.ancestral_linkage(tdata, groupby="celltype", symmetrize="meen")
 
 
+def test_symmetrized_linkage_stats(three_cat_tdata, two_tree_tdata):
+    """symmetrize + permutation adds a one-row-per-unordered-pair symmetrized stats table."""
+    tdata = three_cat_tdata
+    key = "celltype_symmetrized_linkage_stats"
+    tl.ancestral_linkage(tdata, groupby="celltype", test="permutation", symmetrize="mean",
+                         normalize=False, n_permutations=50, random_state=0)
+    assert key in tdata.uns
+    sym = tdata.uns[key]
+    # one row per unordered pair (upper triangle incl. diagonal): 3 cats -> 6 rows
+    assert len(sym) == 6
+    assert {"source", "target", "value", "source_n", "target_n",
+            "permuted_value", "z_score", "p_value"} <= set(sym.columns)
+    assert sym["p_value"].between(0, 1).all()
+    # symmetrized value equals the mean of the two directions in the raw stats table
+    raw = tdata.uns["celltype_linkage_stats"].set_index(["source", "target"])["value"]
+    for _, r in sym.iterrows():
+        s, t = r["source"], r["target"]
+        assert r["value"] == pytest.approx((raw[(s, t)] + raw[(t, s)]) / 2, abs=1e-9)
+
+    # not created without a permutation test, and a stale table is cleared
+    tl.ancestral_linkage(tdata, groupby="celltype", symmetrize="mean")
+    assert key not in tdata.uns
+    # not created when symmetrize=False
+    tl.ancestral_linkage(tdata, groupby="celltype", test="permutation", symmetrize=False,
+                         n_permutations=20, random_state=0)
+    assert key not in tdata.uns
+    # a stale pairwise table is cleared when the same key_added is reused in single-target mode
+    tl.ancestral_linkage(tdata, groupby="celltype", test="permutation", symmetrize="mean",
+                         n_permutations=20, random_state=0)
+    assert key in tdata.uns
+    tl.ancestral_linkage(tdata, groupby="celltype", target="B", test="permutation",
+                         n_permutations=20, random_state=0)
+    assert key not in tdata.uns
+
+    # by_tree gets a per-tree 'tree' column, one row per unordered pair per tree,
+    # for both permutation modes
+    for mode in ("non_target", "all"):
+        tl.ancestral_linkage(two_tree_tdata, groupby="celltype", by_tree=True, test="permutation",
+                             permutation_mode=mode, symmetrize="max", n_permutations=20, random_state=0)
+        bt = two_tree_tdata.uns[key]
+        assert "tree" in bt.columns
+        assert set(bt["tree"].unique()) == {"tree1", "tree2"}
+        assert bt["p_value"].between(0, 1).all()
+
+
 # ── single-target mode ────────────────────────────────────────────────────
 
 

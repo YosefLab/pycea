@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning][].
 ## Unreleased
 
 ### Added
+- `pycea.tl.ancestral_linkage` now stores `tdata.uns['{key_added}_symmetrized_linkage_stats']` when `symmetrize` is not `False` and `test='permutation'`: a table with one row per unordered category pair giving the symmetrized value, permuted value, z-score, and a p-value for the symmetrized linkage.
 
 ### Changed
 
