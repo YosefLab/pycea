@@ -40,8 +40,8 @@ dependencies = [
 
 [project.urls]
 Documentation = "https://pycea.readthedocs.io/"
-Homepage = "https://github.com/colganwi/pycea"
-Source = "https://github.com/colganwi/pycea"
+Homepage = "https://github.com/YosefLab/pycea"
+Source = "https://github.com/YosefLab/pycea"
 
 [dependency-groups]
 dev = [
@@ -58,6 +58,7 @@ doc = [
   "ipython",
   "myst-nb>=1.1",
   "pandas",
+  "scverse-misc[sphinx]>=0.1.2", # provides scverse_misc.sphinx_ext (0.1.2+ needed for pydocstring-rs 0.4 API)
   "sphinx>=8.1",
   "sphinx-autodoc-typehints",
   "sphinx-book-theme>=1",
@@ -95,9 +96,10 @@ dependency-groups = [ "dev", "test" ]
 [tool.hatch.envs.hatch-test.overrides]
 # If the matrix variable `deps` is set to "pre",
 # set the environment variable `UV_PRERELEASE` to "allow".
-matrix.deps.env-vars = [
-  { key = "UV_PRERELEASE", value = "allow", if = [ "pre" ] },
+envs.hatch-test.overrides.matrix.deps.env-vars = [
+  { value = "allow", key = "UV_PRERELEASE", if = [ "pre" ] },
 ]
+envs.hatch-test.dependency-groups = [ "dev", "test" ]
 
 [tool.hatch.build.targets.wheel]
 packages = [ "src/pycea" ]
@@ -107,9 +109,7 @@ exclude = [ "**/.DS_Store", "**/._*" ]
 line-length = 120
 src = [ "src" ]
 extend-include = [ "*.ipynb" ]
-
 format.docstring-code-format = true
-
 lint.select = [
   "B",      # flake8-bugbear
   "BLE",    # flake8-blind-except
@@ -154,15 +154,16 @@ markers = [
   "internet: tests which rely on internet resources (enable with `--internet-tests`)",
 ]
 
-[tool.coverage.run]
-source = [ "pycea" ]
-patch = [ "subprocess" ]
-omit = [
+[tool.coverage]
+run.omit = [
   "**/test_*.py",
 ]
+run.patch = [ "subprocess" ]
+run.source = [ "pycea" ]
 
 [tool.cruft]
 skip = [
+  ".git",
   "tests",
   "src/**/__init__.py",
   "src/**/basic.py",
