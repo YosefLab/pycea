@@ -16,6 +16,8 @@ and this project adheres to [Semantic Versioning][].
 ### Changed
 
 ### Fixed
+- `pycea.tl.tree_neighbors` with `metric='path'` and `n_neighbors` now returns the closest leaves. Previously leaves were collected on discovery rather than in distance order, so farther leaves could displace closer ones. Ties in distance are now also broken randomly.
+- `pycea.tl.tree_neighbors` with a single observation in `obs` now marks the neighbors of that observation in `tdata.obs['{key_added}_neighbors']` instead of only the observation itself.
 
 ## [0.3.0] - 2026-07-08
 

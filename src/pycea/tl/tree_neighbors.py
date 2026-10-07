@@ -101,7 +101,11 @@ def _lca_neighbors(tree, start_node, n_neighbors, max_dist, depth_key, observed_
 
 
 def _bfs_by_distance(tree, start_node, n_neighbors, max_dist, depth_key, observed_nodes=None):
-    """Breadth-first search for path distance neighbors.
+    """Best-first search for path distance neighbors.
+
+    Nodes are expanded in order of increasing path distance from start_node, and observed
+    nodes are collected when popped so that the n_neighbors closest are always returned.
+    Ties in distance are broken at random.
 
     Parameters
     ----------
@@ -109,8 +113,12 @@ def _bfs_by_distance(tree, start_node, n_neighbors, max_dist, depth_key, observe
         Set of observed node names to collect as neighbors. If None, only leaf nodes
         (out_degree == 0) are collected (default leaves-alignment behavior).
     """
+
+    def is_observed(node):
+        return tree.out_degree(node) == 0 if observed_nodes is None else node in observed_nodes
+
     queue = []
-    heapq.heappush(queue, (0, start_node))
+    heapq.heappush(queue, (0, random.random(), start_node))
     visited = {start_node}
     neighbors = []
     neighbor_distances = []
@@ -124,37 +132,24 @@ def _bfs_by_distance(tree, start_node, n_neighbors, max_dist, depth_key, observe
         parent = parents[0]
         parent_distance = abs(tree.nodes[start_node][depth_key] - tree.nodes[parent][depth_key])
         if parent_distance <= max_dist:
-            heapq.heappush(queue, (parent_distance, parent))
+            heapq.heappush(queue, (parent_distance, random.random(), parent))
         visited.add(parent)
         node = parent
 
-    # Breadth-first search using direct children only
+    # Best-first search: the popped node is the closest unexpanded node
     while queue and (len(neighbors) < n_neighbors):
-        distance, node = heapq.heappop(queue)
-        # For nodes/subset alignment: the popped node itself may be an observed neighbor
-        # (handles ancestor nodes that were pre-queued; descendants are handled in child loop)
-        if observed_nodes is not None and node != start_node and node in observed_nodes:
+        distance, _, node = heapq.heappop(queue)
+        if node != start_node and is_observed(node):
             neighbors.append(node)
             neighbor_distances.append(distance)
             if len(neighbors) >= n_neighbors:
                 break
-        children = list(tree.successors(node))
-        random.shuffle(children)
-        for child in children:
+        for child in tree.successors(node):
             if child not in visited:
+                visited.add(child)
                 child_distance = distance + abs(tree.nodes[node][depth_key] - tree.nodes[child][depth_key])
                 if child_distance <= max_dist:
-                    # For leaves alignment: add leaf when discovered as child
-                    if observed_nodes is None and tree.out_degree(child) == 0:
-                        neighbors.append(child)
-                        neighbor_distances.append(child_distance)
-                        if len(neighbors) >= n_neighbors:
-                            break
-                    # Push to queue: non-leaves always; observed nodes for nodes alignment
-                    # (observed non-leaves will be added as neighbors when popped)
-                    if tree.out_degree(child) != 0 or observed_nodes is not None:
-                        heapq.heappush(queue, (child_distance, child))
-                visited.add(child)
+                    heapq.heappush(queue, (child_distance, random.random(), child))
 
     return neighbors, neighbor_distances
 
@@ -321,7 +316,7 @@ def tree_neighbors(
             raise ValueError(f"Observation {obs} not found in any tree.")
         t = trees[node_to_tree[obs]]
         obs_set = set(tdata.obs_names) & set(t.nodes()) if tdata.alignment != "leaves" else None
-        connectivities, _, distances = _tree_neighbors(
+        _, connectivities, distances = _tree_neighbors(
             t,
             n_neighbors or float("inf"),
             max_dist or float("inf"),
