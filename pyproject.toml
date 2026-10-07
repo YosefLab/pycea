@@ -152,6 +152,7 @@ addopts = [
 ]
 markers = [
   "internet: tests which rely on internet resources (enable with `--internet-tests`)",
+  "slow: slow tests, e.g. large dataset downloads (enable with `--slow-tests`)",
 ]
 
 [tool.coverage]
