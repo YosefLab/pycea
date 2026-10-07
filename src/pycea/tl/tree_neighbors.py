@@ -8,7 +8,7 @@ from typing import Literal, overload
 import scipy as sp
 import treedata as td
 
-from pycea.utils import _check_tree_overlap, check_tree_has_key, get_leaves, get_trees
+from pycea.utils import _check_tree_overlap, check_tree_has_key, get_depth_key, get_leaves, get_trees
 
 from ._metrics import _get_tree_metric, _TreeMetric
 from ._utils import (
@@ -191,7 +191,7 @@ def tree_neighbors(
     tdata: td.TreeData,
     n_neighbors: int | None = None,
     max_dist: float | None = None,
-    depth_key: str = "depth",
+    depth_key: str | None = None,
     obs: str | Sequence[str] | None = None,
     metric: _TreeMetric = "path",
     random_state: int | None = None,
@@ -205,7 +205,7 @@ def tree_neighbors(
     tdata: td.TreeData,
     n_neighbors: int | None = None,
     max_dist: float | None = None,
-    depth_key: str = "depth",
+    depth_key: str | None = None,
     obs: str | Sequence[str] | None = None,
     metric: _TreeMetric = "path",
     random_state: int | None = None,
@@ -218,7 +218,7 @@ def tree_neighbors(
     tdata: td.TreeData,
     n_neighbors: int | None = None,
     max_dist: float | None = None,
-    depth_key: str = "depth",
+    depth_key: str | None = None,
     obs: str | Sequence[str] | None = None,
     metric: _TreeMetric = "path",
     random_state: int | None = None,
@@ -254,6 +254,7 @@ def tree_neighbors(
         If n_neighbors is None, identify all neighbors within this distance.
     depth_key
         Attribute of `tdata.obst[tree].nodes` where depth is stored.
+        If `None`, uses `tdata.uns['default_depth']` if present, otherwise 'depth'.
     obs
         The observations to use:
 
@@ -297,6 +298,7 @@ def tree_neighbors(
     >>> tdata = py.datasets.koblan25()
     >>> py.tl.tree_neighbors(tdata, n_neighbors=5, depth_key="time")
     """
+    depth_key = get_depth_key(tdata, depth_key)
     # Setup
     _set_random_state(random_state)
     _assert_param_xor({"n_neighbors": n_neighbors, "max_dist": max_dist})

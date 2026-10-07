@@ -34,6 +34,13 @@ def get_subtree_leaves(tree: nx.DiGraph, node: str):
     return [node for node in nx.dfs_postorder_nodes(tree, node) if tree.out_degree(node) == 0]
 
 
+def get_depth_key(tdata: td.TreeData, depth_key: str | None = None) -> str:
+    """Gets the depth key, defaulting to `tdata.uns['default_depth']` if present, otherwise 'depth'."""
+    if depth_key is None:
+        depth_key = str(tdata.uns.get("default_depth", "depth"))
+    return depth_key
+
+
 def check_tree_has_key(tree: nx.DiGraph, key: str):
     """Checks that tree nodes have a given key."""
     # sample 10 nodes to check if the key is present

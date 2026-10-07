@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning][].
 - `pycea.tl.ancestral_linkage` now stores `tdata.uns['{key_added}_symmetrized_linkage_stats']` when `symmetrize` is not `False` and `test='permutation'`: a table with one row per unordered category pair giving the symmetrized value, permuted value, z-score, and a p-value for the symmetrized linkage.
 
 ### Changed
+- `depth_key` now defaults to `tdata.uns['default_depth']` (falling back to `'depth'`) in `pycea.tl.clades`, `n_extant`, `tree_distance`, `tree_neighbors`, `ancestral_linkage` and `fitness`, matching `pycea.pl`.
 
 ### Fixed
 - `pycea.tl.tree_neighbors` with `metric='path'` and `n_neighbors` now returns the closest leaves. Previously leaves were collected on discovery rather than in distance order, so farther leaves could displace closer ones. Ties in distance are now also broken randomly.

@@ -14,7 +14,7 @@ import scipy as sp
 import treedata as td
 from tqdm import tqdm
 
-from pycea.utils import _check_tree_overlap, check_tree_has_key, get_leaves, get_trees
+from pycea.utils import _check_tree_overlap, check_tree_has_key, get_depth_key, get_leaves, get_trees
 
 from ._aggregators import _get_aggregator
 from ._metrics import _TreeMetric
@@ -631,7 +631,7 @@ def ancestral_linkage(
     n_permutations: int = 100,
     n_threads: int | None = None,
     by_tree: bool = False,
-    depth_key: str = "depth",
+    depth_key: str | None = None,
     random_state: int | None = None,
     key_added: str | None = None,
     tree: str | Sequence[str] | None = None,
@@ -655,7 +655,7 @@ def ancestral_linkage(
     n_permutations: int = 100,
     n_threads: int | None = None,
     by_tree: bool = False,
-    depth_key: str = "depth",
+    depth_key: str | None = None,
     random_state: int | None = None,
     key_added: str | None = None,
     tree: str | Sequence[str] | None = None,
@@ -678,7 +678,7 @@ def ancestral_linkage(
     n_permutations: int = 100,
     n_threads: int | None = None,
     by_tree: bool = False,
-    depth_key: str = "depth",
+    depth_key: str | None = None,
     random_state: int | None = None,
     key_added: str | None = None,
     tree: str | Sequence[str] | None = None,
@@ -788,6 +788,7 @@ def ancestral_linkage(
         serialisation overhead.  On other platforms this argument is ignored.
     depth_key
         Node attribute in ``tdata.obst[tree]`` that stores each node's depth.
+        If `None`, uses `tdata.uns['default_depth']` if present, otherwise 'depth'.
     random_state
         Random seed for reproducibility of permutation tests.
     key_added
@@ -833,6 +834,7 @@ def ancestral_linkage(
 
     >>> py.tl.ancestral_linkage(tdata, groupby="celltype", target="B", test="permutation")
     """
+    depth_key = get_depth_key(tdata, depth_key)
     # ── setup ─────────────────────────────────────────────────────────────────
     _set_random_state(random_state)
     key_added = key_added or groupby
