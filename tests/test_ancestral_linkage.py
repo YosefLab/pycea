@@ -41,9 +41,7 @@ def balanced_tdata():
     nodes = {"root": 0.0, "n1": 0.5, "n2": 0.5, "a1": 1.0, "a2": 1.0, "b1": 1.0, "b2": 1.0}
     for node, depth in nodes.items():
         t.add_node(node, depth=depth)
-    t.add_edges_from(
-        [("root", "n1"), ("root", "n2"), ("n1", "a1"), ("n1", "a2"), ("n2", "b1"), ("n2", "b2")]
-    )
+    t.add_edges_from([("root", "n1"), ("root", "n2"), ("n1", "a1"), ("n1", "a2"), ("n2", "b1"), ("n2", "b2")])
     obs = pd.DataFrame({"celltype": ["A", "A", "B", "B"]}, index=["a1", "a2", "b1", "b2"])
     return td.TreeData(obs=obs, obst={"tree": t})
 
@@ -53,13 +51,28 @@ def three_cat_tdata():
     """Six-leaf tree with categories A, B, C (n=0.4 for internal nodes)."""
     t = nx.DiGraph()
     for node, depth in [
-        ("root", 0.0), ("n1", 0.4), ("n2", 0.4), ("n3", 0.4),
-        ("a1", 1.0), ("a2", 1.0), ("b1", 1.0), ("b2", 1.0), ("c1", 1.0), ("c2", 1.0),
+        ("root", 0.0),
+        ("n1", 0.4),
+        ("n2", 0.4),
+        ("n3", 0.4),
+        ("a1", 1.0),
+        ("a2", 1.0),
+        ("b1", 1.0),
+        ("b2", 1.0),
+        ("c1", 1.0),
+        ("c2", 1.0),
     ]:
         t.add_node(node, depth=depth)
     for u, v in [
-        ("root", "n1"), ("root", "n2"), ("root", "n3"),
-        ("n1", "a1"), ("n1", "a2"), ("n2", "b1"), ("n2", "b2"), ("n3", "c1"), ("n3", "c2"),
+        ("root", "n1"),
+        ("root", "n2"),
+        ("root", "n3"),
+        ("n1", "a1"),
+        ("n1", "a2"),
+        ("n2", "b1"),
+        ("n2", "b2"),
+        ("n3", "c1"),
+        ("n3", "c2"),
     ]:
         t.add_edge(u, v)
     obs = pd.DataFrame(
@@ -106,18 +119,22 @@ def small_category_tdata():
 def non_ultrametric_tdata():
     """Tree with leaves at unequal depths (non-ultrametric), two categories A and B.
 
-        root(0.0)
-        ├── n1(0.3): a1(0.5) A, a2(2.0) A
-        └── n2(0.6): b1(1.0) B, b2(1.5) B
+    root(0.0)
+    ├── n1(0.3): a1(0.5) A, a2(2.0) A
+    └── n2(0.6): b1(1.0) B, b2(1.5) B
     """
     t = nx.DiGraph()
     for node, depth in [
-        ("root", 0.0), ("n1", 0.3), ("n2", 0.6), ("a1", 0.5), ("a2", 2.0), ("b1", 1.0), ("b2", 1.5),
+        ("root", 0.0),
+        ("n1", 0.3),
+        ("n2", 0.6),
+        ("a1", 0.5),
+        ("a2", 2.0),
+        ("b1", 1.0),
+        ("b2", 1.5),
     ]:
         t.add_node(node, depth=depth)
-    t.add_edges_from(
-        [("root", "n1"), ("root", "n2"), ("n1", "a1"), ("n1", "a2"), ("n2", "b1"), ("n2", "b2")]
-    )
+    t.add_edges_from([("root", "n1"), ("root", "n2"), ("n1", "a1"), ("n1", "a2"), ("n2", "b1"), ("n2", "b2")])
     obs = pd.DataFrame({"celltype": ["A", "A", "B", "B"]}, index=["a1", "a2", "b1", "b2"])
     return td.TreeData(obs=obs, obst={"tree": t})
 
@@ -178,19 +195,16 @@ def test_pairwise_known_values(balanced_tdata):
     """Exact linkage values and within/between relationships for each metric/aggregate."""
     tdata = balanced_tdata
     # lca + max: within (self) = 1.0, between = root depth 0.0
-    lca = tl.ancestral_linkage(tdata, groupby="celltype", aggregate="max", metric="lca",
-                               normalize=False, copy=True)
+    lca = tl.ancestral_linkage(tdata, groupby="celltype", aggregate="max", metric="lca", normalize=False, copy=True)
     assert np.isclose(lca.loc["A", "A"], 1.0) and np.isclose(lca.loc["B", "B"], 1.0)
     assert np.isclose(lca.loc["A", "B"], 0.0)
     assert lca.loc["A", "A"] > lca.loc["A", "B"]
     # path + min: within (self) = 0.0, between = 2.0
-    path = tl.ancestral_linkage(tdata, groupby="celltype", aggregate="min", metric="path",
-                                normalize=False, copy=True)
+    path = tl.ancestral_linkage(tdata, groupby="celltype", aggregate="min", metric="path", normalize=False, copy=True)
     assert np.isclose(path.loc["A", "A"], 0.0) and np.isclose(path.loc["A", "B"], 2.0)
     assert path.loc["A", "A"] < path.loc["A", "B"]
     # mean path: between = 2.0, within = mean([0, 1, 1, 0]) = 0.5
-    mean = tl.ancestral_linkage(tdata, groupby="celltype", aggregate="mean", metric="path",
-                                normalize=False, copy=True)
+    mean = tl.ancestral_linkage(tdata, groupby="celltype", aggregate="mean", metric="path", normalize=False, copy=True)
     assert np.isclose(mean.loc["A", "B"], 2.0) and np.isclose(mean.loc["A", "A"], 0.5)
 
 
@@ -216,8 +230,7 @@ def test_custom_callable_aggregate(balanced_tdata):
     """A custom callable aggregate matches the equivalent named aggregate."""
     tdata = balanced_tdata
     mat = tl.ancestral_linkage(tdata, groupby="celltype", aggregate=np.mean, metric="path", copy=True)
-    ref = tl.ancestral_linkage(tdata, groupby="celltype", aggregate="mean", metric="path",
-                               key_added="ref", copy=True)
+    ref = tl.ancestral_linkage(tdata, groupby="celltype", aggregate="mean", metric="path", key_added="ref", copy=True)
     pd.testing.assert_frame_equal(mat, ref)
 
 
@@ -232,8 +245,7 @@ def test_min_size(three_cat_tdata):
     assert set(mat.index) == {"A", "B", "C"}
     # relabel so C has a single cell, then exclude it
     tdata.obs["celltype"] = ["A", "A", "B", "B", "C", "B"]
-    tl.ancestral_linkage(tdata, groupby="celltype", min_size=2, test="permutation",
-                         n_permutations=20, random_state=0)
+    tl.ancestral_linkage(tdata, groupby="celltype", min_size=2, test="permutation", n_permutations=20, random_state=0)
     mat = tdata.uns["celltype_linkage"]
     stats = tdata.uns["celltype_linkage_stats"]
     assert set(mat.index) == {"A", "B"} and "C" not in mat.columns
@@ -278,8 +290,9 @@ def test_symmetrize(three_cat_tdata):
     tdata = three_cat_tdata
     raw = tl.ancestral_linkage(tdata, groupby="celltype", aggregate="min", metric="path", copy=True)
     for mode in ("mean", "max"):
-        mat = tl.ancestral_linkage(tdata, groupby="celltype", aggregate="min", metric="path",
-                                   symmetrize=mode, copy=True)
+        mat = tl.ancestral_linkage(
+            tdata, groupby="celltype", aggregate="min", metric="path", symmetrize=mode, copy=True
+        )
         for i in mat.index:
             for j in mat.columns:
                 assert np.isclose(mat.loc[i, j], mat.loc[j, i])
@@ -293,14 +306,22 @@ def test_symmetrized_linkage_stats(three_cat_tdata, two_tree_tdata):
     """symmetrize + permutation adds a one-row-per-unordered-pair symmetrized stats table."""
     tdata = three_cat_tdata
     key = "celltype_symmetrized_linkage_stats"
-    tl.ancestral_linkage(tdata, groupby="celltype", test="permutation", symmetrize="mean",
-                         normalize=False, n_permutations=50, random_state=0)
+    tl.ancestral_linkage(
+        tdata,
+        groupby="celltype",
+        test="permutation",
+        symmetrize="mean",
+        normalize=False,
+        n_permutations=50,
+        random_state=0,
+    )
     assert key in tdata.uns
     sym = tdata.uns[key]
     # one row per unordered pair (upper triangle incl. diagonal): 3 cats -> 6 rows
     assert len(sym) == 6
-    assert {"source", "target", "value", "source_n", "target_n",
-            "permuted_value", "z_score", "p_value"} <= set(sym.columns)
+    assert {"source", "target", "value", "source_n", "target_n", "permuted_value", "z_score", "p_value"} <= set(
+        sym.columns
+    )
     assert sym["p_value"].between(0, 1).all()
     # symmetrized value equals the mean of the two directions in the raw stats table
     raw = tdata.uns["celltype_linkage_stats"].set_index(["source", "target"])["value"]
@@ -312,22 +333,31 @@ def test_symmetrized_linkage_stats(three_cat_tdata, two_tree_tdata):
     tl.ancestral_linkage(tdata, groupby="celltype", symmetrize="mean")
     assert key not in tdata.uns
     # not created when symmetrize=False
-    tl.ancestral_linkage(tdata, groupby="celltype", test="permutation", symmetrize=False,
-                         n_permutations=20, random_state=0)
+    tl.ancestral_linkage(
+        tdata, groupby="celltype", test="permutation", symmetrize=False, n_permutations=20, random_state=0
+    )
     assert key not in tdata.uns
     # a stale pairwise table is cleared when the same key_added is reused in single-target mode
-    tl.ancestral_linkage(tdata, groupby="celltype", test="permutation", symmetrize="mean",
-                         n_permutations=20, random_state=0)
+    tl.ancestral_linkage(
+        tdata, groupby="celltype", test="permutation", symmetrize="mean", n_permutations=20, random_state=0
+    )
     assert key in tdata.uns
-    tl.ancestral_linkage(tdata, groupby="celltype", target="B", test="permutation",
-                         n_permutations=20, random_state=0)
+    tl.ancestral_linkage(tdata, groupby="celltype", target="B", test="permutation", n_permutations=20, random_state=0)
     assert key not in tdata.uns
 
     # by_tree gets a per-tree 'tree' column, one row per unordered pair per tree,
     # for both permutation modes
     for mode in ("non_target", "all"):
-        tl.ancestral_linkage(two_tree_tdata, groupby="celltype", by_tree=True, test="permutation",
-                             permutation_mode=mode, symmetrize="max", n_permutations=20, random_state=0)
+        tl.ancestral_linkage(
+            two_tree_tdata,
+            groupby="celltype",
+            by_tree=True,
+            test="permutation",
+            permutation_mode=mode,
+            symmetrize="max",
+            n_permutations=20,
+            random_state=0,
+        )
         bt = two_tree_tdata.uns[key]
         assert "tree" in bt.columns
         assert set(bt["tree"].unique()) == {"tree1", "tree2"}
@@ -335,6 +365,24 @@ def test_symmetrized_linkage_stats(three_cat_tdata, two_tree_tdata):
 
 
 # ── single-target mode ────────────────────────────────────────────────────
+
+
+def test_single_target_key_added(balanced_tdata):
+    """key_added names the obs column in single-target mode; otherwise the target name is used."""
+    tdata = balanced_tdata
+    tl.ancestral_linkage(tdata, groupby="celltype", target="B", metric="path", normalize=False)
+    default = tdata.obs["B_linkage"].copy()
+    result = tl.ancestral_linkage(
+        tdata, groupby="celltype", target="B", metric="path", normalize=False, key_added="custom", copy=True
+    )
+    assert "custom_linkage" in tdata.obs.columns
+    pd.testing.assert_series_equal(tdata.obs["custom_linkage"], default, check_names=False)
+    assert list(result.columns) == ["custom_linkage"]
+    # by_tree path
+    tl.ancestral_linkage(
+        tdata, groupby="celltype", target="B", metric="path", normalize=False, by_tree=True, key_added="bt"
+    )
+    assert "bt_linkage" in tdata.obs.columns
 
 
 def test_single_target_known_values(balanced_tdata):
@@ -380,8 +428,9 @@ def test_by_tree(two_tree_tdata):
 def test_permutation_pairwise(balanced_tdata):
     """Pairwise permutation test: enrichment matrix + stats columns; no separate uns keys."""
     tdata = balanced_tdata
-    result = tl.ancestral_linkage(tdata, groupby="celltype", test="permutation",
-                                  n_permutations=20, random_state=42, copy=True)
+    result = tl.ancestral_linkage(
+        tdata, groupby="celltype", test="permutation", n_permutations=20, random_state=42, copy=True
+    )
     # copy returns the stats DataFrame when a test is run
     assert isinstance(result, pd.DataFrame)
     assert {"source", "target", "value", "permuted_value", "z_score", "p_value"} <= set(result.columns)
@@ -396,8 +445,9 @@ def test_permutation_pairwise(balanced_tdata):
 def test_permutation_single_target(balanced_tdata):
     """Single-target permutation test returns a long DataFrame scoped to the target."""
     tdata = balanced_tdata
-    result = tl.ancestral_linkage(tdata, groupby="celltype", target="B", test="permutation",
-                                  n_permutations=20, random_state=0, copy=True)
+    result = tl.ancestral_linkage(
+        tdata, groupby="celltype", target="B", test="permutation", n_permutations=20, random_state=0, copy=True
+    )
     assert isinstance(result, pd.DataFrame)
     assert {"source", "target", "value", "z_score", "p_value", "permuted_value"} <= set(result.columns)
     assert (result["target"] == "B").all()
@@ -407,8 +457,7 @@ def test_permutation_single_target(balanced_tdata):
 def test_permutation_by_tree(two_tree_tdata):
     """by_tree + permutation stores per-tree z_score/p_value/permuted_value."""
     tdata = two_tree_tdata
-    tl.ancestral_linkage(tdata, groupby="celltype", by_tree=True, test="permutation",
-                         n_permutations=10, random_state=0)
+    tl.ancestral_linkage(tdata, groupby="celltype", by_tree=True, test="permutation", n_permutations=10, random_state=0)
     stats = tdata.uns["celltype_linkage_stats"]
     assert {"z_score", "p_value", "permuted_value"} <= set(stats.columns)
     assert stats["p_value"].between(0, 1).all()
@@ -416,9 +465,18 @@ def test_permutation_by_tree(two_tree_tdata):
 
 def test_permutation_reproducible(balanced_tdata):
     """Same random_state is deterministic; parallel matches serial."""
+
     def run(n_threads):
-        return tl.ancestral_linkage(balanced_tdata, groupby="celltype", test="permutation",
-                                    n_permutations=20, random_state=42, n_threads=n_threads, copy=True)
+        return tl.ancestral_linkage(
+            balanced_tdata,
+            groupby="celltype",
+            test="permutation",
+            n_permutations=20,
+            random_state=42,
+            n_threads=n_threads,
+            copy=True,
+        )
+
     pd.testing.assert_frame_equal(run(None), run(None))  # deterministic
     pd.testing.assert_frame_equal(run(None), run(2))  # parallel == serial
 
@@ -426,22 +484,39 @@ def test_permutation_reproducible(balanced_tdata):
 def test_alternative(balanced_tdata):
     """`alternative` p-values stay in range, are symmetric on a symmetric tree, and None==default."""
     tdata = balanced_tdata
-    tl.ancestral_linkage(tdata, groupby="celltype", test="permutation", alternative="two-sided",
-                         n_permutations=50, random_state=1)
+    tl.ancestral_linkage(
+        tdata, groupby="celltype", test="permutation", alternative="two-sided", n_permutations=50, random_state=1
+    )
     stats = tdata.uns["celltype_linkage_stats"]
     assert stats["p_value"].between(0, 1).all()
     ab = stats[(stats["source"] == "A") & (stats["target"] == "B")]["p_value"].values[0]
     ba = stats[(stats["source"] == "B") & (stats["target"] == "A")]["p_value"].values[0]
     assert np.isclose(ab, ba)
     # two-sided also works in single-target mode
-    result = tl.ancestral_linkage(tdata, groupby="celltype", target="B", test="permutation",
-                                  alternative="two-sided", n_permutations=20, random_state=0, copy=True)
+    result = tl.ancestral_linkage(
+        tdata,
+        groupby="celltype",
+        target="B",
+        test="permutation",
+        alternative="two-sided",
+        n_permutations=20,
+        random_state=0,
+        copy=True,
+    )
     assert result["p_value"].between(0, 1).all()
     # alternative=None matches omitting the parameter (the default)
-    explicit = tl.ancestral_linkage(balanced_tdata, groupby="celltype", test="permutation",
-                                    alternative=None, n_permutations=20, random_state=42, copy=True)
-    default = tl.ancestral_linkage(balanced_tdata, groupby="celltype", test="permutation",
-                                   n_permutations=20, random_state=42, copy=True)
+    explicit = tl.ancestral_linkage(
+        balanced_tdata,
+        groupby="celltype",
+        test="permutation",
+        alternative=None,
+        n_permutations=20,
+        random_state=42,
+        copy=True,
+    )
+    default = tl.ancestral_linkage(
+        balanced_tdata, groupby="celltype", test="permutation", n_permutations=20, random_state=42, copy=True
+    )
     pd.testing.assert_frame_equal(explicit, default)
 
 
@@ -449,20 +524,49 @@ def test_permutation_mode_non_target(balanced_tdata, two_tree_tdata):
     """permutation_mode='non_target' yields valid p-values in every mode combination."""
     tdata = balanced_tdata
     # pairwise: 'all' and 'non_target' produce the same stats schema and valid p-values
-    all_df = tl.ancestral_linkage(tdata, groupby="celltype", test="permutation",
-                                  permutation_mode="all", n_permutations=20, random_state=42, copy=True)
-    nt_df = tl.ancestral_linkage(tdata, groupby="celltype", test="permutation",
-                                 permutation_mode="non_target", n_permutations=20, random_state=42, copy=True)
+    all_df = tl.ancestral_linkage(
+        tdata,
+        groupby="celltype",
+        test="permutation",
+        permutation_mode="all",
+        n_permutations=20,
+        random_state=42,
+        copy=True,
+    )
+    nt_df = tl.ancestral_linkage(
+        tdata,
+        groupby="celltype",
+        test="permutation",
+        permutation_mode="non_target",
+        n_permutations=20,
+        random_state=42,
+        copy=True,
+    )
     assert set(all_df.columns) == set(nt_df.columns)
     assert {"z_score", "permuted_value"} <= set(nt_df.columns)
     assert nt_df["p_value"].between(0, 1).all()
     # single-target
-    result = tl.ancestral_linkage(tdata, groupby="celltype", target="B", test="permutation",
-                                  permutation_mode="non_target", n_permutations=20, random_state=0, copy=True)
+    result = tl.ancestral_linkage(
+        tdata,
+        groupby="celltype",
+        target="B",
+        test="permutation",
+        permutation_mode="non_target",
+        n_permutations=20,
+        random_state=0,
+        copy=True,
+    )
     assert result["p_value"].between(0, 1).all()
     # by_tree
-    tl.ancestral_linkage(two_tree_tdata, groupby="celltype", by_tree=True, test="permutation",
-                         permutation_mode="non_target", n_permutations=10, random_state=0)
+    tl.ancestral_linkage(
+        two_tree_tdata,
+        groupby="celltype",
+        by_tree=True,
+        test="permutation",
+        permutation_mode="non_target",
+        n_permutations=10,
+        random_state=0,
+    )
     bt_stats = two_tree_tdata.uns["celltype_linkage_stats"]
     assert bt_stats["p_value"].between(0, 1).all()
 
@@ -487,8 +591,9 @@ def test_invalid_params(balanced_tdata):
 def test_path_min_matches_bruteforce(fixture_name, request):
     """path+min matches an explicit min-path brute force (walk-up and Dijkstra paths)."""
     tdata = request.getfixturevalue(fixture_name)
-    mat = tl.ancestral_linkage(tdata, groupby="celltype", aggregate="min", metric="path",
-                               normalize=False, symmetrize=False, copy=True)
+    mat = tl.ancestral_linkage(
+        tdata, groupby="celltype", aggregate="min", metric="path", normalize=False, symmetrize=False, copy=True
+    )
     ref = _bruteforce_path_min(tdata)
     pd.testing.assert_frame_equal(mat, ref.loc[mat.index, mat.columns])
 
@@ -497,8 +602,9 @@ def test_path_min_matches_bruteforce(fixture_name, request):
 def test_lca_max_matches_bruteforce(fixture_name, request):
     """lca+max matches an explicit LCA brute force on ultrametric and non-ultrametric trees."""
     tdata = request.getfixturevalue(fixture_name)
-    mat = tl.ancestral_linkage(tdata, groupby="celltype", aggregate="max", metric="lca",
-                               normalize=False, symmetrize=False, copy=True)
+    mat = tl.ancestral_linkage(
+        tdata, groupby="celltype", aggregate="max", metric="lca", normalize=False, symmetrize=False, copy=True
+    )
     ref = _bruteforce_lca_max(tdata)
     pd.testing.assert_frame_equal(mat, ref.loc[mat.index, mat.columns])
     if fixture_name == "non_ultrametric_tdata":
@@ -526,7 +632,9 @@ def test_permuted_value_and_normalize_without_test(balanced_tdata):
     linkage = tdata.uns["celltype_linkage"]
     stats = tdata.uns["celltype_linkage_stats"]
     for _, row in stats.iterrows():
-        assert linkage.loc[row["source"], row["target"]] == pytest.approx(row["value"] - row["permuted_value"], abs=1e-9)
+        assert linkage.loc[row["source"], row["target"]] == pytest.approx(
+            row["value"] - row["permuted_value"], abs=1e-9
+        )
     # single-target normalize without a test creates no _test key
     tl.ancestral_linkage(tdata, groupby="celltype", target="B", normalize=True)
     assert "B_linkage" in tdata.obs.columns and "celltype_test" not in tdata.uns
@@ -535,13 +643,17 @@ def test_permuted_value_and_normalize_without_test(balanced_tdata):
 def test_pairwise_normalize_with_test(balanced_tdata):
     """With test='permutation', normalize toggles between enrichment and raw linkage."""
     tdata = balanced_tdata
-    tl.ancestral_linkage(tdata, groupby="celltype", test="permutation", normalize=True,
-                         n_permutations=20, random_state=0)
+    tl.ancestral_linkage(
+        tdata, groupby="celltype", test="permutation", normalize=True, n_permutations=20, random_state=0
+    )
     linkage, stats = tdata.uns["celltype_linkage"], tdata.uns["celltype_linkage_stats"]
     for _, row in stats.iterrows():
-        assert linkage.loc[row["source"], row["target"]] == pytest.approx(row["value"] - row["permuted_value"], abs=1e-9)
-    tl.ancestral_linkage(tdata, groupby="celltype", test="permutation", normalize=False,
-                         n_permutations=20, random_state=0)
+        assert linkage.loc[row["source"], row["target"]] == pytest.approx(
+            row["value"] - row["permuted_value"], abs=1e-9
+        )
+    tl.ancestral_linkage(
+        tdata, groupby="celltype", test="permutation", normalize=False, n_permutations=20, random_state=0
+    )
     linkage, stats = tdata.uns["celltype_linkage"], tdata.uns["celltype_linkage_stats"]
     for _, row in stats.iterrows():
         assert linkage.loc[row["source"], row["target"]] == pytest.approx(row["value"], abs=1e-9)
@@ -550,12 +662,28 @@ def test_pairwise_normalize_with_test(balanced_tdata):
 def test_single_target_normalize(balanced_tdata):
     """Single-target normalize overwrites obs with score - category_permuted_mean."""
     tdata = balanced_tdata
-    tl.ancestral_linkage(tdata, groupby="celltype", target="B", metric="path", test="permutation",
-                         normalize=False, n_permutations=30, random_state=1)
+    tl.ancestral_linkage(
+        tdata,
+        groupby="celltype",
+        target="B",
+        metric="path",
+        test="permutation",
+        normalize=False,
+        n_permutations=30,
+        random_state=1,
+    )
     raw = tdata.obs["B_linkage"].copy()
     assert raw.loc["a1"] == pytest.approx(2.0)  # raw min-path score
-    tl.ancestral_linkage(tdata, groupby="celltype", target="B", metric="path", test="permutation",
-                         normalize=True, n_permutations=30, random_state=1)
+    tl.ancestral_linkage(
+        tdata,
+        groupby="celltype",
+        target="B",
+        metric="path",
+        test="permutation",
+        normalize=True,
+        n_permutations=30,
+        random_state=1,
+    )
     norm = tdata.obs["B_linkage"]
     test_df = tdata.uns["celltype_test"]
     for cell in ["a1", "a2", "b1", "b2"]:
@@ -569,22 +697,32 @@ def test_single_target_by_tree(three_cat_tdata, balanced_tdata):
     """by_tree single-target: per-tree test rows, normalized copy matches obs means, non_target."""
     tdata = three_cat_tdata
     # copy per-category means match the (normalized) obs column
-    result = tl.ancestral_linkage(tdata, groupby="celltype", target="A", metric="path",
-                                  normalize=True, by_tree=True, random_state=1, copy=True)
+    result = tl.ancestral_linkage(
+        tdata, groupby="celltype", target="A", metric="path", normalize=True, by_tree=True, random_state=1, copy=True
+    )
     for cat in ["A", "B", "C"]:
         cells = tdata.obs.index[tdata.obs["celltype"] == cat]
         expected = float(np.nanmean(tdata.obs.loc[cells, "A_linkage"]))
         assert result.loc[cat, "A_linkage"] == pytest.approx(expected, abs=1e-9)
     # by_tree + permutation writes a per-tree test table
-    tl.ancestral_linkage(tdata, groupby="celltype", target="A", test="permutation", by_tree=True,
-                         n_permutations=20, random_state=7)
+    tl.ancestral_linkage(
+        tdata, groupby="celltype", target="A", test="permutation", by_tree=True, n_permutations=20, random_state=7
+    )
     test_df = tdata.uns["celltype_test"]
     assert "tree" in test_df.columns
     assert set(tdata.obst) <= set(test_df["tree"].values)
     assert "A_norm_linkage" not in tdata.obs.columns
     # by_tree + non_target permutation mode also produces a tree column
-    tl.ancestral_linkage(balanced_tdata, groupby="celltype", target="B", test="permutation",
-                         by_tree=True, permutation_mode="non_target", n_permutations=20, random_state=3)
+    tl.ancestral_linkage(
+        balanced_tdata,
+        groupby="celltype",
+        target="B",
+        test="permutation",
+        by_tree=True,
+        permutation_mode="non_target",
+        n_permutations=20,
+        random_state=3,
+    )
     assert "tree" in balanced_tdata.uns["celltype_test"].columns
 
 

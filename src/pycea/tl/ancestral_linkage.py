@@ -697,7 +697,7 @@ def ancestral_linkage(
 
     **Single-target mode** (``target=<category>``): computes the per-cell distance to
     the nearest cell of the given category and stores it in
-    ``tdata.obs['{target}_linkage']``.
+    ``tdata.obs['{target}_linkage']`` (or ``tdata.obs['{key_added}_linkage']`` if ``key_added`` is given).
 
     Parameters
     ----------
@@ -707,7 +707,8 @@ def ancestral_linkage(
         Column in ``tdata.obs`` that defines cell categories.
     target
         If specified, compute the per-cell distance to the nearest cell of this
-        category and store the result in ``tdata.obs['{target}_linkage']``.
+        category and store the result in ``tdata.obs['{target}_linkage']``
+        (or ``tdata.obs['{key_added}_linkage']`` if ``key_added`` is given).
         ``aggregate`` is ignored in this mode.
         If ``None`` (default), compute the full pairwise category × category matrix.
     aggregate
@@ -739,7 +740,7 @@ def ancestral_linkage(
     normalize
         If ``True`` (default), subtract the permuted mean from the observed values: pairwise
         linkage matrix becomes ``observed - permuted_mean``; single-target
-        ``tdata.obs['{target}_linkage']`` becomes ``cell_score - category_permuted_mean``.
+        obs column becomes ``cell_score - category_permuted_mean``.
         This works regardless of ``test``: a single permutation is run to estimate the
         permuted mean when ``test=None`` (see ``n_permutations``).
     min_size
@@ -792,7 +793,9 @@ def ancestral_linkage(
     random_state
         Random seed for reproducibility of permutation tests.
     key_added
-        Base key for output storage.  Defaults to ``groupby``.
+        Base key for output storage.  Defaults to ``groupby`` for ``tdata.uns`` outputs. In single-target mode,
+        the per-cell result is stored in ``tdata.obs['{key_added}_linkage']`` if given, otherwise
+        ``tdata.obs['{target}_linkage']``.
     tree
         The ``obst`` key or keys of the trees to use.  If ``None``, all trees are used.
     copy
@@ -804,7 +807,7 @@ def ancestral_linkage(
 
     Sets the following fields:
 
-    * ``tdata.obs['{target}_linkage']`` : :class:`Series <pandas.Series>` (dtype ``float``) – single-target mode only.
+    * ``tdata.obs['{key_added}_linkage']`` or ``tdata.obs['{target}_linkage']`` : :class:`Series <pandas.Series>` (dtype ``float``) – single-target mode only.
         Per-cell distance to the nearest cell of the target category.  When
         ``normalize=True``, replaced by ``cell_score - category_permuted_mean``.
     * ``tdata.uns['{key_added}_linkage']`` : :class:`DataFrame <pandas.DataFrame>` – pairwise mode only.
@@ -837,6 +840,8 @@ def ancestral_linkage(
     depth_key = get_depth_key(tdata, depth_key)
     # ── setup ─────────────────────────────────────────────────────────────────
     _set_random_state(random_state)
+    # Single-target results go in obs under the target name unless key_added is given
+    obs_key = f"{key_added or target}_linkage"
     key_added = key_added or groupby
     tree_keys = tree
     _check_tree_overlap(tdata, tree_keys)
@@ -1031,9 +1036,9 @@ def ancestral_linkage(
                         perm_val = cat_null_mean.get(cat, np.nan) if cat is not None else np.nan
                         merged_norm_map[leaf] = (score - perm_val) if not np.isnan(score) else np.nan
 
-            tdata.obs[f"{target}_linkage"] = tdata.obs.index.map(pd.Series(merged_score_map, dtype=float).to_dict())
+            tdata.obs[obs_key] = tdata.obs.index.map(pd.Series(merged_score_map, dtype=float).to_dict())
             if normalize:
-                tdata.obs[f"{target}_linkage"] = tdata.obs.index.map(pd.Series(merged_norm_map, dtype=float).to_dict())
+                tdata.obs[obs_key] = tdata.obs.index.map(pd.Series(merged_norm_map, dtype=float).to_dict())
             # Return per-category means from whichever map was written to obs.
             linkage_map = merged_norm_map if normalize else merged_score_map
             if test == "permutation":
@@ -1048,7 +1053,7 @@ def ancestral_linkage(
                         cat: float(np.nanmean([linkage_map.get(l, np.nan) for l in cat_to_leaves[cat]]))
                         for cat in all_cats
                     },
-                    name=f"{target}_linkage",
+                    name=obs_key,
                 )
                 return result_series.to_frame()
 
@@ -1056,7 +1061,7 @@ def ancestral_linkage(
             # Global (non-by_tree) path
             all_scores = _compute_scores(tdata, trees, leaf_to_cat, [target], single_agg, metric, depth_key)  # type: ignore
             score_map = {leaf: scores.get(target, np.nan) for leaf, scores in all_scores.items()}
-            tdata.obs[f"{target}_linkage"] = tdata.obs.index.map(pd.Series(score_map, dtype=float).to_dict())
+            tdata.obs[obs_key] = tdata.obs.index.map(pd.Series(score_map, dtype=float).to_dict())
 
             if run_perm:
                 rows, cat_null_mean = _run_single_perm(trees, leaf_to_cat, score_map, cat_to_leaves)
@@ -1069,7 +1074,7 @@ def ancestral_linkage(
                         else np.nan
                         for leaf, score in score_map.items()
                     }
-                    tdata.obs[f"{target}_linkage"] = tdata.obs.index.map(pd.Series(score_map, dtype=float).to_dict())
+                    tdata.obs[obs_key] = tdata.obs.index.map(pd.Series(score_map, dtype=float).to_dict())
                 if test == "permutation":
                     test_df = pd.DataFrame(rows)
                     tdata.uns[f"{key_added}_test"] = test_df
@@ -1082,7 +1087,7 @@ def ancestral_linkage(
                         cat: float(np.nanmean([score_map.get(l, np.nan) for l in cat_to_leaves[cat]]))
                         for cat in all_cats
                     },
-                    name=f"{target}_linkage",
+                    name=obs_key,
                 )
                 return result_series.to_frame()
 
