@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning][].
 
 ### Added
 - `pycea.datasets.colgan26` and `pycea.datasets.yu26` load mouse embryo lineage tracing datasets.
+- Added a mouse embryogenesis tutorial using the `colgan26` dataset (`docs/notebooks/mouse-embryo.ipynb`).
 - `pycea.tl.ancestral_linkage` now stores `tdata.uns['{key_added}_symmetrized_linkage_stats']` when `symmetrize` is not `False` and `test='permutation'`: a table with one row per unordered category pair giving the symmetrized value, permuted value, z-score, and a p-value for the symmetrized linkage.
 
 ### Changed

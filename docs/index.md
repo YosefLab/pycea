@@ -9,6 +9,7 @@
 notebooks/getting-started
 notebooks/plotting
 notebooks/growth-dynamics
+notebooks/mouse-embryo
 
 api.md
 changelog.md
