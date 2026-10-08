@@ -18,6 +18,16 @@ def _most_common(arr: np.ndarray) -> Any:
     return unique_values[most_common_index]
 
 
+def _is_bool_key(tdata: td.TreeData, key: str) -> bool:
+    """Checks whether an obs column or obsm array holds boolean data."""
+    if key in tdata.obs.columns:
+        col = tdata.obs[key]
+        return pd.api.types.is_bool_dtype(col) or (col.dtype == object and pd.api.types.infer_dtype(col) == "boolean")
+    if key in tdata.obsm:
+        return pd.api.types.is_bool_dtype(np.asarray(tdata.obsm[key]).dtype)
+    return False
+
+
 def _get_node_value(tree: nx.DiGraph, node: str, key: str, index: int | None) -> Any:
     """Gets the value of a node attribute."""
     if key in tree.nodes[node]:
@@ -350,6 +360,9 @@ def ancestral_states(
     internal nodes present in ``tdata.obs`` with non-missing values are treated as fixed
     constraints and are not overwritten by reconstruction.
 
+    Boolean data can be used with any method. For the numeric methods ('mean' and 'sum'), `True`
+    and `False` are treated as 1 and 0.
+
     Parameters
     ----------
     tdata
@@ -359,8 +372,9 @@ def ancestral_states(
     method
         Method to reconstruct ancestral states:
 
-        * 'mean' : The mean of leaves in subtree.
-        * 'sum' : The sum of leaves in subtree (iterative bottom-up traversal).
+        * 'mean' : The mean of leaves in subtree. For boolean data this is the fraction of `True` leaves.
+        * 'sum' : The sum of leaves in subtree (iterative bottom-up traversal). For boolean data this is the number
+          of `True` leaves.
         * 'mode' : The most common value in the subtree.
         * 'fitch_hartigan' : The Fitch-Hartigan algorithm.
         * 'sankoff' : The Sankoff algorithm with specified costs.
@@ -394,6 +408,10 @@ def ancestral_states(
     >>> tdata = py.datasets.yang22()
     >>> py.tl.ancestral_states(tdata, keys=["Krt20", "Cd74"], method="mean")
 
+    Infer the fraction of descendant cells in each clade where a boolean column is `True`:
+
+    >>> py.tl.ancestral_states(tdata, keys="is_tumor", method="mean")
+
     Reconstruct ancestral character states using the Fitch-Hartigan algorithm:
 
     >>> py.tl.ancestral_states(tdata, keys="characters", method="fitch_hartigan", missing_state=-1)
@@ -410,8 +428,15 @@ def ancestral_states(
     tree_keys = tree
     _check_tree_overlap(tdata, tree_keys)
     trees = get_trees(tdata, tree_keys)
+    # Boolean data is treated as 0/1 for numeric methods (get_keyed_obs_data converts it to categorical)
+    bool_keys = [key for key in keys if _is_bool_key(tdata, key)] if method in ["mean", "sum"] else []
     for _, t in trees.items():
         data, is_array, is_square = get_keyed_obs_data(tdata, keys)
+        if bool_keys:
+            if is_array:
+                data = data.astype(float)
+            else:
+                data = data.assign(**{key: data[key].astype(float) for key in bool_keys})
         dtypes = {dtype.kind for dtype in data.dtypes}
         # Check data type
         if dtypes.intersection({"f"}):
@@ -431,7 +456,7 @@ def ancestral_states(
                 fixed_nodes = set(data[not_all_nan].index) - leaves_set
             _remove_node_attributes(t, keys_added[0])
             if method == "sum":
-                node_attrs = dict(zip(data.index, data.to_numpy(dtype=float)))
+                node_attrs = dict(zip(data.index, data.to_numpy(dtype=float), strict=True))
                 for node in t.nodes:
                     if node not in node_attrs:
                         node_attrs[node] = np.full(length, np.nan)

@@ -69,6 +69,30 @@ def test_ancestral_states(tdata):
     assert tdata.obst["tree1"].nodes["root"]["value_mode"] == 0
 
 
+@pytest.mark.parametrize("dtype", ["bool", "boolean", "object"])
+def test_ancestral_states_boolean(tdata, dtype):
+    # B, D, E, F are the leaves; tree1: root -> B, C; C -> D, E
+    tdata.obs["flag"] = pd.Series([True, False, True, True], index=tdata.obs_names, dtype=dtype)
+    ancestral_states(tdata, "flag", method="mean")
+    nodes = tdata.obst["tree1"].nodes
+    assert nodes["C"]["flag"] == pytest.approx(0.5)  # D False, E True
+    assert nodes["root"]["flag"] == pytest.approx(2 / 3)  # B True, D False, E True
+    ancestral_states(tdata, "flag", method="sum", keys_added="n_true")
+    assert tdata.obst["tree1"].nodes["C"]["n_true"] == 1
+    assert tdata.obst["tree1"].nodes["root"]["n_true"] == 2
+    # Non-numeric methods keep working
+    ancestral_states(tdata, "flag", method="fitch_hartigan", keys_added="fitch")
+    assert tdata.obst["tree1"].nodes["root"]["fitch"] in (True, False)
+
+
+def test_ancestral_states_boolean_array(tdata):
+    tdata.obsm["flags"] = np.array([[True, False], [False, False], [True, True], [True, False]])
+    ancestral_states(tdata, "flags", method="mean")
+    assert tdata.obst["tree1"].nodes["C"]["flags"] == pytest.approx([0.5, 0.5])
+    ancestral_states(tdata, "flags", method="sum", keys_added="n_true")
+    assert tdata.obst["tree1"].nodes["root"]["n_true"] == [2, 1]
+
+
 def test_ancestral_states_array(tdata):
     # Mean
     states = ancestral_states(tdata, "spatial", method="mean", copy=True)
