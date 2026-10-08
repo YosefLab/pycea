@@ -13,6 +13,7 @@ from scipy.interpolate import interp1d
 from pycea.utils import (
     _check_tree_overlap,
     check_tree_has_key,
+    get_depth_key,
     get_keyed_leaf_data,
     get_keyed_node_data,
     get_leaves,
@@ -421,7 +422,7 @@ def _infer_fitness_lbi(
 @overload
 def fitness(
     tdata: td.TreeData,
-    depth_key: str = "depth",
+    depth_key: str | None = None,
     key_added: str = "fitness",
     method: Literal["sbd", "lbi"] = "sbd",
     method_kwargs: Mapping | None = None,
@@ -435,7 +436,7 @@ def fitness(
 @overload
 def fitness(
     tdata: td.TreeData,
-    depth_key: str = "depth",
+    depth_key: str | None = None,
     key_added: str = "fitness",
     method: Literal["sbd", "lbi"] = "sbd",
     method_kwargs: Mapping | None = None,
@@ -448,7 +449,7 @@ def fitness(
 
 def fitness(
     tdata: td.TreeData,
-    depth_key: str = "depth",
+    depth_key: str | None = None,
     key_added: str = "fitness",
     method: Literal["sbd", "lbi"] = "sbd",
     method_kwargs: Mapping | None = None,
@@ -483,6 +484,7 @@ def fitness(
         Key identifying the tree in ``tdata.obst``. If ``None`` use all trees.
     depth_key
         Node attribute storing depth.
+        If `None`, uses `tdata.uns['default_depth']` if present, otherwise 'depth'.
     key_added
         Attribute name to store inferred fitness.
     method
@@ -518,6 +520,7 @@ def fitness(
           only leaf nodes are written. For ``"nodes"`` or ``"subset"``, all observed nodes
           (including internal nodes) are written.
     """
+    depth_key = get_depth_key(tdata, depth_key)
     tree_keys = tree
     _check_tree_overlap(tdata, tree_keys)
     _set_random_state(random_state)

@@ -4,7 +4,7 @@ requires = [ "hatchling" ]
 
 [project]
 name = "pycea-lineage"
-version = "0.3.0"
+version = "0.4.0"
 description = "Scverse lineage tracing toolkit"
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -152,6 +152,7 @@ addopts = [
 ]
 markers = [
   "internet: tests which rely on internet resources (enable with `--internet-tests`)",
+  "slow: slow tests, e.g. large dataset downloads (enable with `--slow-tests`)",
 ]
 
 [tool.coverage]

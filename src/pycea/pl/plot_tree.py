@@ -14,7 +14,13 @@ import treedata as td
 from matplotlib.axes import Axes
 from matplotlib.collections import LineCollection
 
-from pycea.utils import _check_tree_overlap, get_keyed_edge_data, get_keyed_node_data, get_keyed_obs_data, get_trees
+from pycea.utils import (
+    _check_tree_overlap,
+    get_keyed_edge_data,
+    get_keyed_node_data,
+    get_keyed_obs_data,
+    get_trees,
+)
 
 from ._docs import _doc_params, doc_common_plot_args
 from ._legend import _categorical_legend, _cbar_legend, _render_legends
@@ -424,6 +430,7 @@ def nodes(
         raise ValueError("Invalid style value. Must be a marker name, or an str specifying an attribute of the nodes.")
     # Apply outline
     if outline_width is not None:
+
         def _outline_edgecolors(face_colors):
             if isinstance(face_colors, str):
                 return "black"
