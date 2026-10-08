@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from os import PathLike
 
 DATASET_DIR = "~/.treedata/datasets"
-ZENODO_DOI = "15750529"  # Needs to be updated if the dataset is changed
+ZENODO_DOI = "23195576"  # Needs to be updated if the dataset is changed
 
 
 def _load_dataset(
@@ -151,3 +151,75 @@ def koblan25(experiment: str = "tumor", cache_dir: PathLike | str = DATASET_DIR)
         backup_url=f"https://zenodo.org/records/{ZENODO_DOI}/files/koblan25_{experiment}.h5td?download=1",
     )
     return tdata
+
+
+def colgan26(embryos: str | list[str] | None = None, cache_dir: PathLike | str = DATASET_DIR) -> td.TreeData:
+    """Comprehensive lineage tracing of mouse embryogenesis from E7.5 to E10.0 :cite:p:`Colgan_2026`.
+
+    This study uses PEtracer to record early development in chimeric mouse embryos. The resulting lineage trees resolve
+    ~75% of cell divisions across more than 1.4 million cells from 16 replicate embryos collected at half-day
+    intervals from E7.5 to E10.0. This dataset contains the cells from all embryos with their
+    annotations, a UMAP embedding, and lineage trees (one for each seeding clone, e.g., "E7.5-R1-C1").
+    Gene expression and character matricies are not included but can be downloaded from
+    [zenodo](https://doi.org/10.5281/zenodo.19892784). Nodes in each tree have a ``time`` attribute based on
+    molecular clock-based estimates of branch lengths.
+
+    Parameters
+    ----------
+    embryos
+        The embryos to load, e.g. "E8.5-R1" (stage and replicate). If None, all 16 embryos are loaded.
+    cache_dir
+        The directory where the datasets are cached. Default is `~/.treedata/datasets`.
+
+    Returns
+    -------
+    TreeData object.
+
+    """
+    tdata = _load_dataset(
+        "colgan26.h5td",
+        cache_dir=cache_dir,
+        backup_url=f"https://zenodo.org/records/{ZENODO_DOI}/files/colgan26.h5td?download=1",
+    )
+    if embryos is not None:
+        if isinstance(embryos, str):
+            embryos = [embryos]
+        elif not isinstance(embryos, list):
+            raise ValueError("embryos must be a string or a list of strings.")
+        print(f"Subsetting to embryos: {', '.join(embryos)}")
+        tdata = tdata[tdata.obs["embryo"].isin(embryos)].copy()
+        keys_to_delete = [key for key, value in tdata.obst.items() if value.size() == 0]
+        for key in keys_to_delete:
+            del tdata.obst[key]
+    return tdata
+
+
+def yu26(cache_dir: PathLike | str = DATASET_DIR) -> td.TreeData:
+    """DNA Typewriter lineage tracing of a mouse from zygote to late organogenesis :cite:p:`Yu_2026`.
+
+    In this study, DNA Typewriter, a sequential molecular recorder, was used to record the division history of a
+    mouse over nearly two weeks of development. From a single E13.5 embryo, a time-calibrated lineage tree was
+    reconstructed for 655,701 cells. This dataset contains the cell annotations, a UMAP embedding,
+    and the lineage tree with a ``time`` attribute on each node. Gene expression is not included but can be
+    downloaded from [GEO](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE341627).
+
+    This dataset does not include the low-detection cells scaffolded onto the lineage tree due to the
+    high error rate of the distance based placement method used by :cite:p:`Yu_2026`. The inferred node times
+    should be used with caution as the editing rate was not constant over time violating the molecular clock
+    assumption.
+
+    Parameters
+    ----------
+    cache_dir
+        The directory where the datasets are cached. Default is `~/.treedata/datasets`.
+
+    Returns
+    -------
+    TreeData object.
+
+    """
+    return _load_dataset(
+        "yu26.h5td",
+        cache_dir=cache_dir,
+        backup_url=f"https://zenodo.org/records/{ZENODO_DOI}/files/yu26.h5td?download=1",
+    )

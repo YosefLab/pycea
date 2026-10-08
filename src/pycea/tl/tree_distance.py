@@ -14,6 +14,7 @@ import treedata as td
 from pycea.utils import (
     _check_tree_overlap,
     check_tree_has_key,
+    get_depth_key,
     get_obs_to_tree_map,
     get_root,
     get_tree_to_obs_map,
@@ -105,7 +106,7 @@ def _convert_pair_distance_to_matrix(tdata, rows, cols, data):
 @overload
 def tree_distance(
     tdata: td.TreeData,
-    depth_key: str = "depth",
+    depth_key: str | None = None,
     obs: str | int | Sequence[Any] | None = None,
     metric: _TreeMetric = "path",
     sample_n: int | None = None,
@@ -119,7 +120,7 @@ def tree_distance(
 @overload
 def tree_distance(
     tdata: td.TreeData,
-    depth_key: str = "depth",
+    depth_key: str | None = None,
     obs: str | int | Sequence[Any] | None = None,
     metric: _TreeMetric = "path",
     sample_n: int | None = None,
@@ -132,7 +133,7 @@ def tree_distance(
 ) -> None: ...
 def tree_distance(
     tdata: td.TreeData,
-    depth_key: str = "depth",
+    depth_key: str | None = None,
     obs: str | int | Sequence[Any] | None = None,
     metric: _TreeMetric = "path",
     sample_n: int | None = None,
@@ -174,6 +175,7 @@ def tree_distance(
         The TreeData object.
     depth_key
         Attribute of `tdata.obst[tree].nodes` where depth is stored.
+        If `None`, uses `tdata.uns['default_depth']` if present, otherwise 'depth'.
     obs
         The observations to use:
 
@@ -226,6 +228,7 @@ def tree_distance(
 
     >>> py.tl.tree_distance(tdata, metric="lca", sample_n=1000, depth_key="time")
     """
+    depth_key = get_depth_key(tdata, depth_key)
     # Setup
     _set_random_state(random_state)
     key_added = key_added or "tree"

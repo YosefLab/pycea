@@ -47,7 +47,7 @@ def test_tree_neighbors_n(tdata):
 
 def test_select_tree_neighbors(tdata):
     tree_neighbors(tdata, n_neighbors=2, metric="path", obs="C")
-    assert tdata.obs.query("tree_neighbors").index.tolist() == ["C"]
+    assert set(tdata.obs.query("tree_neighbors").index) == {"D", "E"}
     tree_neighbors(tdata, n_neighbors=3, metric="path", obs=["C", "D"], random_state=0)
     assert tdata.obsp["tree_connectivities"].sum() == 2
 
@@ -130,12 +130,22 @@ def test_tree_neighbors_nodes_alignment(nodes_tdata):
 
 
 def test_tree_neighbors_nodes_single_obs(nodes_tdata):
-    # For a single-string obs, only the queried node is marked True (consistent behavior)
+    # The neighbors of the queried node are marked True (not the node itself)
     tree_neighbors(nodes_tdata, n_neighbors=3, metric="path", obs="A")
-    assert nodes_tdata.obs.query("tree_neighbors").index.tolist() == ["A"]
+    assert set(nodes_tdata.obs.query("tree_neighbors").index) == {"root", "C", "D"}
     # Internal node (B) is also a valid starting point
     tree_neighbors(nodes_tdata, n_neighbors=2, metric="path", obs="B")
-    assert nodes_tdata.obs.query("tree_neighbors").index.tolist() == ["B"]
+    assert set(nodes_tdata.obs.query("tree_neighbors").index) == {"root", "E"}
+
+
+def test_tree_neighbors_path_n_closest():
+    # Leaf L is found early (child of A) but is farther (7) than M (3) and N (4) deeper in the queue
+    tree = nx.DiGraph([("root", "S"), ("root", "A"), ("A", "L"), ("A", "B"), ("B", "M"), ("B", "N")])
+    depths = {"root": 0, "S": 1, "A": 1, "L": 7, "B": 2, "M": 3, "N": 4}
+    nx.set_node_attributes(tree, depths, "depth")
+    tdata = td.TreeData(obs=pd.DataFrame(index=["S", "L", "M", "N"]), obst={"tree": tree})
+    tree_neighbors(tdata, n_neighbors=2, metric="path", obs="S")
+    assert set(tdata.obs.query("tree_neighbors").index) == {"M", "N"}
 
 
 if __name__ == "__main__":

@@ -10,6 +10,7 @@ import treedata as td
 from pycea.utils import (
     _check_tree_overlap,
     check_tree_has_key,
+    get_depth_key,
     get_keyed_leaf_data,
     get_keyed_node_data,
     get_root,
@@ -70,7 +71,7 @@ def _clades(tree, depth, depth_key, clades, clade_key, name_generator, update):
 def clades(
     tdata: td.TreeData,
     depth: float | None = None,
-    depth_key: str = "depth",
+    depth_key: str | None = None,
     clades: Mapping[Any, Any] | None = None,
     key_added: str = "clade",
     update: bool = False,
@@ -82,7 +83,7 @@ def clades(
 def clades(
     tdata: td.TreeData,
     depth: float | None = None,
-    depth_key: str = "depth",
+    depth_key: str | None = None,
     clades: Mapping[Any, Any] | None = None,
     key_added: str = "clade",
     update: bool = False,
@@ -93,7 +94,7 @@ def clades(
 def clades(
     tdata: td.TreeData,
     depth: float | None = None,
-    depth_key: str = "depth",
+    depth_key: str | None = None,
     clades: Mapping[Any, Any] | None = None,
     key_added: str = "clade",
     update: bool = False,
@@ -125,6 +126,7 @@ def clades(
         Depth to cut tree at. Must be specified if clades is None.
     depth_key
         Attribute of `tdata.obst[tree].nodes` where depth is stored.
+        If `None`, uses `tdata.uns['default_depth']` if present, otherwise 'depth'.
     clades
         A dictionary mapping nodes to clades.
     key_added
@@ -165,6 +167,7 @@ def clades(
 
     >>> pycea.tl.clades(tdata, clades={"node6": "node6_descendants"}, key_added="highlight")
     """
+    depth_key = get_depth_key(tdata, depth_key)
     # Setup
     tree_keys = tree
     _check_tree_overlap(tdata, tree_keys)

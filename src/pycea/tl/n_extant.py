@@ -7,13 +7,13 @@ import numpy as np
 import pandas as pd
 import treedata as td
 
-from pycea.utils import _check_tree_overlap, check_tree_has_key, get_keyed_node_data, get_root, get_trees
+from pycea.utils import _check_tree_overlap, check_tree_has_key, get_depth_key, get_keyed_node_data, get_root, get_trees
 
 
 @overload
 def n_extant(
     tdata: td.TreeData,
-    depth_key: str = "depth",
+    depth_key: str | None = None,
     groupby: Sequence[str] | str | None = None,
     bins: int | Sequence[float] = 20,
     tree: str | Sequence[str] | None = None,
@@ -26,7 +26,7 @@ def n_extant(
 @overload
 def n_extant(
     tdata: td.TreeData,
-    depth_key: str = "depth",
+    depth_key: str | None = None,
     groupby: Sequence[str] | str | None = None,
     bins: int | Sequence[float] = 20,
     tree: str | Sequence[str] | None = None,
@@ -38,7 +38,7 @@ def n_extant(
 ) -> None: ...
 def n_extant(
     tdata: td.TreeData,
-    depth_key: str = "depth",
+    depth_key: str | None = None,
     groupby: Sequence[str] | str | None = None,
     bins: int | Sequence[float] = 20,
     tree: str | Sequence[str] | None = None,
@@ -66,6 +66,7 @@ def n_extant(
         TreeData object.
     depth_key
         Attribute of `tdata.obst[tree].nodes` storing depth.
+        If `None`, uses `tdata.uns['default_depth']` if present, otherwise 'depth'.
     groupby
         Attribute of `tdata.obst[tree].nodes` storing grouping variable(s).
         If None, counts across all branches.
@@ -101,6 +102,7 @@ def n_extant(
     >>> tdata = py.datasets.koblan25()
     >>> py.tl.n_extant(tdata, depth_key="time", groupby="clade", bins=10)
     """
+    depth_key = get_depth_key(tdata, depth_key)
     # Validate tree keys and get trees
     tree_keys = tree
     _check_tree_overlap(tdata, tree_keys)

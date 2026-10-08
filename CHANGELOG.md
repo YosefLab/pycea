@@ -8,14 +8,21 @@ and this project adheres to [Semantic Versioning][].
 [keep a changelog]: https://keepachangelog.com/en/1.0.0/
 [semantic versioning]: https://semver.org/spec/v2.0.0.html
 
-## Unreleased
+## [0.4.0] - 2026-10-07
 
 ### Added
+- `pycea.datasets.colgan26` and `pycea.datasets.yu26` load mouse embryo lineage tracing datasets.
+- Added a mouse embryogenesis tutorial using the `colgan26` dataset (`docs/notebooks/mouse-embryo.ipynb`).
 - `pycea.tl.ancestral_linkage` now stores `tdata.uns['{key_added}_symmetrized_linkage_stats']` when `symmetrize` is not `False` and `test='permutation'`: a table with one row per unordered category pair giving the symmetrized value, permuted value, z-score, and a p-value for the symmetrized linkage.
 
 ### Changed
+- `pycea.tl.ancestral_states` supports boolean data (`obs` columns or `obsm` arrays). For `method='mean'` and `'sum'`, `True` and `False` are treated as 1 and 0, giving the fraction and number of `True` leaves.
+- `pycea.tl.ancestral_linkage` in single-target mode stores per-cell results in `tdata.obs['{key_added}_linkage']` when `key_added` is specified, instead of `tdata.obs['{target}_linkage']`.
+- `depth_key` now defaults to `tdata.uns['default_depth']` (falling back to `'depth'`) in `pycea.tl.clades`, `n_extant`, `tree_distance`, `tree_neighbors`, `ancestral_linkage` and `fitness`, matching `pycea.pl`.
 
 ### Fixed
+- `pycea.tl.tree_neighbors` with `metric='path'` and `n_neighbors` now returns the closest leaves. Previously leaves were collected on discovery rather than in distance order, so farther leaves could displace closer ones. Ties in distance are now also broken randomly.
+- `pycea.tl.tree_neighbors` with a single observation in `obs` now marks the neighbors of that observation in `tdata.obs['{key_added}_neighbors']` instead of only the observation itself.
 
 ## [0.3.0] - 2026-07-08
 
